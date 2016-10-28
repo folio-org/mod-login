@@ -7,6 +7,8 @@ package org.folio.auth.login_module;
 
 import org.folio.auth.login_module.impl.DummyAuthSource;
 import org.folio.auth.login_module.impl.MongoAuthSource;
+import org.folio.auth.login_module.impl.DummyUserSource;
+import org.folio.auth.login_module.impl.ModuleUserSource;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
@@ -33,9 +35,12 @@ public class MainVerticle extends AbstractVerticle {
   private AuthSource authSource = null;
   private AuthUtil authUtil;
   private MongoClient mongoClient;
-  private String okapiUrl;
+  //private String okapiUrl;
   private String authApiKey;
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
+  private static final String OKAPI_URL_HEADER = "X-Okapi-URL";
+  private boolean verifyUsers;
+  private UserSource userSource;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-login-module");
 
   @Override
@@ -43,11 +48,13 @@ public class MainVerticle extends AbstractVerticle {
     //authSource = new DummyAuthSource();
     authUtil = new AuthUtil();
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
-    okapiUrl = System.getProperty("okapi.url", "http://localhost:9130");
+    //okapiUrl = System.getProperty("okapi.url", "http://localhost:9130");
     
     String mongoURL = System.getProperty("mongo.url", "mongodb://localhost:27017/test");
     mongoClient = MongoClient.createShared(vertx, new JsonObject().put("connection_string", mongoURL));
+    verifyUsers = Boolean.parseBoolean(System.getProperty("verify.users", "false"));
     authSource = new MongoAuthSource(mongoClient, authUtil);
+    userSource = new DummyUserSource();
     
     String logLevel = System.getProperty("log.level", null);
     if(logLevel != null) {
@@ -93,6 +100,7 @@ public class MainVerticle extends AbstractVerticle {
     final String postContent = ctx.getBodyAsString();
     String requestToken = getRequestToken(ctx);
     String tenant = ctx.request().headers().get("X-Okapi-Tenant");
+    String okapiUrl = getOkapiUrl(ctx);
     JsonObject json = null;
     try {
       json = new JsonObject(postContent);
@@ -109,35 +117,55 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Bad credentials format: Must be JSON formatted with 'username' and 'password' fields");
         return;
       } else {
-        logger.debug("Checking AuthResult");
-        AuthResult authResult = res.result();
-        if(!authResult.getSuccess()) {
-          ctx.response()
-                  .setStatusCode(403)
-                  .end("Invalid credentials");
-        } else {
-          //String token = Jwts.builder().setSubject(authResult.getUser()).signWith(JWTAlgorithm, JWTSigningKey).compact();
-          logger.debug("Authentication successful, getting signed token for login");
-          JsonObject payload = new JsonObject()
-                  .put("sub", authResult.getUser()); 
-          //TODO: Debug and handle failure case
-          String tokenUrl = okapiUrl + "/token";
-          //System.out.println("Attempting to fetch token from url " + tokenUrl);
-          fetchToken(payload, tokenUrl, requestToken, tenant).setHandler(result -> {
-            if(result.failed()) {
-               ctx.response()
-                       .setStatusCode(500)
-                       .end("Unable to create token");
-               logger.error("Fetching token failed due to " + result.cause().getMessage());
-            } else {
-              String token = result.result();
-              ctx.response()
-                    .putHeader("Authorization", token)
-                    .setStatusCode(200)
-                    .end(postContent); 
-            }
-          });
+        if(verifyUsers) {
+          ModuleUserSource moduleUserSource = new ModuleUserSource();
+          moduleUserSource.setTenant(tenant);
+          moduleUserSource.setVertx(vertx);
+          moduleUserSource.setRequestToken(getRequestToken(ctx));
+          moduleUserSource.setOkapiUrl(okapiUrl);
+          userSource = moduleUserSource;
         }
+        userSource.getUser(res.result().getUser()).setHandler(res2 -> {
+          if(res2.failed()) {
+            ctx.response()
+                    .setStatusCode(500)
+                    .end("Unable to verify user");
+          } else if(!res2.result().userExists() || !res2.result().isActive()) {
+            ctx.response()
+                    .setStatusCode(403)
+                    .end("Invalid user");
+          } else {
+            logger.debug("Checking AuthResult");
+            AuthResult authResult = res.result();
+            if(!authResult.getSuccess()) {
+              ctx.response()
+                      .setStatusCode(403)
+                      .end("Invalid credentials");
+            } else {
+              //String token = Jwts.builder().setSubject(authResult.getUser()).signWith(JWTAlgorithm, JWTSigningKey).compact();
+              logger.debug("Authentication successful, getting signed token for login");
+              JsonObject payload = new JsonObject()
+                      .put("sub", authResult.getUser()); 
+              //TODO: Debug and handle failure case
+              String tokenUrl = okapiUrl + "/token";
+              //System.out.println("Attempting to fetch token from url " + tokenUrl);
+              fetchToken(payload, tokenUrl, requestToken, tenant).setHandler(result -> {
+                if(result.failed()) {
+                   ctx.response()
+                           .setStatusCode(500)
+                           .end("Unable to create token");
+                   logger.error("Fetching token failed due to " + result.cause().getMessage());
+                } else {
+                  String token = result.result();
+                  ctx.response()
+                        .putHeader("Authorization", token)
+                        .setStatusCode(200)
+                        .end(postContent); 
+                }
+              });
+            }
+          }
+        });
       }
     });    
   }
@@ -243,4 +271,11 @@ public class MainVerticle extends AbstractVerticle {
     }
     return token;
   }  
+  
+  private String getOkapiUrl(RoutingContext ctx) {
+    if(ctx.request().getHeader(OKAPI_URL_HEADER) != null) {
+      return ctx.request().getHeader(OKAPI_URL_HEADER);
+    }
+    return "";
+  }
 }
