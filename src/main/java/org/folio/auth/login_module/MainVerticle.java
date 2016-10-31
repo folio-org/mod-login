@@ -38,7 +38,7 @@ public class MainVerticle extends AbstractVerticle {
   //private String okapiUrl;
   private String authApiKey;
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
-  private static final String OKAPI_URL_HEADER = "X-Okapi-URL";
+  private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   private boolean verifyUsers;
   private UserSource userSource;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-login-module");
