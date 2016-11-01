@@ -3,6 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.indexdata</groupId>
     <artifactId>login_module</artifactId>
+    <name>login_module</name>
     <version>0.1-SNAPSHOT</version>
     <licenses>
         <license>
@@ -144,5 +145,4 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
-    <name>login_module</name>
 </project>
