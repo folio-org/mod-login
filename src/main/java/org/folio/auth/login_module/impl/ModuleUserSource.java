@@ -38,11 +38,9 @@ public class ModuleUserSource implements UserSource {
     options.setConnectTimeout(10);
     options.setIdleTimeout(10);
     HttpClient client = vertx.createHttpClient(options);
-    JsonObject query = new JsonObject()
-            .put("username", username);
     String requestUrl = null;
     try {
-      requestUrl = okapiUrl + "/users/?query=" + URLEncoder.encode(query.encode(), "UTF-8");
+      requestUrl = okapiUrl + "/users/?query=" + URLEncoder.encode("username=" + username, "UTF-8");
     } catch(Exception e) {
       future.fail(e);
       return future;
