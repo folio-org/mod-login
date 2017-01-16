@@ -158,7 +158,7 @@ public class MainVerticle extends AbstractVerticle {
                 } else {
                   String token = result.result();
                   ctx.response()
-                        .putHeader("Authorization", token)
+                        .putHeader(OKAPI_TOKEN_HEADER, token)
                         .setStatusCode(200)
                         .end(postContent); 
                 }
@@ -256,7 +256,8 @@ public class MainVerticle extends AbstractVerticle {
           logger.debug("Output from token fetch is: " + buf.toString());
         });
       } else {
-        String token = result.getHeader("Authorization");
+        //String token = result.getHeader("Authorization");
+        String token = result.getHeader(OKAPI_TOKEN_HEADER);
         future.complete(token);
       }
     });
