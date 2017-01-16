@@ -4,7 +4,7 @@
     <groupId>com.indexdata</groupId>
     <artifactId>login_module</artifactId>
     <name>login_module</name>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
     <licenses>
         <license>
             <name>Apache License 2.0</name>
