@@ -258,6 +258,7 @@ public class MainVerticle extends AbstractVerticle {
       } else {
         //String token = result.getHeader("Authorization");
         String token = result.getHeader(OKAPI_TOKEN_HEADER);
+        logger.debug("Fetched token: " + token);
         future.complete(token);
       }
     });
