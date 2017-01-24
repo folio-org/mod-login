@@ -1,0 +1,14 @@
+#% RAML 0.8
+title: Login
+version: v1
+baseUri: http://github.com/org/folio/mod-auth/login_module
+
+documentation:
+    - title: mod-auth login API
+      content: This module provides a username/password based login mechanism for folio credentials
+
+schemas:
+    - credentials: !include ../schemas/credentials.json
+
+/authn:
+    
