@@ -6,6 +6,7 @@
 package org.folio.auth.login_module;
 
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -17,4 +18,6 @@ public interface AuthSource {
   public Future<Boolean> addAuth(JsonObject credentials, JsonObject metadata, String tenant);
   public Future<Boolean> updateAuth(JsonObject credentials, JsonObject metadata, String tenant);
   public Future<Boolean> deleteAuth(String username, String tenant);
+  public Future<JsonArray> getAuthList(String tenant);
+  public Future<JsonObject> getAuth(String username, String tenant);
 }

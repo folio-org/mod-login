@@ -10,6 +10,7 @@ import org.folio.auth.login_module.AuthSource;
 import org.folio.auth.login_module.AuthUtil;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.core.logging.Logger;
@@ -142,6 +143,45 @@ public class MongoAuthSource implements AuthSource {
         future.complete(Boolean.FALSE);
       }
     }); 
+    return future;
+  }
+
+  @Override
+  public Future<JsonArray> getAuthList(String tenant) {
+    Future<JsonArray> future = Future.future();
+    JsonObject query = new JsonObject()
+            .put("tenant", tenant);
+    mongoClient.find("credentials", query, res -> {
+      if(res.failed()) {
+        future.fail(res.cause());
+      } else {
+        JsonArray resultArray = new JsonArray();
+        for(JsonObject jOb : res.result()) {
+          resultArray.add(jOb);
+        }
+        future.complete(resultArray);
+      }      
+    });
+    return future;
+  }
+
+  @Override
+  public Future<JsonObject> getAuth(String username, String tenant) {
+    Future<JsonObject> future = Future.future();
+    JsonObject query = new JsonObject()
+            .put("tenant", tenant)
+            .put("username", username);
+    mongoClient.find("credentials", query, res -> {
+      if(res.failed()) {
+        future.fail(res.cause());
+      } else {
+        if(res.result().isEmpty()) {
+          future.complete(null);
+        } else {
+          future.complete(res.result().get(0));
+        }
+      }
+    });
     return future;
   }
   

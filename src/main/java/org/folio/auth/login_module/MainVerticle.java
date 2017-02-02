@@ -16,6 +16,7 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -228,6 +229,44 @@ public class MainVerticle extends AbstractVerticle {
                   .end("Deleted user");
         }
       });
+    } else if (ctx.request().method() == HttpMethod.GET) {
+      String username = ctx.request().getParam("username");
+      if(username == null) {
+        //Get list of users
+        authSource.getAuthList(tenant).setHandler(res -> {
+          if(res.failed()) {
+            ctx.response()
+                    .setStatusCode(500)
+                    .end("Error: " + res.cause().getLocalizedMessage());
+          } else {
+            JsonObject responseObject = new JsonObject()
+                    .put("credentials", new JsonArray())
+                    .put("total_records", res.result().size());
+            for(Object o : res.result()) {
+              responseObject.getJsonArray("credentials").add(o);
+            }
+            ctx.response()
+                    .setStatusCode(200)
+                    .end(responseObject.encode());
+          }
+        });
+      } else {
+        authSource.getAuth(username, tenant).setHandler(res -> {
+          if(res.failed()) {
+            ctx.response()
+                    .setStatusCode(500)
+                    .end("Error " + res.cause().getLocalizedMessage());
+          } else if(res.result() == null) {
+            ctx.response()
+                    .setStatusCode(404)
+                    .end("User does not exist");            
+          } else {
+            ctx.response()
+                    .setStatusCode(200)
+                    .end(res.result().encode());
+          }
+        });
+      }
     } else {
       ctx.response()
               .setStatusCode(400)

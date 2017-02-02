@@ -8,6 +8,7 @@ package org.folio.auth.login_module.impl;
 import org.folio.auth.login_module.AuthResult;
 import org.folio.auth.login_module.AuthSource;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -37,5 +38,15 @@ public class DummyAuthSource implements AuthSource {
   @Override
   public Future<Boolean> deleteAuth(String username, String tenant) {
     return Future.succeededFuture(true);
+  }
+
+  @Override
+  public Future<JsonArray> getAuthList(String tenant) {
+    return Future.succeededFuture(new JsonArray()); //To change body of generated methods, choose Tools | Templates.
+  }
+
+  @Override
+  public Future<JsonObject> getAuth(String username, String tenant) {
+    return Future.succeededFuture(new JsonObject()); 
   }
 }
