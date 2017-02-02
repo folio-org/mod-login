@@ -19,12 +19,14 @@ import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
 import java.util.Map;
 import javax.ws.rs.core.Response;
+import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.LoginCredentials;
 import org.folio.rest.jaxrs.resource.AuthnResource;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.tools.utils.TenantTool;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
 /**
@@ -36,7 +38,8 @@ public class LoginAPI implements AuthnResource {
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   private static final String USER_NAME_FIELD = "'username'";
-  private static final String OKAPI_TOKEN_HEADER = "x_okapi_token";
+  private static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
+  private static final String OKAPI_URL_HEADER = "x-okapi-url";
   
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
   
@@ -44,6 +47,10 @@ public class LoginAPI implements AuthnResource {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
+  
+  private String getTenant(Map<String, String> headers) {
+    return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
+  };
   
   //Query the mod-users module to determine whether or not the username is valid for login
   private Future<Boolean> lookupUser(String username, String tenant, String okapiURL, String requestToken, Vertx vertx) {
@@ -91,31 +98,60 @@ public class LoginAPI implements AuthnResource {
 
   @Override
   public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+    try {
+      vertxContext.runOnContext(v -> {
+        String tenantId = getTenant(okapiHeaders);
+        String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
+        String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+        Future<Boolean> userVerified;
+        if(RestVerticle.MODULE_SPECIFIC_ARGS.get("verify.user").equals("yes")) {
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+        } else {
+          userVerified = Future.succeededFuture(Boolean.TRUE);
+        }
+        userVerified.setHandler(verifyResult -> {
+          if(verifyResult.failed()) {
+            //Error!
+          } else if(!verifyResult.result()) {
+            //User isn't valid
+          } else {
+            //User's okay, let's try to login
+            try {
+              //Make sure this username isn't already added
+            } catch(Exception e) {
+
+            }
+          }
+        });
+      });
+    } catch(Exception e) {
+      logger.debug("Error running on verticle for postAuthnLogin: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+    }
+  }
+
+  @Override
+  public void getAuthnCredentials(int length, int start, String sortBy, String query, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override
-  public void getAuthnUsers(int length, int start, String sortBy, String query, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postAuthnCredentials(Credential entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override
-  public void postAuthnUsers(Credential entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getAuthnCredentialsByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override
-  public void getAuthnUsersByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void putAuthnCredentialsByUsername(String username, Credential entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override
-  public void putAuthnUsersByUsername(String username, Credential entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-  }
-
-  @Override
-  public void deleteAuthnUsersByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void deleteAuthnCredentialsByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
   
