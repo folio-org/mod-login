@@ -83,8 +83,10 @@ public class MainVerticle extends AbstractVerticle {
     router.post("/authn/login").handler(this::handleLogin);
     router.route("/authn/users").handler(BodyHandler.create());
     router.post("/authn/users").handler(this::handleUser);
+    router.get("/authn/users").handler(this::handleUser);
     router.put("/authn/users/:username").handler(this::handleUser);
     router.delete("/authn/users/:username").handler(this::handleUser);
+    router.get("/authn/users/:username").handler(this::handleUser);
     
     HttpServer server = vertx.createHttpServer();
     final int port = Integer.parseInt(System.getProperty("port", "8081"));
