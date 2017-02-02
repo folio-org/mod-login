@@ -23,8 +23,10 @@ import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.LoginCredentials;
 import org.folio.rest.jaxrs.resource.AuthnResource;
+import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
@@ -40,6 +42,7 @@ public class LoginAPI implements AuthnResource {
   private static final String USER_NAME_FIELD = "'username'";
   private static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   private static final String OKAPI_URL_HEADER = "x-okapi-url";
+  private static final String CREDENTIAL_NAME_FIELD = "'username'";
   
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
   
@@ -117,6 +120,13 @@ public class LoginAPI implements AuthnResource {
           } else {
             //User's okay, let's try to login
             try {
+              Criteria nameCrit = new Criteria();
+              nameCrit.addField(CREDENTIAL_NAME_FIELD);
+              nameCrit.setOperation("=");
+              nameCrit.setValue(entity.getUsername());
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, nameCrit, true, getReply-> {
+                
+              });
               //Make sure this username isn't already added
             } catch(Exception e) {
 
