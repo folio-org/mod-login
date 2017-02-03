@@ -75,12 +75,13 @@ public class MongoAuthSource implements AuthSource {
             .put("username", username)
             .put("tenant", tenant);
     mongoClient.find("credentials", query, res -> {
-      if(res.succeeded()) {
+      if(res.succeeded() && res.result().size() > 0) {
         //username already exists!
         future.complete(Boolean.FALSE);
+        logger.debug("Username " + username + " already exists");
       } else {
         String newSalt = authUtil.getSalt();
-        String newHash = authUtil.calculateHash(username, password);
+        String newHash = authUtil.calculateHash(password, newSalt);
         JsonObject insert = new JsonObject()
                 .put("username", username)
                 .put("tenant", tenant)
@@ -92,7 +93,7 @@ public class MongoAuthSource implements AuthSource {
           if(res2.succeeded()) {
             future.complete(Boolean.TRUE);
           } else {
-            future.complete(Boolean.FALSE);
+            future.fail(res2.cause());
           }
         });     
       }

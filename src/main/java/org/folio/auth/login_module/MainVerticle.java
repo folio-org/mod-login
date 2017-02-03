@@ -188,11 +188,15 @@ public class MainVerticle extends AbstractVerticle {
         if(!res.succeeded()) {
           ctx.response()
                   .setStatusCode(500)
-                  .end("Unable to add user");
+                  .end("Unable to add user: " + res.cause().getLocalizedMessage() );
+        } else if(!res.result()) {
+          ctx.response()
+                  .setStatusCode(400)
+                  .end("Invalid user to add");
         } else {
           ctx.response()
                   .setStatusCode(201)
-                  .end("Added user");
+                  .end(credentials.encode());
         }
       });
       

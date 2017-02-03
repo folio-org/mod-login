@@ -41,7 +41,9 @@ public class AuthUtil {
   
   public String calculateHash(String password, String salt) {
     //public String calculateHash(String password, String salt) {
-    PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), DatatypeConverter.parseHexBinary(salt), iterations, keyLength);
+    char[] passwordArray = password.toCharArray();
+    byte[] saltBytes = DatatypeConverter.parseHexBinary(salt);
+    PBEKeySpec spec = new PBEKeySpec(passwordArray, saltBytes, iterations, keyLength);
     byte[] hash;
     try {
       SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(algorithm);
