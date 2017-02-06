@@ -53,6 +53,8 @@ traits:
                     schema: loginCredentials
             responses:
                 201:
+                    headers:
+                        x-okapi-token:
                     body:
                         application/json:
                             schema: loginCredentials
