@@ -81,6 +81,11 @@ traits:
                     body:
                         application/json:
                             schema: credentialsListObject
+                400:
+                    description: "Bad request"
+                    body:
+                        text/plain:
+                            example: "Bad request"
                 500:
                     description: "Internal server error"
                     body:
@@ -90,12 +95,12 @@ traits:
             description: Add a new login to the system
             body:
                 application/json:
-                    schema: credentials
+                    schema: loginCredentials
             responses:
                 201:
                     body:
                         application/json:
-                            schema: credentials
+                            schema: loginCredentials
                 400:
                     description: "Bad request"
                     body:
@@ -128,12 +133,12 @@ traits:
                 description: Modify a user's login credentials
                 body:
                     application/json:
-                        schema: credentials
+                        schema: loginCredentials
                 responses:
                     200:
                         body:
                             application/json:
-                                schema: credentials
+                                schema: loginCredentials
                     404:
                         description: "User not found"
                         body:
