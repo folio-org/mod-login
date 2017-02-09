@@ -392,7 +392,7 @@ public class LoginAPI implements AuthnResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(username);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, new Criterion(nameCrit), true, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
