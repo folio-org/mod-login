@@ -116,6 +116,7 @@ public class LoginAPI implements AuthnResource {
         future.fail("Got response " + response.statusCode() + " fetching token");
       } else {
         String token = response.getHeader(OKAPI_TOKEN_HEADER);
+        logger.debug("Got token " + token + " from authz");
         future.complete(token);
       }
     });
@@ -166,10 +167,11 @@ public class LoginAPI implements AuthnResource {
                       JsonObject payload = new JsonObject()
                               .put("sub", userCred.getUsername());
                       Future<String> fetchTokenFuture;
-                      Object fetchToken = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                      if(fetchToken != null && fetchToken.equals("no")) {
+                      Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
+                      if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
                         fetchTokenFuture = Future.succeededFuture("dummytoken");
                       } else {
+                        logger.debug("Fetching token from authz with payload " + payload.encode());
                         fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
                       }
                       fetchTokenFuture.setHandler(fetchTokenRes -> {
