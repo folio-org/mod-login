@@ -21,23 +21,23 @@ public class AuthUtil {
   private static final String DEFAULT_ALGORITHM = "PBKDF2WithHmacSHA1";
   private static final int DEFAULT_ITERATIONS = 1000;
   private static final int DEFAULT_KEYLENGTH = 160;
-  
+
   private String algorithm;
   private int iterations;
   private int keyLength;
-  
+
   public AuthUtil(String algorithm, int iterations, int keyLength) {
     this.algorithm = algorithm;
     this.iterations = iterations;
     this.keyLength = keyLength;
   }
-  
+
   public AuthUtil() {
     this.algorithm = DEFAULT_ALGORITHM;
     this.iterations = DEFAULT_ITERATIONS;
     this.keyLength = DEFAULT_KEYLENGTH;
   }
-  
+
   public String calculateHash(String password, String salt) {
     //public String calculateHash(String password, String salt) {
     char[] passwordArray = password.toCharArray();
@@ -52,7 +52,7 @@ public class AuthUtil {
     }
     return DatatypeConverter.printHexBinary(hash);
   }
-    
+
   public String getSalt() {
     SecureRandom random = new SecureRandom();
     byte bytes[] = new byte[20];

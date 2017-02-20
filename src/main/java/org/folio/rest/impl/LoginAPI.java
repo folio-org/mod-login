@@ -41,7 +41,7 @@ import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
  * @author kurt
  */
 public class LoginAPI implements AuthnResource {
-  
+
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   private static final String USER_NAME_FIELD = "'username'";
@@ -49,18 +49,18 @@ public class LoginAPI implements AuthnResource {
   private static final String OKAPI_URL_HEADER = "x-okapi-url";
   private static final String CREDENTIAL_NAME_FIELD = "'username'";
   private AuthUtil authUtil = new AuthUtil();
-  
+
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
-  
+
   private CQLWrapper getCQL(String query, int limit, int offset){
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
-  
+
   private String getTenant(Map<String, String> headers) {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   };
-  
+
   //Query the mod-users module to determine whether or not the username is valid for login
   private Future<Boolean> lookupUser(String username, String tenant, String okapiURL, String requestToken, Vertx vertx) {
     Future<Boolean> future = Future.future();
@@ -98,13 +98,13 @@ public class LoginAPI implements AuthnResource {
             if(!active) {
               logger.debug("User " + username + " is inactive");
             }
-          }           
+          }
         });
       }
     });
     return future;
   }
-  
+
   private Future<String> fetchToken(JsonObject payload, String tenant, String okapiURL, String requestToken, Vertx vertx) {
     Future<String> future = Future.future();
     HttpClient client = vertx.createHttpClient();
@@ -181,7 +181,7 @@ public class LoginAPI implements AuthnResource {
                         } else {
                           //Append token as header to result
                           String authToken = fetchTokenRes.result();
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));      
+                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
                         }
                       });
                     } else {
@@ -189,7 +189,7 @@ public class LoginAPI implements AuthnResource {
                       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
                     }
                   }
-                }                
+                }
               });
               //Make sure this username isn't already added
             } catch(Exception e) {
@@ -237,7 +237,7 @@ public class LoginAPI implements AuthnResource {
         asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainBadRequest("CQL Parsing Error for '" + query + "': " +
                 e.getLocalizedMessage())));
       } else {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));   
+        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
       }
     }
   }
@@ -255,7 +255,7 @@ public class LoginAPI implements AuthnResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply->{
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get method: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));   
+              asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.size() > 0) {
@@ -272,14 +272,14 @@ public class LoginAPI implements AuthnResource {
                     postgresClient.save(beginTx, TABLE_NAME_CREDENTIALS, credential, saveReply -> {
                       if(saveReply.failed()) {
                         logger.debug("Error saving new credential: " + saveReply.cause().getLocalizedMessage());
-                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));   
+                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
                       } else {
                         final LoginCredentials loginCred = entity;
                         postgresClient.endTx(beginTx, end -> {
                           asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withJsonCreated(loginCred)));
                         });
                       }
-                    });                     
+                    });
                   } catch(Exception e) {
                     logger.debug("Error with PostgresClient to save record: " + e.getLocalizedMessage());
                     asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
@@ -290,15 +290,15 @@ public class LoginAPI implements AuthnResource {
           });
         } catch(Exception e) {
           logger.debug("Error from PostgresClient: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));   
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));   
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
-  
+
   @Override
   public void putAuthnCredentialsByUsername(String username, LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
@@ -366,12 +366,12 @@ public class LoginAPI implements AuthnResource {
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found"))); 
+                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found")));
               } else {
                 asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withJsonOK(credList.get(0))));
               }
             }
-          });          
+          });
         } catch(Exception e) {
           logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
@@ -383,7 +383,7 @@ public class LoginAPI implements AuthnResource {
     }
   }
 
- 
+
   @Override
   public void deleteAuthnCredentialsByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
@@ -401,7 +401,7 @@ public class LoginAPI implements AuthnResource {
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found"))); 
+                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found")));
               } else {
                 try {
                   PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(nameCrit), deleteReply-> {
@@ -418,7 +418,7 @@ public class LoginAPI implements AuthnResource {
                 }
               }
             }
-          });          
+          });
         } catch(Exception e) {
           logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
@@ -429,5 +429,5 @@ public class LoginAPI implements AuthnResource {
       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
-  
+
 }
