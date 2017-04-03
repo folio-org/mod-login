@@ -1,5 +1,27 @@
 package org.folio.rest.impl;
 
+import java.net.URLEncoder;
+import java.util.List;
+import java.util.Map;
+
+import javax.ws.rs.core.Response;
+
+import org.folio.rest.RestVerticle;
+import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.CredentialsListObject;
+import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.resource.AuthnResource;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
+import org.folio.util.AuthUtil;
+import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -11,25 +33,6 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import java.net.URLEncoder;
-import java.util.List;
-import java.util.Map;
-import javax.ws.rs.core.Response;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.CredentialsListObject;
-import org.folio.rest.jaxrs.model.LoginCredentials;
-import org.folio.rest.jaxrs.resource.AuthnResource;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.tools.utils.OutStream;
-import org.folio.rest.tools.utils.TenantTool;
-import org.folio.util.AuthUtil;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
 /**
  *
@@ -47,7 +50,7 @@ public class LoginAPI implements AuthnResource {
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
-  private CQLWrapper getCQL(String query, int limit, int offset){
+  private CQLWrapper getCQL(String query, int limit, int offset) throws org.z3950.zing.cql.cql2pgjson.FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
@@ -206,8 +209,8 @@ public class LoginAPI implements AuthnResource {
        vertxContext.runOnContext(v -> {
          String tenantId = getTenant(okapiHeaders);
          String[] fieldList = {"*"};
-         CQLWrapper cql = getCQL(query, length, start - 1);
          try {
+           CQLWrapper cql = getCQL(query, length, start - 1);
            PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                    TABLE_NAME_CREDENTIALS, Credential.class, fieldList, cql, true, false, getReply -> {
              if(getReply.failed()) {
@@ -254,8 +257,12 @@ public class LoginAPI implements AuthnResource {
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.size() > 0) {
-                logger.debug("Error adding credentials for username " + entity.getUsername() + ": Username already exists");
-                asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainBadRequest("Username " + entity.getUsername() + " already exists")));
+                logger.error("Error adding credentials for username " + entity.getUsername() + ": Username already exists");
+                asyncResultHandler.handle(Future.succeededFuture(
+                  PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
+                    ValidationHelper.createValidationErrorMessage(
+                      USER_NAME_FIELD, entity.getUsername(),
+                      "Username already exists"))));
               } else {
                 Credential credential = new Credential();
                 credential.setUsername(entity.getUsername());
@@ -266,7 +273,7 @@ public class LoginAPI implements AuthnResource {
                   try {
                     postgresClient.save(beginTx, TABLE_NAME_CREDENTIALS, credential, saveReply -> {
                       if(saveReply.failed()) {
-                        logger.debug("Error saving new credential: " + saveReply.cause().getLocalizedMessage());
+                        logger.error("Error saving new credential: " + saveReply.cause().getLocalizedMessage());
                         asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
                       } else {
                         final LoginCredentials loginCred = entity;
@@ -276,7 +283,7 @@ public class LoginAPI implements AuthnResource {
                       }
                     });
                   } catch(Exception e) {
-                    logger.debug("Error with PostgresClient to save record: " + e.getLocalizedMessage());
+                    logger.error("Error with PostgresClient to save record: " + e.getLocalizedMessage());
                     asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
                   }
                 });
@@ -284,12 +291,12 @@ public class LoginAPI implements AuthnResource {
             }
           });
         } catch(Exception e) {
-          logger.debug("Error from PostgresClient: " + e.getLocalizedMessage());
+          logger.error("Error from PostgresClient: " + e.getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.error("Error running on vertx context: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
     }
   }

@@ -11,8 +11,12 @@ schemas:
   - credentials: !include schemas/credentials.json
   - credentialsListObject: !include schemas/credentialsListObject.json
   - loginCredentials: !include schemas/loginCredentials.json
+  - errors: !include ../../raml-util/schemas/errors.schema
+  - error: !include ../../raml-util/schemas/error.schema
+  - parameters: !include ../../raml-util/schemas/parameters.schema
 
 traits:
+  - validate: !include ../../raml-util/traits/validation.raml
   - pageable:
       queryParameters:
         length:
@@ -93,6 +97,7 @@ traits:
               example: "Internal server error"
     post:
       description: Add a new login to the system
+      is: [validate]
       body:
         application/json:
           schema: loginCredentials

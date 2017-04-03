@@ -30,13 +30,8 @@
     </dependency>
     <dependency>
       <groupId>org.folio</groupId>
-      <artifactId>domain-models-api-interfaces</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
+      <version>10.0.4-SNAPSHOT</version>
     </dependency>
   </dependencies>
 
