@@ -77,7 +77,7 @@ public class RestVerticleTest {
       async.complete();
     }));
   }
-  
+
   @Test
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/authn/credentials";
@@ -102,7 +102,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse2.body +
          "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL2);
-  
+
 
     } catch (Exception e) {
       e.printStackTrace();
