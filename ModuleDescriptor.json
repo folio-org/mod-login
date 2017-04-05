@@ -75,6 +75,17 @@
       "permissionName" : "login.removeUser",
       "displayName" : "login remove user",
       "description" : "Remove existing login credentials"
+    },
+    {
+      "permissionName" : "login",
+      "displayName" : "login credentials",
+      "description" : "All permissions for login credentials",
+      "subPermissions" : [
+        "login.readUser",
+        "login.addUser",
+        "login.modifyUser",
+        "login.removeUser"
+      ]
     }
   ]
  }
