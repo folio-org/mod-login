@@ -4,68 +4,77 @@
   "provides": [
     {
       "id": "login",
-      "version": "0.0.1"
+      "version": "0.0.1",
+      "handlers" : [
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/login",
+          "level" : "30",
+          "type" : "request-response",
+          "modulePermissions" : [ "auth.signtoken" ]
+        },
+        {
+          "methods" : [ "GET" ],
+          "pathPattern" : "/authn/credentials",
+          "level" : "30",
+          "type" : "request-response",
+          "permissionsRequired" : [ "login.readUser" ]
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/credentials",
+          "level" : "30",
+          "type" : "request-response",
+          "permissionsRequired" : [ "login.addUser" ]
+        },
+        {
+          "methods" : [ "PUT" ],
+          "pathPattern" : "/authn/credentials",
+          "level" : "30",
+          "type" : "request-response",
+          "permissionsRequired" : [ "login.modifyUser" ]
+        },
+        {
+          "methods" : [ "DELETE" ],
+          "pathPattern" : "/authn/credentials",
+          "level" : "30",
+          "type" : "request-response",
+          "permissionsRequired" : [ "login.removeUser" ]
+        }
+      ]
     },
     {
       "id": "_tenant",
-      "version": "0.0.1"
-    }
-  ],
-  "routingEntries": [
-    {
-      "methods": [
-        "POST"
-      ],
-      "path": "/authn/login",
-      "level": "30",
-      "type": "request-response"
-    },
-    {
-      "methods": [
-        "GET"
-      ],
-      "path": "/authn/credentials",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "login.readUser"
-      ]
-    },
-    {
-      "methods": [
-        "POST"
-      ],
-      "path": "/authn/credentials",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "login.addUser"
-      ]
-    },
-    {
-      "methods": [
-        "PUT"
-      ],
-      "path": "/authn/credentials",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "login.modifyUser"
-      ]
-    },
-    {
-      "methods": [
-        "DELETE"
-      ],
-      "path": "/authn/credentials",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "login.removeUser"
+      "version": "1.0.0",
+      "interfaceType" : "system",
+      "handlers" : [
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/_/tenant"
+        }
       ]
     }
   ],
-  "modulePermissions": [
-    "auth.signtoken"
+  "permissionSets" : [
+    {
+      "permissionName" : "login.readUser",
+      "displayName" : "login read user",
+      "description" : "Read Login Info"
+    },
+    {
+      "permissionName" : "login.addUser",
+      "displayName" : "login add user",
+      "description" : "Add New Login"
+    },
+    {
+      "permissionName" : "login.modifyUser",
+      "displayName" : "login modify user",
+      "description" : "Modify login info"
+    },
+    {
+      "permissionName" : "login.removeUser",
+      "displayName" : "login remove user",
+      "description" : "Remove existing login credentials"
+    }
   ]
-}
+ }
