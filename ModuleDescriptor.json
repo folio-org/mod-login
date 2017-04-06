@@ -4,48 +4,38 @@
   "provides": [
     {
       "id": "login",
-      "version": "0.0.1",
+      "version": "0.1",
       "handlers" : [
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
-          "level" : "30",
-          "type" : "request-response",
           "modulePermissions" : [ "auth.signtoken" ]
         },
         {
           "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials",
-          "level" : "30",
-          "type" : "request-response",
           "permissionsRequired" : [ "login.readUser" ]
         },
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/credentials",
-          "level" : "30",
-          "type" : "request-response",
           "permissionsRequired" : [ "login.addUser" ]
         },
         {
           "methods" : [ "PUT" ],
           "pathPattern" : "/authn/credentials",
-          "level" : "30",
-          "type" : "request-response",
           "permissionsRequired" : [ "login.modifyUser" ]
         },
         {
           "methods" : [ "DELETE" ],
           "pathPattern" : "/authn/credentials",
-          "level" : "30",
-          "type" : "request-response",
           "permissionsRequired" : [ "login.removeUser" ]
         }
       ]
     },
     {
       "id": "_tenant",
-      "version": "1.0.0",
+      "version": "1.0",
       "interfaceType" : "system",
       "handlers" : [
         {
