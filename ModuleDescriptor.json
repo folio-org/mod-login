@@ -17,6 +17,11 @@
           "permissionsRequired" : [ "login.readUser" ]
         },
         {
+          "methods" : [ "GET" ],
+          "pathPattern" : "/authn/credentials/{id}",
+          "permissionsRequired" : [ "login.readUser" ]
+        },
+        {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/credentials",
           "permissionsRequired" : [ "login.addUser" ]
