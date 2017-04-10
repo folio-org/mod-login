@@ -14,27 +14,27 @@
         {
           "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.readUser" ]
+          "permissionsRequired" : [ "login.collection.get" ]
         },
         {
           "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials/{id}",
-          "permissionsRequired" : [ "login.readUser" ]
+          "permissionsRequired" : [ "login.item.get" ]
         },
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.addUser" ]
+          "permissionsRequired" : [ "login.item.post" ]
         },
         {
           "methods" : [ "PUT" ],
-          "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.modifyUser" ]
+          "pathPattern" : "/authn/credentials/{id}",
+          "permissionsRequired" : [ "login.item.put" ]
         },
         {
           "methods" : [ "DELETE" ],
-          "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.removeUser" ]
+          "pathPattern" : "/authn/credentials/{id}",
+          "permissionsRequired" : [ "login.item.delete" ]
         }
       ]
     },
@@ -52,23 +52,28 @@
   ],
   "permissionSets" : [
     {
-      "permissionName" : "login.readUser",
-      "displayName" : "login read user",
-      "description" : "Read Login Info"
+      "permissionName" : "login.collection.get",
+      "displayName" : "login collection get",
+      "description" : "Get a list of logins"
     },
     {
-      "permissionName" : "login.addUser",
-      "displayName" : "login add user",
+      "permissionName" : "login.item.get",
+      "displayName" : "login item get",
+      "description" : "Read a single login"
+    },
+    {
+      "permissionName" : "login.item.post",
+      "displayName" : "login item post",
       "description" : "Add New Login"
     },
     {
-      "permissionName" : "login.modifyUser",
-      "displayName" : "login modify user",
+      "permissionName" : "login.item.put",
+      "displayName" : "login item put",
       "description" : "Modify login info"
     },
     {
-      "permissionName" : "login.removeUser",
-      "displayName" : "login remove user",
+      "permissionName" : "login.item delete",
+      "displayName" : "login item delete",
       "description" : "Remove existing login credentials"
     },
     {
@@ -76,11 +81,12 @@
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
       "subPermissions" : [
-        "login.readUser",
-        "login.addUser",
-        "login.modifyUser",
-        "login.removeUser"
+        "login.item.get",
+        "login.collection.get",
+        "login.item.post",
+        "login.item.put",
+        "login.item.delete"
       ]
     }
   ]
- }
+ } 
