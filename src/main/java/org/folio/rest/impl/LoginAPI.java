@@ -138,8 +138,11 @@ public class LoginAPI implements AuthnResource {
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
+            logger.debug("Error verifying user existence: " + verifyResult.cause().getLocalizedMessage());
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
             //Error!
           } else if(!verifyResult.result()) {
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
             //User isn't valid
           } else {
             //User's okay, let's try to login
