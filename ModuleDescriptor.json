@@ -77,7 +77,7 @@
       "description" : "Remove existing login credentials"
     },
     {
-      "permissionName" : "login",
+      "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
       "subPermissions" : [
