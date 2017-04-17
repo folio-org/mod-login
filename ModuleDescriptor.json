@@ -9,7 +9,7 @@
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
-          "modulePermissions" : [ "auth.signtoken" ]
+          "modulePermissions" : [ "auth.signtoken", "users.collection.get" ]
         },
         {
           "methods" : [ "GET" ],

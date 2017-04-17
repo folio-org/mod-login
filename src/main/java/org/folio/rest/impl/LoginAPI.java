@@ -47,9 +47,16 @@ public class LoginAPI implements AuthnResource {
   private static final String OKAPI_URL_HEADER = "x-okapi-url";
   private static final String CREDENTIAL_NAME_FIELD = "'username'";
   private AuthUtil authUtil = new AuthUtil();
+  private boolean suppressErrorResponse = false;
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
-
+  
+  private String getErrorResponse(String response) {
+    if(suppressErrorResponse) {
+      return "Internal Server Error: Please contact Admin";
+    }
+    return response;
+  }
   private CQLWrapper getCQL(String query, int limit, int offset) throws org.z3950.zing.cql.cql2pgjson.FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
@@ -68,7 +75,7 @@ public class LoginAPI implements AuthnResource {
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
     try {
-      requestURL = okapiURL + "/users/?query=" + URLEncoder.encode("username=" + username, "UTF-8");
+      requestURL = okapiURL + "/users?query=" + URLEncoder.encode("username=" + username, "UTF-8");
     } catch(Exception e) {
       logger.debug("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
@@ -100,6 +107,7 @@ public class LoginAPI implements AuthnResource {
         });
       }
     });
+    request.end();
     return future;
   }
 
@@ -131,15 +139,17 @@ public class LoginAPI implements AuthnResource {
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
         Future<Boolean> userVerified;
         Object verifyUser = RestVerticle.MODULE_SPECIFIC_ARGS.get("verify.user");
-        if(verifyUser != null && verifyUser.equals("yes")) {
+        if(verifyUser != null && verifyUser.equals("true")) {
+          logger.debug("Looking up user");
           userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
         } else {
           userVerified = Future.succeededFuture(Boolean.TRUE);
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
-            logger.debug("Error verifying user existence: " + verifyResult.cause().getLocalizedMessage());
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+            String errMsg = "Error verifying user existence: " + verifyResult.cause().getLocalizedMessage();
+            logger.debug(errMsg);
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
             //Error!
           } else if(!verifyResult.result()) {
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
@@ -177,8 +187,9 @@ public class LoginAPI implements AuthnResource {
                       }
                       fetchTokenFuture.setHandler(fetchTokenRes -> {
                         if(fetchTokenRes.failed()) {
-                          logger.debug("Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage());
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+                          String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
+                          logger.debug(errMsg);
+                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
                         } else {
                           //Append token as header to result
                           String authToken = fetchTokenRes.result();
