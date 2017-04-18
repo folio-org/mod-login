@@ -50,7 +50,7 @@ public class LoginAPI implements AuthnResource {
   private boolean suppressErrorResponse = false;
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
-  
+
   private String getErrorResponse(String response) {
     if(suppressErrorResponse) {
       return "Internal Server Error: Please contact Admin";
