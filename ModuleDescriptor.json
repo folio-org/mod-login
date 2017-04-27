@@ -72,7 +72,7 @@
       "description" : "Modify login info"
     },
     {
-      "permissionName" : "login.item delete",
+      "permissionName" : "login.item.delete",
       "displayName" : "login item delete",
       "description" : "Remove existing login credentials"
     },
