@@ -91,18 +91,23 @@ public class LoginAPI implements AuthnResource {
         future.fail("Got status code " + res.statusCode());
       } else {
         res.bodyHandler(buf -> {
-          JsonObject resultObject = buf.toJsonObject();
-          if(resultObject.getInteger("total_records") > 1) {
-            future.fail("Bad results from username");
-          } else if(resultObject.getInteger("total_records") == 0) {
-            logger.debug("No user found by username " + username);
-            future.complete(Boolean.FALSE);
-          } else {
-            boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
-            future.complete(active);
-            if(!active) {
-              logger.debug("User " + username + " is inactive");
+          try {
+            JsonObject resultObject = buf.toJsonObject();
+            int recordCount = resultObject.getInteger("totalRecords");
+            if(recordCount > 1) {
+              future.fail("Bad results from username");
+            } else if(recordCount == 0) {
+              logger.debug("No user found by username " + username);
+              future.complete(Boolean.FALSE);
+            } else {
+              boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
+              future.complete(active);
+              if(!active) {
+                logger.debug("User " + username + " is inactive");
+              }
             }
+          } catch(Exception e) {
+            future.fail(e);
           }
         });
       }
