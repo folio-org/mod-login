@@ -1,3 +1,6 @@
+## 2016-07-27 v3.0.3
+ * Add version to id in ModuleDescriptor
+
 ## 2017-06-26 v3.0.2
  * Handle updated 'totalRecords' field when contacting mod-users
 
