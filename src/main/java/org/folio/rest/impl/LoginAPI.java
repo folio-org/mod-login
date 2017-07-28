@@ -67,15 +67,15 @@ public class LoginAPI implements AuthnResource {
   };
 
   //Query the mod-users module to determine whether or not the username is valid for login
-  private Future<Boolean> lookupUser(String username, String tenant, String okapiURL, String requestToken, Vertx vertx) {
-    Future<Boolean> future = Future.future();
+  private Future<JsonObject> lookupUser(String username, String tenant, String okapiURL, String requestToken, Vertx vertx) {
+    Future<JsonObject> future = Future.future();
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(10);
     options.setIdleTimeout(10);
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
     try {
-      requestURL = okapiURL + "/users?query=" + URLEncoder.encode("username=" + username, "UTF-8");
+      requestURL = okapiURL + "/users?query=" + URLEncoder.encode("username==" + username, "UTF-8");
     } catch(Exception e) {
       logger.debug("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
@@ -98,13 +98,13 @@ public class LoginAPI implements AuthnResource {
               future.fail("Bad results from username");
             } else if(recordCount == 0) {
               logger.debug("No user found by username " + username);
-              future.complete(Boolean.FALSE);
+              future.fail("No user found by username " + username);
             } else {
               boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
-              future.complete(active);
               if(!active) {
                 logger.debug("User " + username + " is inactive");
-              }
+              } 
+              future.complete(resultObject.getJsonArray("users").getJsonObject(0));
             }
           } catch(Exception e) {
             future.fail(e);
@@ -142,13 +142,13 @@ public class LoginAPI implements AuthnResource {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
-        Future<Boolean> userVerified;
+        Future<JsonObject> userVerified;
         Object verifyUser = RestVerticle.MODULE_SPECIFIC_ARGS.get("verify.user");
         if(verifyUser != null && verifyUser.equals("true")) {
           logger.debug("Looking up user");
           userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
         } else {
-          userVerified = Future.succeededFuture(Boolean.TRUE);
+          userVerified = Future.succeededFuture(new JsonObject());
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
@@ -156,12 +156,13 @@ public class LoginAPI implements AuthnResource {
             logger.debug(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
             //Error!
-          } else if(!verifyResult.result()) {
+          } else if(!verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
             //User isn't valid
           } else {
             //User's okay, let's try to login
             try {
+              JsonObject userObject = verifyResult.result();
               Criteria nameCrit = new Criteria();
               nameCrit.addField(CREDENTIAL_NAME_FIELD);
               nameCrit.setOperation("=");
@@ -182,6 +183,9 @@ public class LoginAPI implements AuthnResource {
                     if(userCred.getHash().equals(testHash)) {
                       JsonObject payload = new JsonObject()
                               .put("sub", userCred.getUsername());
+                      if(!userObject.isEmpty()) {
+                        payload.put("user_id", userObject.getString("id"));
+                      }
                       Future<String> fetchTokenFuture;
                       Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                       if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {

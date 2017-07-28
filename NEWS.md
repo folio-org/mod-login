@@ -1,3 +1,7 @@
+## 2016-07-28 v3.1.0
+ * Include user-id field when generating authtoken on login
+ * Use more specific relation '==' when looking up users
+
 ## 2016-07-27 v3.0.3
  * Add version to id in ModuleDescriptor
 
