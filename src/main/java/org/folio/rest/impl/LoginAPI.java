@@ -279,17 +279,17 @@ public class LoginAPI implements AuthnResource {
             userIdCrit.setOperation("=");
             userIdCrit.setValue(userOb.getString("id"));
             try {
-              PostgresClient.getInstance(vertxContext.owner(), tenantid).get(TABLE_NAME_CREDENTIALS, Credential.class,
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class,
                   new Criterion(userIdCrit), true, getCredReply -> {
-                    if(getReply.failed()) {
+                    if(getCredReply.failed()) {
                     } else {
-                      List<Credential> credList = (List<Credential>)getReply.result()[0];
+                      List<Credential> credList = (List<Credential>)getCredReply.result()[0];
                       if(credList.size() > 0) {
                         //Error, this Credential already exists
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
-                        credential.setUserid(userOb.getString("id"));
+                        credential.setUserId(userOb.getString("id"));
                         credential.setSalt(authUtil.getSalt());
                         credential.setHash(authUtil.calculateHash(entity.getPassword(), credential.getSalt()));
                         //And save it
@@ -302,10 +302,10 @@ public class LoginAPI implements AuthnResource {
                                String message = "Saving record failed: " + saveReply.cause().getLocalizedMessage();
                                logger.error(message, saveReply.cause());
                                asyncResultHandler.handle(Future.succeededFuture(
-                                     postAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                                     PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
                              } else {
                                asyncResultHandler.handle(Future.succeededFuture(
-                                     postAuthnCredentialsResponse.withJsonCreated(credential)));
+                                     PostAuthnCredentialsResponse.withJsonCreated(credential)));
                              }
                             });
                           } catch(Exception e) {
