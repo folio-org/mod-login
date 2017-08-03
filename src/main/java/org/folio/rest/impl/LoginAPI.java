@@ -145,7 +145,11 @@ public class LoginAPI implements AuthnResource {
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
         Future<JsonObject> userVerified;
-        userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+        if(entity.getUserId() != null) {
+          userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()));
+        } else {
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+        }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
             String errMsg = "Error verifying user existence: " + verifyResult.cause().getLocalizedMessage();
@@ -177,8 +181,12 @@ public class LoginAPI implements AuthnResource {
                     Credential userCred = credList.get(0);
                     String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
                     if(userCred.getHash().equals(testHash)) {
-                      JsonObject payload = new JsonObject()
-                              .put("sub", userObject.getString("username"));
+                      JsonObject payload = new JsonObject();
+                      if(userObject.getString("username") != null) {
+                        payload.put("sub", userObject.getString("username"));
+                      } else {
+                        payload.put("sub", userObject.getString("id"));
+                      }
                       if(!userObject.isEmpty()) {
                         payload.put("user_id", userObject.getString("id"));
                       }
@@ -266,8 +274,13 @@ public class LoginAPI implements AuthnResource {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
-        Future<JsonObject> userVerifyFuture = lookupUser(entity.getUsername(),
+        Future<JsonObject> userVerifyFuture;
+        if(entity.getUserId() != null) {
+          userVerifyFuture = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()));
+        } else {
+          userVerifyFuture = lookupUser(entity.getUsername(),
             tenantId, okapiURL, requestToken, vertxContext.owner());
+        }
         userVerifyFuture.setHandler(verifyRes -> {
           if(verifyRes.failed()) {
             String message = "Error looking up user: " + verifyRes.cause().getLocalizedMessage();
@@ -286,7 +299,12 @@ public class LoginAPI implements AuthnResource {
                     } else {
                       List<Credential> credList = (List<Credential>)getCredReply.result()[0];
                       if(credList.size() > 0) {
-                        //Error, this Credential already exists
+                        String message = "There already exists credentials for user id '" + userOb.getString("id") + "'";
+                        logger.error(message);
+                        asyncResultHandler.handle(Future.succeededFuture(
+                          PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
+                                  ValidationHelper.createValidationErrorMessage(
+                                          CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
@@ -305,8 +323,10 @@ public class LoginAPI implements AuthnResource {
                                asyncResultHandler.handle(Future.succeededFuture(
                                      PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
                              } else {
-                               asyncResultHandler.handle(Future.succeededFuture(
+                               pgClient.endTx(beginTx, done -> {
+                                 asyncResultHandler.handle(Future.succeededFuture(
                                      PostAuthnCredentialsResponse.withJsonCreated(credential)));
+                               });
                              }
                             });
                           } catch(Exception e) {

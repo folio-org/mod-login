@@ -34,7 +34,7 @@ public class RestVerticleTest {
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
 
-  private static String postCredsRequest = "{\"username\": \"a\", \"password\":\"12345\"}";
+  private static String postCredsRequest = "{\"username\": \"a\", \"userId\":\"bc6e4932-6415-40e2-ac1e-67ecdd665366\", \"password\":\"12345\"}";
 
   private static Vertx vertx;
   static int port;
