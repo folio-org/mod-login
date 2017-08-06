@@ -48,7 +48,10 @@ public class RestVerticleTest {
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("localhost", port, "diku");
     vertx = Vertx.vertx();
-    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+    DeploymentOptions options = new DeploymentOptions().setConfig(
+            new JsonObject()
+                    .put("http.port", port)
+    );
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
@@ -102,6 +105,17 @@ public class RestVerticleTest {
        System.out.println(addPUResponse2.body +
          "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL2);
+       
+       /**login with creds 201 */
+       CompletableFuture<Response> addPUCF3 = new CompletableFuture();
+       String addPUURL3 = "http://localhost:"+port+"/authn/login";;
+       send(addPUURL3, context, HttpMethod.POST, postCredsRequest,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF3));
+       Response addPUResponse3 = addPUCF3.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse2.code, 201);
+       System.out.println(addPUResponse3.body +
+         "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL3);
 
 
     } catch (Exception e) {

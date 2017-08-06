@@ -136,7 +136,7 @@ public class LoginAPI implements AuthnResource {
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
-
+  
   @Override
   public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
@@ -145,18 +145,28 @@ public class LoginAPI implements AuthnResource {
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
         Future<JsonObject> userVerified;
+        if(entity.getUserId() == null && entity.getUsername() == null) {
+          logger.error("No username or userId provided for login attempt");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a username or userId")));
+          return;
+        }
+        if(entity.getPassword() == null) {
+          logger.error("No password provided for login attempt");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a password")));
+          return;
+        }
         if(entity.getUserId() != null) {
-          userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()));
+          userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
         } else {
           userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
             String errMsg = "Error verifying user existence: " + verifyResult.cause().getLocalizedMessage();
-            logger.debug(errMsg);
+            logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
             //Error!
-          } else if(!verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
+          } else if(verifyResult.result() != null && !verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
             //User isn't valid
           } else {
@@ -170,55 +180,70 @@ public class LoginAPI implements AuthnResource {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                       TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit), true, getReply-> {
                 if(getReply.failed()) {
-                  logger.debug("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
+                  logger.error("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
                   asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
                 } else {
-                  List<Credential> credList = (List<Credential>)getReply.result()[0];
-                  if(credList.size() < 1) {
-                    logger.debug("No matching credentials found for " + entity.getUsername());
-                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("No credentials match that login")));
-                  } else {
-                    Credential userCred = credList.get(0);
-                    String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
-                    if(userCred.getHash().equals(testHash)) {
-                      JsonObject payload = new JsonObject();
-                      if(userObject.getString("username") != null) {
-                        payload.put("sub", userObject.getString("username"));
-                      } else {
-                        payload.put("sub", userObject.getString("id"));
-                      }
-                      if(!userObject.isEmpty()) {
-                        payload.put("user_id", userObject.getString("id"));
-                      }
-                      Future<String> fetchTokenFuture;
-                      Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                      if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
-                        fetchTokenFuture = Future.succeededFuture("dummytoken");
-                      } else {
-                        logger.debug("Fetching token from authz with payload " + payload.encode());
-                        fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
-                      }
-                      fetchTokenFuture.setHandler(fetchTokenRes -> {
-                        if(fetchTokenRes.failed()) {
-                          String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
-                          logger.debug(errMsg);
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
-                        } else {
-                          //Append token as header to result
-                          String authToken = fetchTokenRes.result();
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
-                        }
-                      });
+                  try {
+                    List<Credential> credList = (List<Credential>)getReply.result()[0];
+                    if(credList.size() < 1) {
+                      logger.error("No matching credentials found for userid " + userObject.getString("id"));
+                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("No credentials match that login")));
                     } else {
-                      logger.debug("Password does not match for username " + entity.getUsername());
-                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
+                      Credential userCred = credList.get(0);
+                      if(userCred.getHash() == null || userCred.getSalt() == null) {
+                        String message = "Error retrieving stored hash and salt from credentials";
+                        logger.error(message);
+                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(message)));
+                        return;
+                      }
+                      logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
+                      String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
+                      if(userCred.getHash().equals(testHash)) {
+                        JsonObject payload = new JsonObject();
+                        if(userObject.getString("username") != null) {
+                          payload.put("sub", userObject.getString("username"));
+                        } else {
+                          payload.put("sub", userObject.getString("id"));
+                        }
+                        if(!userObject.isEmpty()) {
+                          payload.put("user_id", userObject.getString("id"));
+                        }
+                        Future<String> fetchTokenFuture;
+                        Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
+                        //if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
+                        if(true) {
+                          fetchTokenFuture = Future.succeededFuture("dummytoken");
+                        } else {
+                          logger.debug("Fetching token from authz with payload " + payload.encode());
+                          fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
+                        }
+                        fetchTokenFuture.setHandler(fetchTokenRes -> {
+                          if(fetchTokenRes.failed()) {
+                            String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
+                            logger.error(errMsg);
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
+                          } else {
+                            //Append token as header to result
+                            String authToken = fetchTokenRes.result();
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
+                          }
+                        });
+                      } else {
+                        logger.error("Password does not match for userid " + userCred.getUserId());
+                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
+                      }
                     }
+                  } catch(Exception e) {
+                    String message = e.getLocalizedMessage();
+                    logger.error(message, e);
+                    asyncResultHandler.handle(
+                            Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(message)));
                   }
                 }
               });
               //Make sure this username isn't already added
             } catch(Exception e) {
-              logger.debug("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
+              logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
             }
           }
