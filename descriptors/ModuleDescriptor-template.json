@@ -1,5 +1,5 @@
 {
-  "id": "login-module-3.0.3",
+  "id": "${artifactId}-${version}",
   "name": "login",
   "provides": [
     {
