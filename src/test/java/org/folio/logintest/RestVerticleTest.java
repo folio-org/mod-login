@@ -34,10 +34,15 @@ public class RestVerticleTest {
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
 
-  private static String postCredsRequest = "{\"username\": \"a\", \"userId\":\"bc6e4932-6415-40e2-ac1e-67ecdd665366\", \"password\":\"12345\"}";
+  private static String postCredsRequest = "{\"username\": \"gollum\", \"userId\":\"bc6e4932-6415-40e2-ac1e-67ecdd665366\", \"password\":\"12345\"}";
+
+  private static String postCredsRequest2 = "{\"username\": \"gollum\", \"password\":\"12345\"}";
 
   private static Vertx vertx;
   static int port;
+  static int mockPort;
+  
+  private UserMock userMock;
 
   @Rule
   public Timeout rule = Timeout.seconds(180);  // 3 minutes for loading embedded postgres
@@ -46,12 +51,19 @@ public class RestVerticleTest {
   public static void setup(TestContext context) {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
+    mockPort = NetworkUtils.nextFreePort(); //get another
     TenantClient tenantClient = new TenantClient("localhost", port, "diku");
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(
             new JsonObject()
                     .put("http.port", port)
     );
+    DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
+      new JsonObject()
+        .put("port", mockPort));
+    
+    
+            
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
@@ -60,16 +72,24 @@ public class RestVerticleTest {
       context.fail(e);
       return;
     }
-    vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-      try {
-        tenantClient.post(null, res2 -> {
-           async.complete();
+    
+    vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
+      if(mockRes.failed()) {
+        mockRes.cause().printStackTrace();
+        context.fail(mockRes.cause());
+      } else {
+        vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
+          try {
+            tenantClient.post(null, res2 -> {
+               async.complete();
+            });
+          } catch(Exception e) {
+            e.printStackTrace();
+          }
         });
-      } catch(Exception e) {
-        e.printStackTrace();
       }
-
     });
+            
   }
 
   @AfterClass
@@ -108,14 +128,36 @@ public class RestVerticleTest {
        
        /**login with creds 201 */
        CompletableFuture<Response> addPUCF3 = new CompletableFuture();
-       String addPUURL3 = "http://localhost:"+port+"/authn/login";;
+       String addPUURL3 = "http://localhost:"+port+"/authn/login";
        send(addPUURL3, context, HttpMethod.POST, postCredsRequest,
          SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF3));
        Response addPUResponse3 = addPUCF3.get(5, TimeUnit.SECONDS);
-       context.assertEquals(addPUResponse2.code, 201);
+       context.assertEquals(addPUResponse3.code, 201);
        System.out.println(addPUResponse3.body +
          "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL3);
+       
+       /* test mock user*/
+       CompletableFuture<Response> addPUCF4 = new CompletableFuture();
+       String addPUURL4 = "http://localhost:"+mockPort+"/users?query=username==gollum";
+       send(addPUURL4, context, HttpMethod.GET, null,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,  new HTTPResponseHandler(addPUCF4));
+       Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse4.code, 200);
+       System.out.println(addPUResponse4.body +
+         "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL4);
+       
+       /**login with creds, no userid supplied, 201 */
+       CompletableFuture<Response> addPUCF5 = new CompletableFuture();
+       String addPUURL5 = "http://localhost:"+port+"/authn/login";
+       send(addPUURL5, context, HttpMethod.POST, postCredsRequest2,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF5));
+       Response addPUResponse5 = addPUCF5.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse5.code, 201);
+       System.out.println(addPUResponse5.body +
+         "\nStatus - " + addPUResponse5.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL5);
 
 
     } catch (Exception e) {
@@ -153,6 +195,7 @@ public class RestVerticleTest {
    request.putHeader("x-okapi-tenant", "diku");
    request.putHeader("Accept", "application/json,text/plain");
    request.putHeader("Content-type", contentType);
+   request.putHeader("X-Okapi-Url", "http://localhost:" +mockPort);
    request.end(buffer);
  }
 

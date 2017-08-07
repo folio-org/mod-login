@@ -22,6 +22,8 @@ import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.util.AuthUtil;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
+import java.util.UUID;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -77,44 +79,60 @@ public class LoginAPI implements AuthnResource {
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
     try {
-      requestURL = okapiURL + "/users?query=" + URLEncoder.encode("username==" + username, "UTF-8");
+      requestURL = okapiURL + "/users?query=username==" + URLEncoder.encode(username, "UTF-8");
     } catch(Exception e) {
-      logger.debug("Error building request URL: " + e.getLocalizedMessage());
+      logger.error("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
       return future;
     }
-    HttpClientRequest request = client.getAbs(requestURL);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-            .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-            .putHeader("Content-type", "application/json")
-            .putHeader("Accept", "application/json");
-    request.handler(res -> {
-      if(res.statusCode() != 200) {
-        future.fail("Got status code " + res.statusCode());
-      } else {
-        res.bodyHandler(buf -> {
-          try {
-            JsonObject resultObject = buf.toJsonObject();
-            int recordCount = resultObject.getInteger("totalRecords");
-            if(recordCount > 1) {
-              future.fail("Bad results from username");
-            } else if(recordCount == 0) {
-              logger.debug("No user found by username " + username);
-              future.fail("No user found by username " + username);
-            } else {
-              boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
-              if(!active) {
-                logger.debug("User " + username + " is inactive");
-              } 
-              future.complete(resultObject.getJsonArray("users").getJsonObject(0));
+    try {
+      HttpClientRequest request = client.getAbs(requestURL);
+      request.putHeader(OKAPI_TENANT_HEADER, tenant)
+              .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+              .putHeader("Content-type", "application/json")
+              .putHeader("Accept", "application/json");
+      request.handler(res -> {
+        if(res.statusCode() != 200) {
+          res.bodyHandler(buf -> {
+            String message = "Expected status code 200, got '" + res.statusCode() +
+                    "' :" + buf.toString();
+            future.fail(message);
+          });
+        } else {
+          res.bodyHandler(buf -> {
+            try {
+              JsonObject resultObject = buf.toJsonObject();
+              if(!resultObject.containsKey("totalRecords") || !resultObject.containsKey("users")) {
+                future.fail("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+              } else {
+                int recordCount = resultObject.getInteger("totalRecords");
+                if(recordCount > 1) {
+                  future.fail("Bad results from username");
+                } else if(recordCount == 0) {
+                  logger.error("No user found by username " + username);
+                  future.fail("No user found by username " + username);
+                } else {
+                  /*
+                  boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
+                  if(!active) {
+                    logger.debug("User " + username + " is inactive");
+                  } 
+                  */
+                  future.complete(resultObject.getJsonArray("users").getJsonObject(0));
+                }
+              }
+            } catch(Exception e) {
+              future.fail(e);
             }
-          } catch(Exception e) {
-            future.fail(e);
-          }
-        });
-      }
-    });
-    request.end();
+          });
+        }
+      });
+      request.end();
+    } catch(Exception e) {
+      String message = "User lookup failed: " + e.getLocalizedMessage();
+      logger.error(message, e);
+      future.fail(message);
+    }
     return future;
   }
 
@@ -138,7 +156,8 @@ public class LoginAPI implements AuthnResource {
   }
   
   @Override
-  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
@@ -158,7 +177,7 @@ public class LoginAPI implements AuthnResource {
         if(entity.getUserId() != null) {
           userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
         } else {
-          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());         
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
@@ -166,13 +185,18 @@ public class LoginAPI implements AuthnResource {
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
             //Error!
-          } else if(verifyResult.result() != null && !verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
+          //} else if(verifyResult.result() != null && !verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
+          //  asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
             //User isn't valid
           } else {
             //User's okay, let's try to login
             try {
               JsonObject userObject = verifyResult.result();
+              if(!userObject.containsKey("id")) {
+                logger.error("No 'id' key in returned user object");
+                asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("No user id could be found")));
+                return;
+              }
               Criteria useridCrit = new Criteria();
               useridCrit.addField(CREDENTIAL_USERID_FIELD);
               useridCrit.setOperation("=");
@@ -200,7 +224,7 @@ public class LoginAPI implements AuthnResource {
                       String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
                       if(userCred.getHash().equals(testHash)) {
                         JsonObject payload = new JsonObject();
-                        if(userObject.getString("username") != null) {
+                        if(userObject.containsKey("username")) {
                           payload.put("sub", userObject.getString("username"));
                         } else {
                           payload.put("sub", userObject.getString("id"));
@@ -333,6 +357,7 @@ public class LoginAPI implements AuthnResource {
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
+                        credential.setId(UUID.randomUUID().toString());
                         credential.setUserId(userOb.getString("id"));
                         credential.setSalt(authUtil.getSalt());
                         credential.setHash(authUtil.calculateHash(entity.getPassword(), credential.getSalt()));
@@ -439,7 +464,7 @@ public class LoginAPI implements AuthnResource {
         idCrit.setOperation("=");
         idCrit.setValue(id);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
