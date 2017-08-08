@@ -148,16 +148,29 @@ public class RestVerticleTest {
          "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL4);
        
-       /**login with creds, no userid supplied, 201 */
+ /*
+        // test mock user 404
        CompletableFuture<Response> addPUCF5 = new CompletableFuture();
-       String addPUURL5 = "http://localhost:"+port+"/authn/login";
-       send(addPUURL5, context, HttpMethod.POST, postCredsRequest2,
-         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF5));
+       String addPUURL5 = "http://localhost:"+mockPort+"/users?query=username==bilbo";
+       send(addPUURL5, context, HttpMethod.GET, null,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 404,  new HTTPResponseHandler(addPUCF5));
        Response addPUResponse5 = addPUCF5.get(5, TimeUnit.SECONDS);
-       context.assertEquals(addPUResponse5.code, 201);
+       context.assertEquals(addPUResponse5.code, 404);
        System.out.println(addPUResponse5.body +
          "\nStatus - " + addPUResponse5.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL5);
+  */
+       
+       /**login with creds, no userid supplied, 201 */
+       CompletableFuture<Response> addPUCF6 = new CompletableFuture();
+       String addPUURL6 = "http://localhost:"+port+"/authn/login";
+       send(addPUURL6, context, HttpMethod.POST, postCredsRequest2,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF6));
+       Response addPUResponse6 = addPUCF6.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse6.code, 201);
+       System.out.println(addPUResponse6.body +
+         "\nStatus - " + addPUResponse6.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL6);
 
 
     } catch (Exception e) {
@@ -196,6 +209,7 @@ public class RestVerticleTest {
    request.putHeader("Accept", "application/json,text/plain");
    request.putHeader("Content-type", contentType);
    request.putHeader("X-Okapi-Url", "http://localhost:" +mockPort);
+   request.putHeader("X-Okapi-Token", "dummytoken");
    request.end(buffer);
  }
 

@@ -163,6 +163,11 @@ public class LoginAPI implements AuthnResource {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+        if(requestToken == null) {
+          logger.error("Missing request token");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Missing Okapi token header")));
+          return;
+        }
         Future<JsonObject> userVerified;
         if(entity.getUserId() == null && entity.getUsername() == null) {
           logger.error("No username or userId provided for login attempt");
@@ -234,8 +239,8 @@ public class LoginAPI implements AuthnResource {
                         }
                         Future<String> fetchTokenFuture;
                         Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                        //if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
-                        if(true) {
+                        if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
+                        //if(true) {
                           fetchTokenFuture = Future.succeededFuture("dummytoken");
                         } else {
                           logger.debug("Fetching token from authz with payload " + payload.encode());
