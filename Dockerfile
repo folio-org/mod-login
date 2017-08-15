@@ -1,6 +1,6 @@
 FROM openjdk:8-jre
 
-ENV VERTICLE_FILE login-module-fat.jar
+ENV VERTICLE_FILE mod-login-fat.jar
 
 # Set the location of the verticles
 ENV VERTICLE_HOME /usr/verticles
