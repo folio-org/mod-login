@@ -29,6 +29,7 @@ public class UserMock extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
     
     router.route("/users").handler(this::handleUsers);
+    router.route("/token").handler(this::handleToken);
     System.out.println("Running UserMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
       if(result.failed()) {
@@ -66,6 +67,12 @@ public class UserMock extends AbstractVerticle {
                 .end("Error");
     }
   }
+
+  private void handleToken(RoutingContext context) {
+  	context.response()
+  		.setStatusCode(200)
+  		.end("dummytoken");
+	}
 }
 
 
