@@ -50,6 +50,7 @@ public class LoginAPI implements AuthnResource {
   private static final String CREDENTIAL_NAME_FIELD = "'username'";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
+  private static final String CREDENTIAL_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/credentials.json";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
 
@@ -202,7 +203,8 @@ public class LoginAPI implements AuthnResource {
                 asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("No user id could be found")));
                 return;
               }
-              Criteria useridCrit = new Criteria();
+              Criteria useridCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+              //Criteria useridCrit = new Criteria();
               useridCrit.addField(CREDENTIAL_USERID_FIELD);
               useridCrit.setOperation("=");
               useridCrit.setValue(userObject.getString("id"));
@@ -464,11 +466,11 @@ public class LoginAPI implements AuthnResource {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
-        Criteria idCrit = new Criteria();
-        idCrit.addField(CREDENTIAL_ID_FIELD);
-        idCrit.setOperation("=");
-        idCrit.setValue(id);
         try {
+          Criteria idCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+          idCrit.addField(CREDENTIAL_ID_FIELD);
+          idCrit.setOperation("=");
+          idCrit.setValue(id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
