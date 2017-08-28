@@ -105,16 +105,19 @@ public class RestVerticleTest {
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/authn/credentials";
     try {
+      String credentialsId = null;
+      
       /**add creds */
        CompletableFuture<Response> addPUCF = new CompletableFuture();
        String addPUURL = url;
        send(addPUURL, context, HttpMethod.POST, postCredsRequest,
-         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPNoBodyResponseHandler(addPUCF));
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF));
        Response addPUResponse = addPUCF.get(5, TimeUnit.SECONDS);
+       credentialsId = addPUResponse.body.getString("id");
        context.assertEquals(addPUResponse.code, HttpURLConnection.HTTP_CREATED);
        System.out.println("Status - " + addPUResponse.code + " at " +
            System.currentTimeMillis() + " for " + addPUURL);
-
+       
        /**add same creds again 422 */
        CompletableFuture<Response> addPUCF2 = new CompletableFuture();
        String addPUURL2 = url;
@@ -126,6 +129,18 @@ public class RestVerticleTest {
          "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL2);
        
+       
+       /**try to GET the recently created creds 200 */
+        CompletableFuture<Response> addPUCF2_5 = new CompletableFuture();
+       String addPUURL2_5 = url + "/" + credentialsId;
+       send(addPUURL2_5, context, HttpMethod.GET, null,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,  new HTTPResponseHandler(addPUCF2_5));
+       Response addPUResponse2_5 = addPUCF2_5.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse2_5.code, 200);
+       System.out.println(addPUResponse2_5.body +
+         "\nStatus - " + addPUResponse2_5.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL2_5);
+       
        /**login with creds 201 */
        CompletableFuture<Response> addPUCF3 = new CompletableFuture();
        String addPUURL3 = "http://localhost:"+port+"/authn/login";
@@ -136,7 +151,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse3.body +
          "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL3);
-       
+      
        /* test mock user*/
        CompletableFuture<Response> addPUCF4 = new CompletableFuture();
        String addPUURL4 = "http://localhost:"+mockPort+"/users?query=username==gollum";
