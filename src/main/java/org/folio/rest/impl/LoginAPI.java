@@ -35,6 +35,8 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import java.net.URL;
+import java.util.MissingResourceException;
 
 /**
  *
@@ -160,6 +162,7 @@ public class LoginAPI implements AuthnResource {
   public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
+      testForFile(CREDENTIAL_SCHEMA_PATH);
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
@@ -181,8 +184,10 @@ public class LoginAPI implements AuthnResource {
           return;
         }
         if(entity.getUserId() != null) {
+          logger.info("No need to look up user id");
           userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
         } else {
+          logger.info("Need to look up user id");
           userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());         
         }
         userVerified.setHandler(verifyResult -> {
@@ -241,7 +246,7 @@ public class LoginAPI implements AuthnResource {
                         }
                         Future<String> fetchTokenFuture;
                         Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                        if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
+                        if(fetchTokenFlag != null && ((String)fetchTokenFlag).equals("no")) {
                         //if(true) {
                           fetchTokenFuture = Future.succeededFuture("dummytoken");
                         } else {
@@ -467,6 +472,7 @@ public class LoginAPI implements AuthnResource {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         try {
+          testForFile(CREDENTIAL_SCHEMA_PATH);
           Criteria idCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
           idCrit.addField(CREDENTIAL_ID_FIELD);
           idCrit.setOperation("=");
@@ -541,5 +547,11 @@ public class LoginAPI implements AuthnResource {
       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
-
+  
+  private void testForFile(String path) {
+    URL u = LoginAPI.class.getClassLoader().getResource(path);
+    if(u == null) {
+      throw(new MissingResourceException(path, LoginAPI.class.getName(), path));
+    }
+  }
 }
