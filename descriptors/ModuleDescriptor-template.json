@@ -14,7 +14,7 @@
         {
           "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.collection.get" ]
+          "permissionsRequired" : [ "login.collection.get", "users.collection.get" ]
         },
         {
           "methods" : [ "GET" ],

@@ -22,6 +22,8 @@ import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.util.AuthUtil;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
+import java.util.UUID;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -33,6 +35,8 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import java.net.URL;
+import java.util.MissingResourceException;
 
 /**
  *
@@ -46,6 +50,9 @@ public class LoginAPI implements AuthnResource {
   private static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   private static final String OKAPI_URL_HEADER = "x-okapi-url";
   private static final String CREDENTIAL_NAME_FIELD = "'username'";
+  private static final String CREDENTIAL_USERID_FIELD = "'userId'";
+  private static final String CREDENTIAL_ID_FIELD = "'id'";
+  private static final String CREDENTIAL_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/credentials.json";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
 
@@ -75,44 +82,60 @@ public class LoginAPI implements AuthnResource {
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
     try {
-      requestURL = okapiURL + "/users?query=" + URLEncoder.encode("username==" + username, "UTF-8");
+      requestURL = okapiURL + "/users?query=username==" + URLEncoder.encode(username, "UTF-8");
     } catch(Exception e) {
-      logger.debug("Error building request URL: " + e.getLocalizedMessage());
+      logger.error("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
       return future;
     }
-    HttpClientRequest request = client.getAbs(requestURL);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-            .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-            .putHeader("Content-type", "application/json")
-            .putHeader("Accept", "application/json");
-    request.handler(res -> {
-      if(res.statusCode() != 200) {
-        future.fail("Got status code " + res.statusCode());
-      } else {
-        res.bodyHandler(buf -> {
-          try {
-            JsonObject resultObject = buf.toJsonObject();
-            int recordCount = resultObject.getInteger("totalRecords");
-            if(recordCount > 1) {
-              future.fail("Bad results from username");
-            } else if(recordCount == 0) {
-              logger.debug("No user found by username " + username);
-              future.fail("No user found by username " + username);
-            } else {
-              boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
-              if(!active) {
-                logger.debug("User " + username + " is inactive");
-              } 
-              future.complete(resultObject.getJsonArray("users").getJsonObject(0));
+    try {
+      HttpClientRequest request = client.getAbs(requestURL);
+      request.putHeader(OKAPI_TENANT_HEADER, tenant)
+              .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+              .putHeader("Content-type", "application/json")
+              .putHeader("Accept", "application/json");
+      request.handler(res -> {
+        if(res.statusCode() != 200) {
+          res.bodyHandler(buf -> {
+            String message = "Expected status code 200, got '" + res.statusCode() +
+                    "' :" + buf.toString();
+            future.fail(message);
+          });
+        } else {
+          res.bodyHandler(buf -> {
+            try {
+              JsonObject resultObject = buf.toJsonObject();
+              if(!resultObject.containsKey("totalRecords") || !resultObject.containsKey("users")) {
+                future.fail("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+              } else {
+                int recordCount = resultObject.getInteger("totalRecords");
+                if(recordCount > 1) {
+                  future.fail("Bad results from username");
+                } else if(recordCount == 0) {
+                  logger.error("No user found by username " + username);
+                  future.fail("No user found by username " + username);
+                } else {
+                  /*
+                  boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
+                  if(!active) {
+                    logger.debug("User " + username + " is inactive");
+                  } 
+                  */
+                  future.complete(resultObject.getJsonArray("users").getJsonObject(0));
+                }
+              }
+            } catch(Exception e) {
+              future.fail(e);
             }
-          } catch(Exception e) {
-            future.fail(e);
-          }
-        });
-      }
-    });
-    request.end();
+          });
+        }
+      });
+      request.end();
+    } catch(Exception e) {
+      String message = "User lookup failed: " + e.getLocalizedMessage();
+      logger.error(message, e);
+      future.fail(message);
+    }
     return future;
   }
 
@@ -134,87 +157,129 @@ public class LoginAPI implements AuthnResource {
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
-
+  
   @Override
-  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
+      testForFile(CREDENTIAL_SCHEMA_PATH);
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+        if(requestToken == null) {
+          logger.error("Missing request token");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Missing Okapi token header")));
+          return;
+        }
         Future<JsonObject> userVerified;
-        Object verifyUser = RestVerticle.MODULE_SPECIFIC_ARGS.get("verify.user");
-        if(verifyUser != null && verifyUser.equals("true")) {
-          logger.debug("Looking up user");
-          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+        if(entity.getUserId() == null && entity.getUsername() == null) {
+          logger.error("No username or userId provided for login attempt");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a username or userId")));
+          return;
+        }
+        if(entity.getPassword() == null) {
+          logger.error("No password provided for login attempt");
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a password")));
+          return;
+        }
+        if(entity.getUserId() != null) {
+          logger.info("No need to look up user id");
+          userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
         } else {
-          userVerified = Future.succeededFuture(new JsonObject());
+          logger.info("Need to look up user id");
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());         
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
             String errMsg = "Error verifying user existence: " + verifyResult.cause().getLocalizedMessage();
-            logger.debug(errMsg);
+            logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
             //Error!
-          } else if(!verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
+          //} else if(verifyResult.result() != null && !verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
+          //  asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
             //User isn't valid
           } else {
             //User's okay, let's try to login
             try {
               JsonObject userObject = verifyResult.result();
-              Criteria nameCrit = new Criteria();
-              nameCrit.addField(CREDENTIAL_NAME_FIELD);
-              nameCrit.setOperation("=");
-              nameCrit.setValue(entity.getUsername());
+              if(!userObject.containsKey("id")) {
+                logger.error("No 'id' key in returned user object");
+                asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("No user id could be found")));
+                return;
+              }
+              Criteria useridCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+              //Criteria useridCrit = new Criteria();
+              useridCrit.addField(CREDENTIAL_USERID_FIELD);
+              useridCrit.setOperation("=");
+              useridCrit.setValue(userObject.getString("id"));
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                      TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply-> {
+                      TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit), true, getReply-> {
                 if(getReply.failed()) {
-                  logger.debug("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
+                  logger.error("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
                   asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
                 } else {
-                  List<Credential> credList = (List<Credential>)getReply.result()[0];
-                  if(credList.size() < 1) {
-                    logger.debug("No matching credentials found for " + entity.getUsername());
-                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("No credentials match that login")));
-                  } else {
-                    Credential userCred = credList.get(0);
-                    String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
-                    if(userCred.getHash().equals(testHash)) {
-                      JsonObject payload = new JsonObject()
-                              .put("sub", userCred.getUsername());
-                      if(!userObject.isEmpty()) {
-                        payload.put("user_id", userObject.getString("id"));
-                      }
-                      Future<String> fetchTokenFuture;
-                      Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                      if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
-                        fetchTokenFuture = Future.succeededFuture("dummytoken");
-                      } else {
-                        logger.debug("Fetching token from authz with payload " + payload.encode());
-                        fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
-                      }
-                      fetchTokenFuture.setHandler(fetchTokenRes -> {
-                        if(fetchTokenRes.failed()) {
-                          String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
-                          logger.debug(errMsg);
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
-                        } else {
-                          //Append token as header to result
-                          String authToken = fetchTokenRes.result();
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
-                        }
-                      });
+                  try {
+                    List<Credential> credList = (List<Credential>)getReply.result()[0];
+                    if(credList.size() < 1) {
+                      logger.error("No matching credentials found for userid " + userObject.getString("id"));
+                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("No credentials match that login")));
                     } else {
-                      logger.debug("Password does not match for username " + entity.getUsername());
-                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
+                      Credential userCred = credList.get(0);
+                      if(userCred.getHash() == null || userCred.getSalt() == null) {
+                        String message = "Error retrieving stored hash and salt from credentials";
+                        logger.error(message);
+                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(message)));
+                        return;
+                      }
+                      logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
+                      String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
+                      if(userCred.getHash().equals(testHash)) {
+                        JsonObject payload = new JsonObject();
+                        if(userObject.containsKey("username")) {
+                          payload.put("sub", userObject.getString("username"));
+                        } else {
+                          payload.put("sub", userObject.getString("id"));
+                        }
+                        if(!userObject.isEmpty()) {
+                          payload.put("user_id", userObject.getString("id"));
+                        }
+                        Future<String> fetchTokenFuture;
+                        Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
+                        if(fetchTokenFlag != null && ((String)fetchTokenFlag).equals("no")) {
+                        //if(true) {
+                          fetchTokenFuture = Future.succeededFuture("dummytoken");
+                        } else {
+                          logger.debug("Fetching token from authz with payload " + payload.encode());
+                          fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
+                        }
+                        fetchTokenFuture.setHandler(fetchTokenRes -> {
+                          if(fetchTokenRes.failed()) {
+                            String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
+                            logger.error(errMsg);
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
+                          } else {
+                            //Append token as header to result
+                            String authToken = fetchTokenRes.result();
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
+                          }
+                        });
+                      } else {
+                        logger.error("Password does not match for userid " + userCred.getUserId());
+                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
+                      }
                     }
+                  } catch(Exception e) {
+                    String message = e.getLocalizedMessage();
+                    logger.error(message, e);
+                    asyncResultHandler.handle(
+                            Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(message)));
                   }
                 }
               });
               //Make sure this username isn't already added
             } catch(Exception e) {
-              logger.debug("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
+              logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
             }
           }
@@ -268,55 +333,82 @@ public class LoginAPI implements AuthnResource {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
-        Criteria nameCrit = new Criteria();
-        nameCrit.addField(USER_NAME_FIELD);
-        nameCrit.setOperation("=");
-        nameCrit.setValue(entity.getUsername());
-        try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply->{
-            if(getReply.failed()) {
-              logger.debug("Error in PostgresClient get method: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
-            } else {
-              List<Credential> credList = (List<Credential>)getReply.result()[0];
-              if(credList.size() > 0) {
-                logger.error("Error adding credentials for username " + entity.getUsername() + ": Username already exists");
-                asyncResultHandler.handle(Future.succeededFuture(
-                  PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
-                    ValidationHelper.createValidationErrorMessage(
-                      USER_NAME_FIELD, entity.getUsername(),
-                      "Username already exists"))));
-              } else {
-                Credential credential = new Credential();
-                credential.setUsername(entity.getUsername());
-                credential.setSalt(authUtil.getSalt());
-                credential.setHash(authUtil.calculateHash(entity.getPassword(), credential.getSalt()));
-                PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                postgresClient.startTx(beginTx -> {
-                  try {
-                    postgresClient.save(beginTx, TABLE_NAME_CREDENTIALS, credential, saveReply -> {
-                      if(saveReply.failed()) {
-                        logger.error("Error saving new credential: " + saveReply.cause().getLocalizedMessage());
-                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
+        String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
+        String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+        Future<JsonObject> userVerifyFuture;
+        if(entity.getUserId() != null) {
+          userVerifyFuture = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()));
+        } else {
+          userVerifyFuture = lookupUser(entity.getUsername(),
+            tenantId, okapiURL, requestToken, vertxContext.owner());
+        }
+        userVerifyFuture.setHandler(verifyRes -> {
+          if(verifyRes.failed()) {
+            String message = "Error looking up user: " + verifyRes.cause().getLocalizedMessage();
+            logger.error(message, verifyRes.cause());
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainBadRequest(message)));
+          } else {
+            JsonObject userOb = verifyRes.result();
+            Criteria userIdCrit = new Criteria();
+            userIdCrit.addField(CREDENTIAL_USERID_FIELD);
+            userIdCrit.setOperation("=");
+            userIdCrit.setValue(userOb.getString("id"));
+            try {
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class,
+                  new Criterion(userIdCrit), true, getCredReply -> {
+                    if(getCredReply.failed()) {
+                    } else {
+                      List<Credential> credList = (List<Credential>)getCredReply.result()[0];
+                      if(credList.size() > 0) {
+                        String message = "There already exists credentials for user id '" + userOb.getString("id") + "'";
+                        logger.error(message);
+                        asyncResultHandler.handle(Future.succeededFuture(
+                          PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
+                                  ValidationHelper.createValidationErrorMessage(
+                                          CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
                       } else {
-                        final LoginCredentials loginCred = entity;
-                        postgresClient.endTx(beginTx, end -> {
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withJsonCreated(loginCred)));
+                        //Now we can create a new Credential
+                        Credential credential = new Credential();
+                        credential.setId(UUID.randomUUID().toString());
+                        credential.setUserId(userOb.getString("id"));
+                        credential.setSalt(authUtil.getSalt());
+                        credential.setHash(authUtil.calculateHash(entity.getPassword(), credential.getSalt()));
+                        //And save it
+                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                        pgClient.startTx(beginTx -> {
+                          try {
+                            pgClient.save(beginTx, TABLE_NAME_CREDENTIALS,
+                                credential, saveReply -> {
+                             if(saveReply.failed()) {
+                               String message = "Saving record failed: " + saveReply.cause().getLocalizedMessage();
+                               logger.error(message, saveReply.cause());
+                               asyncResultHandler.handle(Future.succeededFuture(
+                                     PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                             } else {
+                               pgClient.endTx(beginTx, done -> {
+                                 asyncResultHandler.handle(Future.succeededFuture(
+                                     PostAuthnCredentialsResponse.withJsonCreated(credential)));
+                               });
+                             }
+                            });
+                          } catch(Exception e) {
+                            String message = e.getLocalizedMessage();
+                            logger.error(message, e);
+                            asyncResultHandler.handle(Future.succeededFuture(
+                              PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                          }
                         });
                       }
-                    });
-                  } catch(Exception e) {
-                    logger.error("Error with PostgresClient to save record: " + e.getLocalizedMessage());
-                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
-                  }
-                });
-              }
+                    }
+              });
+            } catch(Exception e) {
+              String message = e.getLocalizedMessage();
+              logger.error(message, e);
+              asyncResultHandler.handle(Future.succeededFuture(
+                    PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
             }
-          });
-        } catch(Exception e) {
-          logger.error("Error from PostgresClient: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
-        }
+          }
+        });
       });
     } catch(Exception e) {
       logger.error("Error running on vertx context: " + e.getLocalizedMessage());
@@ -325,23 +417,23 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void putAuthnCredentialsByUsername(String username, LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void putAuthnCredentialsById(String id, LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
-        Criteria nameCrit = new Criteria();
-        nameCrit.addField(CREDENTIAL_NAME_FIELD);
-        nameCrit.setOperation("=");
-        nameCrit.setValue(username);
+        Criteria idCrit = new Criteria();
+        idCrit.addField(CREDENTIAL_ID_FIELD);
+        idCrit.setOperation("=");
+        idCrit.setValue(id);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit),true, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
             if(getReply.failed()) {
               logger.debug("PostgresClient get operation failed: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials found")));
+                asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainNotFound("No credentials found")));
               } else {
                 Credential cred = credList.get(0);
                 String newSalt = authUtil.getSalt();
@@ -349,110 +441,117 @@ public class LoginAPI implements AuthnResource {
                 cred.setHash(newHash);
                 cred.setSalt(newSalt);
                 try {
-                  PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_CREDENTIALS, cred, new Criterion(nameCrit), true, putReply -> {
+                  PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_CREDENTIALS, cred, new Criterion(idCrit), true, putReply -> {
                     if(putReply.failed()) {
                       logger.debug("Error with PostgresClient update operation: " + putReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
                     } else {
-                     asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withJsonOK(entity)));
+                     asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withJsonOK(entity)));
                     }
                   });
                 } catch(Exception e) {
                   logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+                  asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
                 }
               }
             }
           });
         } catch(Exception e) {
           logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+          asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
   @Override
-  public void getAuthnCredentialsByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
-        Criteria nameCrit = new Criteria();
-        nameCrit.addField(CREDENTIAL_NAME_FIELD);
-        nameCrit.setOperation("=");
-        nameCrit.setValue(username);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
+          testForFile(CREDENTIAL_SCHEMA_PATH);
+          Criteria idCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+          idCrit.addField(CREDENTIAL_ID_FIELD);
+          idCrit.setOperation("=");
+          idCrit.setValue(id);
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found")));
+                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainNotFound("No credentials for id " + id + " found")));
               } else {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withJsonOK(credList.get(0))));
+                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withJsonOK(credList.get(0))));
               }
             }
           });
         } catch(Exception e) {
           logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
 
 
   @Override
-  public void deleteAuthnCredentialsByUsername(String username, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void deleteAuthnCredentialsById(String id, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         Criteria nameCrit = new Criteria();
-        nameCrit.addField(CREDENTIAL_NAME_FIELD);
+        nameCrit.addField(CREDENTIAL_ID_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(username);
+        nameCrit.setValue(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result()[0];
               if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainNotFound("No credentials for username " + username + " found")));
+                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainNotFound("No credentials for id " + id + " found")));
               } else {
                 try {
                   PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(nameCrit), deleteReply-> {
                     if(deleteReply.failed()) {
                       logger.debug("Error in PostgresClient get operation: " + deleteReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
                     } else {
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainNoContent("")));
+                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainNoContent("")));
                     }
                    });
                 } catch(Exception e) {
                   logger.debug("Error from PostgresClient: " + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
                 }
               }
             }
           });
         } catch(Exception e) {
           logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByUsernameResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
-
+  
+  private void testForFile(String path) {
+    URL u = LoginAPI.class.getClassLoader().getResource(path);
+    if(u == null) {
+      throw(new MissingResourceException(path, LoginAPI.class.getName(), path));
+    }
+  }
 }
