@@ -119,7 +119,7 @@ public class LoginAPI implements AuthnResource {
                   boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
                   if(!active) {
                     logger.debug("User " + username + " is inactive");
-                  } 
+                  }
                   */
                   future.complete(resultObject.getJsonArray("users").getJsonObject(0));
                 }
@@ -157,7 +157,7 @@ public class LoginAPI implements AuthnResource {
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
-  
+
   @Override
   public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
@@ -188,7 +188,7 @@ public class LoginAPI implements AuthnResource {
           userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
         } else {
           logger.info("Need to look up user id");
-          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());         
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
@@ -547,7 +547,7 @@ public class LoginAPI implements AuthnResource {
       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
     }
   }
-  
+
   private void testForFile(String path) {
     URL u = LoginAPI.class.getClassLoader().getResource(path);
     if(u == null) {

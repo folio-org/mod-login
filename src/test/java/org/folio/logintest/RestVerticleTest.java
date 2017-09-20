@@ -41,7 +41,7 @@ public class RestVerticleTest {
   private static Vertx vertx;
   static int port;
   static int mockPort;
-  
+
   private UserMock userMock;
 
   @Rule
@@ -61,9 +61,9 @@ public class RestVerticleTest {
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
         .put("port", mockPort));
-    
-    
-            
+
+
+
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
@@ -72,7 +72,7 @@ public class RestVerticleTest {
       context.fail(e);
       return;
     }
-    
+
     vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
       if(mockRes.failed()) {
         mockRes.cause().printStackTrace();
@@ -89,7 +89,7 @@ public class RestVerticleTest {
         });
       }
     });
-            
+
   }
 
   @AfterClass
@@ -106,7 +106,7 @@ public class RestVerticleTest {
     String url = "http://localhost:"+port+"/authn/credentials";
     try {
       String credentialsId = null;
-      
+
       /**add creds */
        CompletableFuture<Response> addPUCF = new CompletableFuture();
        String addPUURL = url;
@@ -117,7 +117,7 @@ public class RestVerticleTest {
        context.assertEquals(addPUResponse.code, HttpURLConnection.HTTP_CREATED);
        System.out.println("Status - " + addPUResponse.code + " at " +
            System.currentTimeMillis() + " for " + addPUURL);
-       
+
        /**add same creds again 422 */
        CompletableFuture<Response> addPUCF2 = new CompletableFuture();
        String addPUURL2 = url;
@@ -128,8 +128,8 @@ public class RestVerticleTest {
        System.out.println(addPUResponse2.body +
          "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL2);
-       
-       
+
+
        /**try to GET the recently created creds 200 */
         CompletableFuture<Response> addPUCF2_5 = new CompletableFuture();
        String addPUURL2_5 = url + "/" + credentialsId;
@@ -140,7 +140,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse2_5.body +
          "\nStatus - " + addPUResponse2_5.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL2_5);
-       
+
        /**login with creds 201 */
        CompletableFuture<Response> addPUCF3 = new CompletableFuture();
        String addPUURL3 = "http://localhost:"+port+"/authn/login";
@@ -151,7 +151,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse3.body +
          "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL3);
-      
+
        /* test mock user*/
        CompletableFuture<Response> addPUCF4 = new CompletableFuture();
        String addPUURL4 = "http://localhost:"+mockPort+"/users?query=username==gollum";
@@ -162,7 +162,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse4.body +
          "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL4);
-       
+
  /*
         // test mock user 404
        CompletableFuture<Response> addPUCF5 = new CompletableFuture();
@@ -175,7 +175,7 @@ public class RestVerticleTest {
          "\nStatus - " + addPUResponse5.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL5);
   */
-       
+
        /**login with creds, no userid supplied, 201 */
        CompletableFuture<Response> addPUCF6 = new CompletableFuture();
        String addPUURL6 = "http://localhost:"+port+"/authn/login";
