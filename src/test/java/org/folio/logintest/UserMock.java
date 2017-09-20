@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.logintest;
 
 import io.vertx.core.AbstractVerticle;
@@ -18,16 +13,16 @@ import io.vertx.ext.web.RoutingContext;
  * @author kurt
  */
 public class UserMock extends AbstractVerticle {
-  
+
   public void start(Future<Void> future) {
     //final String portStr = context.config().getString("port");
     //final String portStr = System.getProperty("port", defaultPort);
     //final int port = Integer.parseInt(portStr);
     final int port = context.config().getInteger("port");
-    
+
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
-    
+
     router.route("/users").handler(this::handleUsers);
     router.route("/token").handler(this::handleToken);
     System.out.println("Running UserMock on port " + port);
@@ -39,7 +34,7 @@ public class UserMock extends AbstractVerticle {
       }
     });
   }
-  
+
   private void handleUsers(RoutingContext context) {
     try {
       String query = context.request().getParam("query");
@@ -55,7 +50,7 @@ public class UserMock extends AbstractVerticle {
         context.response()
                 .setStatusCode(200)
                 .end(responseOb.encode());
-                
+
       } else {
         context.response()
                 .setStatusCode(404)
@@ -69,10 +64,10 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleToken(RoutingContext context) {
-  	context.response()
-  		.setStatusCode(200)
-  		.end("dummytoken");
-	}
+    context.response()
+            .setStatusCode(200)
+            .end("dummytoken");
+  }
 }
 
 
