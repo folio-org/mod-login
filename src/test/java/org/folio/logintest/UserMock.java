@@ -69,10 +69,10 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleToken(RoutingContext context) {
-  	context.response()
-  		.setStatusCode(200)
-  		.end("dummytoken");
-	}
+    context.response()
+            .setStatusCode(200)
+            .end("dummytoken");
+  }
 }
 
 
