@@ -81,6 +81,9 @@ public class LoginAPI implements AuthnResource {
     options.setIdleTimeout(10);
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
+    if(requestToken == null) {
+      requestToken = "";
+    }
     try {
       requestURL = okapiURL + "/users?query=username==" + URLEncoder.encode(username, "UTF-8");
     } catch(Exception e) {
@@ -130,6 +133,7 @@ public class LoginAPI implements AuthnResource {
           });
         }
       });
+      request.exceptionHandler(e -> { future.fail(e); });
       request.end();
     } catch(Exception e) {
       String message = "User lookup failed: " + e.getLocalizedMessage();
@@ -154,6 +158,7 @@ public class LoginAPI implements AuthnResource {
         future.complete(token);
       }
     });
+    request.exceptionHandler(e -> {future.fail(e);});
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
@@ -356,16 +361,21 @@ public class LoginAPI implements AuthnResource {
             try {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class,
                   new Criterion(userIdCrit), true, getCredReply -> {
+                    try {
                     if(getCredReply.failed()) {
+                      String message = getCredReply.cause().getLocalizedMessage();
+                      logger.error(message);
+                      asyncResultHandler.handle(Future.succeededFuture(
+                              PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
                     } else {
-                      List<Credential> credList = (List<Credential>)getCredReply.result()[0];
-                      if(credList.size() > 0) {
+                      List<Credential> credList = (List<Credential>) getCredReply.result()[0];
+                      if (credList.size() > 0) {
                         String message = "There already exists credentials for user id '" + userOb.getString("id") + "'";
                         logger.error(message);
                         asyncResultHandler.handle(Future.succeededFuture(
-                          PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
-                                  ValidationHelper.createValidationErrorMessage(
-                                          CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
+                                PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
+                                        ValidationHelper.createValidationErrorMessage(
+                                                CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
@@ -378,34 +388,40 @@ public class LoginAPI implements AuthnResource {
                         pgClient.startTx(beginTx -> {
                           try {
                             pgClient.save(beginTx, TABLE_NAME_CREDENTIALS,
-                                credential, saveReply -> {
-                             if(saveReply.failed()) {
-                               String message = "Saving record failed: " + saveReply.cause().getLocalizedMessage();
-                               logger.error(message, saveReply.cause());
-                               asyncResultHandler.handle(Future.succeededFuture(
-                                     PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
-                             } else {
-                               pgClient.endTx(beginTx, done -> {
-                                 asyncResultHandler.handle(Future.succeededFuture(
-                                     PostAuthnCredentialsResponse.withJsonCreated(credential)));
-                               });
-                             }
-                            });
-                          } catch(Exception e) {
+                                    credential, saveReply -> {
+                                      if (saveReply.failed()) {
+                                        String message = "Saving record failed: " + saveReply.cause().getLocalizedMessage();
+                                        logger.error(message, saveReply.cause());
+                                        asyncResultHandler.handle(Future.succeededFuture(
+                                                PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                                      } else {
+                                        pgClient.endTx(beginTx, done -> {
+                                          asyncResultHandler.handle(Future.succeededFuture(
+                                                  PostAuthnCredentialsResponse.withJsonCreated(credential)));
+                                        });
+                                      }
+                                    });
+                          } catch (Exception e) {
                             String message = e.getLocalizedMessage();
                             logger.error(message, e);
                             asyncResultHandler.handle(Future.succeededFuture(
-                              PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                                    PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
                           }
                         });
                       }
                     }
-              });
-            } catch(Exception e) {
-              String message = e.getLocalizedMessage();
-              logger.error(message, e);
-              asyncResultHandler.handle(Future.succeededFuture(
-                    PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                  } catch (Exception e) {
+                    String message = e.getLocalizedMessage();
+                    logger.error(message, e);
+                    asyncResultHandler.handle(Future.succeededFuture(
+                            PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                  }
+                });
+              } catch (Exception e) {
+                String message = e.getLocalizedMessage();
+                logger.error(message, e);
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
             }
           }
         });
