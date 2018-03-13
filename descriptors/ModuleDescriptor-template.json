@@ -88,5 +88,13 @@
         "login.item.delete"
       ]
     }
-  ]
- }
+  ],
+  "launchDescriptor": {
+    "dockerImage": "${artifactId}:${version}",
+    "dockerArgs": {
+      "HostConfig": { "PortBindings": { "8081/tcp":  [{ "HostPort": "%p" }] } } 
+    },
+    "dockerCMD": [ "verify.user=true" ],
+    "dockerPull": false
+  }
+}
