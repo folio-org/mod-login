@@ -35,8 +35,9 @@ public class RestVerticleTest {
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
 
   private static String postCredsRequest = "{\"username\": \"gollum\", \"userId\":\"bc6e4932-6415-40e2-ac1e-67ecdd665366\", \"password\":\"12345\"}";
-
   private static String postCredsRequest2 = "{\"username\": \"gollum\", \"password\":\"12345\"}";
+  private static String postCredsRequest3 = "{\"username\": \"saruman\", \"userId\":\"340bafb8-ea74-4f51-be8c-ec6493fd517e\", \"password\":\"12345\"}";
+  private static String postCredsRequest4 = "{\"username\": \"saruman\", \"password\":\"12345\"}";
 
   private static Vertx vertx;
   static int port;
@@ -163,7 +164,7 @@ public class RestVerticleTest {
          "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL4);
 
- /*
+
         // test mock user 404
        CompletableFuture<Response> addPUCF5 = new CompletableFuture();
        String addPUURL5 = "http://localhost:"+mockPort+"/users?query=username==bilbo";
@@ -174,7 +175,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse5.body +
          "\nStatus - " + addPUResponse5.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL5);
-  */
+ 
 
        /**login with creds, no userid supplied, 201 */
        CompletableFuture<Response> addPUCF6 = new CompletableFuture();
@@ -186,6 +187,29 @@ public class RestVerticleTest {
        System.out.println(addPUResponse6.body +
          "\nStatus - " + addPUResponse6.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL6);
+       
+       /*add creds for inactive user */
+       
+       CompletableFuture<Response> addPUCF7 = new CompletableFuture();
+       String addPUURL7 = url;
+       send(addPUURL7, context, HttpMethod.POST, postCredsRequest3,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF7));
+       Response addPUResponse7 = addPUCF7.get(5, TimeUnit.SECONDS);
+       credentialsId = addPUResponse7.body.getString("id");
+       context.assertEquals(addPUResponse7.code, HttpURLConnection.HTTP_CREATED);
+       System.out.println("Status - " + addPUResponse7.code + " at " +
+           System.currentTimeMillis() + " for " + addPUURL7);       
+       
+       /* try to login with inactive user */
+       CompletableFuture<Response> addPUCF8 = new CompletableFuture();
+       String addPUURL8 = "http://localhost:"+port+"/authn/login";
+       send(addPUURL8, context, HttpMethod.POST, postCredsRequest4,
+         SUPPORTED_CONTENT_TYPE_JSON_DEF, 400,  new HTTPResponseHandler(addPUCF8));
+       Response addPUResponse8 = addPUCF8.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPUResponse8.code, 400);
+       System.out.println(addPUResponse8.body +
+         "\nStatus - " + addPUResponse8.code + " at " + System.currentTimeMillis() + " for "
+           + addPUURL8);
 
 
     } catch (Exception e) {
@@ -239,7 +263,11 @@ public class RestVerticleTest {
      hcr.bodyHandler( bh -> {
        Response r = new Response();
        r.code = hcr.statusCode();
-       r.body = bh.toJsonObject();
+       try {
+        r.body = bh.toJsonObject();
+       } catch(Exception e) {
+         r.body = null;
+       }
        event.complete(r);
      });
    }

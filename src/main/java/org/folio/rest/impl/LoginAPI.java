@@ -37,6 +37,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.net.URL;
 import java.util.MissingResourceException;
+import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 
 /**
  *
@@ -55,6 +56,10 @@ public class LoginAPI implements AuthnResource {
   private static final String CREDENTIAL_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/credentials.json";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
+  private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
+      .getOrDefault("require.active", "true"));
+  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
+      .getOrDefault("lookup.timeout", "1000"));
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
@@ -64,28 +69,35 @@ public class LoginAPI implements AuthnResource {
     }
     return response;
   }
-  private CQLWrapper getCQL(String query, int limit, int offset) throws org.z3950.zing.cql.cql2pgjson.FieldException {
+  private CQLWrapper getCQL(String query, int limit, int offset) 
+      throws org.z3950.zing.cql.cql2pgjson.FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
-    return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
+    return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(
+        new Offset(offset));
   }
 
   private String getTenant(Map<String, String> headers) {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   };
 
-  //Query the mod-users module to determine whether or not the username is valid for login
-  private Future<JsonObject> lookupUser(String username, String tenant, String okapiURL, String requestToken, Vertx vertx) {
+  /*
+    Query the mod-users module to determine whether or not the username is 
+    valid for login
+  */
+  private Future<JsonObject> lookupUser(String username, String tenant,
+      String okapiURL, String requestToken, Vertx vertx) {
     Future<JsonObject> future = Future.future();
     HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(10);
-    options.setIdleTimeout(10);
+    options.setConnectTimeout(lookupTimeout);
+    options.setIdleTimeout(lookupTimeout);
     HttpClient client = vertx.createHttpClient(options);
     String requestURL = null;
     if(requestToken == null) {
       requestToken = "";
     }
     try {
-      requestURL = okapiURL + "/users?query=username==" + URLEncoder.encode(username, "UTF-8");
+      requestURL = okapiURL + "/users?query=username==" + URLEncoder.encode(
+          username, "UTF-8");
     } catch(Exception e) {
       logger.error("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
@@ -108,7 +120,8 @@ public class LoginAPI implements AuthnResource {
           res.bodyHandler(buf -> {
             try {
               JsonObject resultObject = buf.toJsonObject();
-              if(!resultObject.containsKey("totalRecords") || !resultObject.containsKey("users")) {
+              if(!resultObject.containsKey("totalRecords") || 
+                  !resultObject.containsKey("users")) {
                 future.fail("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
               } else {
                 int recordCount = resultObject.getInteger("totalRecords");
@@ -118,12 +131,6 @@ public class LoginAPI implements AuthnResource {
                   logger.error("No user found by username " + username);
                   future.fail("No user found by username " + username);
                 } else {
-                  /*
-                  boolean active = resultObject.getJsonArray("users").getJsonObject(0).getBoolean("active");
-                  if(!active) {
-                    logger.debug("User " + username + " is inactive");
-                  }
-                  */
                   future.complete(resultObject.getJsonArray("users").getJsonObject(0));
                 }
               }
@@ -143,7 +150,8 @@ public class LoginAPI implements AuthnResource {
     return future;
   }
 
-  private Future<String> fetchToken(JsonObject payload, String tenant, String okapiURL, String requestToken, Vertx vertx) {
+  private Future<String> fetchToken(JsonObject payload, String tenant,
+      String okapiURL, String requestToken, Vertx vertx) {
     Future<String> future = Future.future();
     HttpClient client = vertx.createHttpClient();
     HttpClientRequest request = client.postAbs(okapiURL + "/token");
@@ -165,7 +173,8 @@ public class LoginAPI implements AuthnResource {
 
   @Override
   public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
-          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
+      throws Exception {
     try {
       testForFile(CREDENTIAL_SCHEMA_PATH);
       vertxContext.runOnContext(v -> {
@@ -174,44 +183,66 @@ public class LoginAPI implements AuthnResource {
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
         if(requestToken == null) {
           logger.error("Missing request token");
-          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Missing Okapi token header")));
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+              .withPlainBadRequest("Missing Okapi token header")));
           return;
         }
         Future<JsonObject> userVerified;
         if(entity.getUserId() == null && entity.getUsername() == null) {
           logger.error("No username or userId provided for login attempt");
-          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a username or userId")));
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+              .withPlainBadRequest("You must provide a username or userId")));
           return;
         }
         if(entity.getPassword() == null) {
           logger.error("No password provided for login attempt");
-          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("You must provide a password")));
+          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+              .withPlainBadRequest("You must provide a password")));
           return;
         }
-        if(entity.getUserId() != null) {
-          logger.info("No need to look up user id");
-          userVerified = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()).put("active", true).put("username", "__undefined__"));
+        if(entity.getUserId() != null && !requireActiveUser) {
+          logger.debug("No need to look up user id");
+          userVerified = Future.succeededFuture(new JsonObject()
+              .put("id", entity.getUserId()).put("active", true)
+              .put("username", "__undefined__"));
         } else {
-          logger.info("Need to look up user id");
-          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL, requestToken, vertxContext.owner());
+          logger.debug("Need to look up user id");
+          userVerified = lookupUser(entity.getUsername(), tenantId, okapiURL,
+              requestToken, vertxContext.owner());
         }
         userVerified.setHandler(verifyResult -> {
           if(verifyResult.failed()) {
-            String errMsg = "Error verifying user existence: " + verifyResult.cause().getLocalizedMessage();
+            String errMsg = "Error verifying user existence: " + verifyResult
+                .cause().getLocalizedMessage();
             logger.error(errMsg);
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
-            //Error!
-          //} else if(verifyResult.result() != null && !verifyResult.result().isEmpty() && !verifyResult.result().getBoolean("active")) {
-          //  asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("User is missing or inactive")));
-            //User isn't valid
+            asyncResultHandler.handle(Future.succeededFuture(
+                PostAuthnLoginResponse.withPlainInternalServerError(
+                getErrorResponse(errMsg))));
           } else {
             //User's okay, let's try to login
             try {
               JsonObject userObject = verifyResult.result();
               if(!userObject.containsKey("id")) {
                 logger.error("No 'id' key in returned user object");
-                asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("No user id could be found")));
+                asyncResultHandler.handle(Future.succeededFuture(
+                    PostAuthnLoginResponse.withPlainInternalServerError(
+                    "No user id could be found")));
                 return;
+              }
+              if(requireActiveUser) {
+                boolean foundActive = false;
+                if(userObject.containsKey("active")) {
+                  if(userObject.getBoolean("active")) {
+                    foundActive = true;
+                  }
+                }
+                if(!foundActive) {
+                  logger.error("User could not be verified as active");
+                  asyncResultHandler.handle(Future.succeededFuture(
+                    PostAuthnLoginResponse.withPlainBadRequest(
+                    "User must be flagged as active")));
+                  return;
+                }
               }
               Criteria useridCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
               //Criteria useridCrit = new Criteria();
@@ -219,10 +250,14 @@ public class LoginAPI implements AuthnResource {
               useridCrit.setOperation("=");
               useridCrit.setValue(userObject.getString("id"));
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                      TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit), true, getReply-> {
+                  TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
+                  true, getReply-> {
                 if(getReply.failed()) {
-                  logger.error("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+                  logger.error("Error in postgres get operation: " + 
+                      getReply.cause().getLocalizedMessage());
+                  asyncResultHandler.handle(Future.succeededFuture(
+                      PostAuthnLoginResponse.withPlainInternalServerError(
+                      "Internal Server error")));
                 } else {
                   try {
                     List<Credential> credList = (List<Credential>)getReply.result()[0];
@@ -297,7 +332,9 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void getAuthnCredentials(int length, int start, String sortBy, String query, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getAuthnCredentials(int length, int start, String sortBy, String query,
+      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) throws Exception {
     try {
        vertxContext.runOnContext(v -> {
          String tenantId = getTenant(okapiHeaders);
@@ -334,7 +371,10 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void postAuthnCredentials(LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postAuthnCredentials(LoginCredentials entity,
+      Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
+      throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
@@ -433,7 +473,10 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void putAuthnCredentialsById(String id, LoginCredentials entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void putAuthnCredentialsById(String id, LoginCredentials entity,
+      Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
@@ -483,7 +526,9 @@ public class LoginAPI implements AuthnResource {
     }
   }
   @Override
-  public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
@@ -519,7 +564,9 @@ public class LoginAPI implements AuthnResource {
 
 
   @Override
-  public void deleteAuthnCredentialsById(String id, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void deleteAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
+      throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);

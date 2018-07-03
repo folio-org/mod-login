@@ -51,7 +51,20 @@ public class UserMock extends AbstractVerticle {
                 .setStatusCode(200)
                 .end(responseOb.encode());
 
-      } else {
+      } else if(query.equals("username==saruman")) {
+        JsonObject userOb = new JsonObject()
+                .put("username", "saruman")
+                .put("id", "340bafb8-ea74-4f51-be8c-ec6493fd517e")
+                .put("active", false);
+        JsonObject responseOb = new JsonObject()
+                .put("users", new JsonArray()
+                  .add(userOb))
+                .put("totalRecords", 1);
+        context.response()
+                .setStatusCode(200)
+                .end(responseOb.encode());
+      }
+      else {
         context.response()
                 .setStatusCode(404)
                 .end("Not found");
