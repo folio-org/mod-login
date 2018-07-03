@@ -140,6 +140,7 @@ public class LoginAPI implements AuthnResource {
           });
         }
       });
+      request.setTimeout(lookupTimeout);
       request.exceptionHandler(e -> { future.fail(e); });
       request.end();
     } catch(Exception e) {
