@@ -232,10 +232,8 @@ public class LoginAPI implements AuthnResource {
               }
               if(requireActiveUser) {
                 boolean foundActive = false;
-                if(userObject.containsKey("active")) {
-                  if(userObject.getBoolean("active")) {
-                    foundActive = true;
-                  }
+                if(userObject.containsKey("active") && userObject.getBoolean("active")) {
+                  foundActive = true;
                 }
                 if(!foundActive) {
                   logger.error("User could not be verified as active");
