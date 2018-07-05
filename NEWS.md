@@ -1,3 +1,7 @@
+## 2018-07-05 v4.1.0
+ * Enable option to refuse login when associated user record is flagged as inactive
+ * Enable option to set the timeout (in ms) for looking up associated user records
+
 ## 2016-07-28 v3.1.0
  * Include user-id field when generating authtoken on login
  * Use more specific relation '==' when looking up users
