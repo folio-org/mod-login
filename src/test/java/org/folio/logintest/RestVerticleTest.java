@@ -58,7 +58,7 @@ public class RestVerticleTest {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
-    TenantClient tenantClient = new TenantClient("localhost", port, "diku");
+    TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(
             new JsonObject()

@@ -9,7 +9,8 @@ import javax.ws.rs.core.Response;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsListObject;
-import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.model.LoginCredentialsJson;
+import org.folio.rest.jaxrs.model.UpdateCredentialsJson;
 import org.folio.rest.jaxrs.resource.AuthnResource;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -35,6 +36,7 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import java.io.Reader;
 import java.net.URL;
 import java.util.MissingResourceException;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
@@ -173,7 +175,7 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
+  public void postAuthnLogin(LoginCredentialsJson entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
       throws Exception {
     try {
@@ -259,7 +261,7 @@ public class LoginAPI implements AuthnResource {
                       "Internal Server error")));
                 } else {
                   try {
-                    List<Credential> credList = (List<Credential>)getReply.result()[0];
+                    List<Credential> credList = (List<Credential>)getReply.result().getResults();
                     if(credList.size() < 1) {
                       logger.error("No matching credentials found for userid " + userObject.getString("id"));
                       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("No credentials match that login")));
@@ -347,9 +349,9 @@ public class LoginAPI implements AuthnResource {
                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
              } else {
                CredentialsListObject credentialsListObject = new CredentialsListObject();
-               List<Credential> credentialList = (List<Credential>)getReply.result()[0];
+               List<Credential> credentialList = (List<Credential>)getReply.result().getResults();
                credentialsListObject.setCredentials(credentialList);
-               credentialsListObject.setTotalRecords(credentialList.size());
+               credentialsListObject.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withJsonOK(credentialsListObject)));
              }
            });
@@ -370,7 +372,7 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void postAuthnCredentials(LoginCredentials entity,
+  public void postAuthnCredentials(LoginCredentialsJson entity,
       Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
       throws Exception {
@@ -381,16 +383,19 @@ public class LoginAPI implements AuthnResource {
         String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
         Future<JsonObject> userVerifyFuture;
         if(entity.getUserId() != null) {
-          userVerifyFuture = Future.succeededFuture(new JsonObject().put("id", entity.getUserId()));
+          userVerifyFuture = Future.succeededFuture(new JsonObject().put("id",
+              entity.getUserId()));
         } else {
           userVerifyFuture = lookupUser(entity.getUsername(),
             tenantId, okapiURL, requestToken, vertxContext.owner());
         }
         userVerifyFuture.setHandler(verifyRes -> {
           if(verifyRes.failed()) {
-            String message = "Error looking up user: " + verifyRes.cause().getLocalizedMessage();
+            String message = "Error looking up user: " + verifyRes.cause()
+                .getLocalizedMessage();
             logger.error(message, verifyRes.cause());
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainBadRequest(message)));
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse
+                .withPlainBadRequest(message)));
           } else {
             JsonObject userOb = verifyRes.result();
             Criteria userIdCrit = new Criteria();
@@ -398,55 +403,80 @@ public class LoginAPI implements AuthnResource {
             userIdCrit.setOperation("=");
             userIdCrit.setValue(userOb.getString("id"));
             try {
-              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class,
-                  new Criterion(userIdCrit), true, getCredReply -> {
-                    try {
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+                  TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(userIdCrit),
+                  true, getCredReply -> {
+                  try {
                     if(getCredReply.failed()) {
                       String message = getCredReply.cause().getLocalizedMessage();
                       logger.error(message);
                       asyncResultHandler.handle(Future.succeededFuture(
                               PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
                     } else {
-                      List<Credential> credList = (List<Credential>) getCredReply.result()[0];
+                      List<Credential> credList = (List<Credential>) getCredReply.result().getResults();
                       if (credList.size() > 0) {
                         String message = "There already exists credentials for user id '" + userOb.getString("id") + "'";
                         logger.error(message);
                         asyncResultHandler.handle(Future.succeededFuture(
-                                PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
-                                        ValidationHelper.createValidationErrorMessage(
-                                                CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
+                            PostAuthnCredentialsResponse.withJsonUnprocessableEntity(
+                            ValidationHelper.createValidationErrorMessage(
+                            CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
                         credential.setId(UUID.randomUUID().toString());
                         credential.setUserId(userOb.getString("id"));
                         credential.setSalt(authUtil.getSalt());
-                        credential.setHash(authUtil.calculateHash(entity.getPassword(), credential.getSalt()));
+                        credential.setHash(authUtil.calculateHash(entity.getPassword(),
+                            credential.getSalt()));
                         //And save it
-                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                        pgClient.startTx(beginTx -> {
-                          try {
-                            pgClient.save(beginTx, TABLE_NAME_CREDENTIALS,
-                                    credential, saveReply -> {
-                                      if (saveReply.failed()) {
-                                        String message = "Saving record failed: " + saveReply.cause().getLocalizedMessage();
-                                        logger.error(message, saveReply.cause());
-                                        asyncResultHandler.handle(Future.succeededFuture(
-                                                PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
-                                      } else {
-                                        pgClient.endTx(beginTx, done -> {
-                                          asyncResultHandler.handle(Future.succeededFuture(
-                                                  PostAuthnCredentialsResponse.withJsonCreated(credential)));
-                                        });
-                                      }
-                                    });
-                          } catch (Exception e) {
-                            String message = e.getLocalizedMessage();
-                            logger.error(message, e);
+                        PostgresClient pgClient = PostgresClient.getInstance(
+                            vertxContext.owner(), tenantId);
+                        pgClient.save(TABLE_NAME_CREDENTIALS, credential.getId(),
+                            credential, saveReply -> {
+                          if(saveReply.failed()) {
+                            String message = "Saving record failed: " 
+                                + saveReply.cause().getLocalizedMessage();
+                            logger.error(message, saveReply.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
-                                    PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                                PostAuthnCredentialsResponse
+                                .withPlainInternalServerError(message)));
+                          } else {
+                            asyncResultHandler.handle(Future.succeededFuture(
+                                PostAuthnCredentialsResponse
+                                .withJsonCreated(credential)));
+                          }
+                        }); 
+                        /*
+                        pgClient.startTx(connection -> {
+                          try {
+                            pgClient.save(connection, TABLE_NAME_CREDENTIALS,
+                                credential, saveReply -> {
+                              if(saveReply.failed()) {
+                                pgClient.rollbackTx(connection, rollback -> {
+                                  String message = "Saving record failed: " 
+                                      + saveReply.cause().getLocalizedMessage();
+                                  logger.error(message, saveReply.cause());
+                                  asyncResultHandler.handle(Future.succeededFuture(
+                                      PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                                });
+                              } else {
+                                pgClient.endTx(connection, done -> {
+                                  asyncResultHandler.handle(Future.succeededFuture(
+                                      PostAuthnCredentialsResponse.withJsonCreated(credential)));
+                                });
+                              }
+                            });
+                          } catch(Exception e) {
+                            pgClient.rollbackTx(connection, rollback -> {
+                              String message = e.getLocalizedMessage();
+                              logger.error(message, e);
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                  PostAuthnCredentialsResponse.withPlainInternalServerError(message)));
+                            });
                           }
                         });
+                       */
                       }
                     }
                   } catch (Exception e) {
@@ -472,7 +502,7 @@ public class LoginAPI implements AuthnResource {
   }
 
   @Override
-  public void putAuthnCredentialsById(String id, LoginCredentials entity,
+  public void putAuthnCredentialsById(String id, LoginCredentialsJson entity,
       Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler,
       Context vertxContext) throws Exception {
@@ -489,7 +519,7 @@ public class LoginAPI implements AuthnResource {
               logger.debug("PostgresClient get operation failed: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
-              List<Credential> credList = (List<Credential>)getReply.result()[0];
+              List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
                 asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainNotFound("No credentials found")));
               } else {
@@ -542,7 +572,7 @@ public class LoginAPI implements AuthnResource {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
-              List<Credential> credList = (List<Credential>)getReply.result()[0];
+              List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
                 asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainNotFound("No credentials for id " + id + " found")));
               } else {
@@ -579,7 +609,7 @@ public class LoginAPI implements AuthnResource {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
-              List<Credential> credList = (List<Credential>)getReply.result()[0];
+              List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
                 asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainNotFound("No credentials for id " + id + " found")));
               } else {
@@ -615,5 +645,19 @@ public class LoginAPI implements AuthnResource {
     if(u == null) {
       throw(new MissingResourceException(path, LoginAPI.class.getName(), path));
     }
+  }
+
+  @Override
+  public void postAuthnUpdate(UpdateCredentialsJson entity, 
+      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext)
+      throws Exception {
+    vertxContext.runOnContext(v -> {
+      try {
+        
+      } catch(Exception e) {
+        
+      }
+    });
   }
 }
