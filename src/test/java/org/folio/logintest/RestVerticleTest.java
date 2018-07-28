@@ -16,27 +16,62 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import org.folio.logintest.TestUtil.WrappedResponse;
+import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
 import static org.folio.logintest.UserMock.sarumanId;
+import org.folio.rest.impl.LoginAPI;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
 
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
+  
+  private JsonObject credsObject1 = new JsonObject()
+      .put("username", "gollum")
+      .put("userId", gollumId)
+      .put("password", "12345");
+  
+  private JsonObject credsObject2 = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345");
+  //private JsonObject loginCredsObject1 = new JsonObject()
+  
+  private JsonObject credsObject3 = new JsonObject()
+      .put("username", "saruman")
+      .put("userId", sarumanId)
+      .put("password", "12345");
+  
+  private JsonObject credsObject4 = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "54321");
+  
+  private JsonObject credsObject5 = new JsonObject()
+      .put("userId", gollumId)
+      .put("password", "54321");
 
+  private JsonObject credsObject6 = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345")
+      .put("newPassword", "54321");
+      
   private static String postCredsRequest = "{\"username\": \"gollum\", \"userId\":\"" +gollumId+ "\", \"password\":\"12345\"}";
   private static String postCredsRequest2 = "{\"username\": \"gollum\", \"password\":\"12345\"}";
   private static String postCredsRequest3 = "{\"username\": \"saruman\", \"userId\":\"" +sarumanId+ "\", \"password\":\"12345\"}";
@@ -49,6 +84,11 @@ public class RestVerticleTest {
   static int mockPort;
 
   private UserMock userMock;
+  private final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
+  public static String credentialsUrl;
+  public static String loginUrl;
+  public static String updateUrl;
+  public static String okapiUrl;
 
   @Rule
   public Timeout rule = Timeout.seconds(180);  // 3 minutes for loading embedded postgres
@@ -60,6 +100,11 @@ public class RestVerticleTest {
     mockPort = NetworkUtils.nextFreePort(); //get another
     TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
     vertx = Vertx.vertx();
+    credentialsUrl = "http://localhost:"+port+"/authn/credentials";
+    loginUrl = "http://localhost:"+port+"/authn/login";
+    updateUrl = "http://localhost:"+port+"/authn/update";
+    okapiUrl = "http://localhost:" +mockPort;
+    
     DeploymentOptions options = new DeploymentOptions().setConfig(
             new JsonObject()
                     .put("http.port", port)
@@ -107,7 +152,57 @@ public class RestVerticleTest {
     }));
   }
 
-  @Test
+  @Test 
+  public void testPermsSeq(TestContext context) {
+    Async async = context.async();
+    String[] credsObject1Id = new String[1];
+    Future<WrappedResponse> chainedFuture = 
+        postNewCredentials(context, credsObject1).compose( w -> {
+          credsObject1Id[0] = w.getJson().getString("id");
+          return postDuplicateCredentials(context, credsObject1);
+        }).compose( w -> {
+          return getCredentials(context, credsObject1Id[0]);
+        }).compose(w -> {
+          return testMockUser(context, "gollum", null);
+        }).compose(w -> {
+          return testMockUser(context, null, gollumId);
+        }).compose(w -> {
+          return failMockUser(context, "yomomma", null);
+        }).compose(w -> {
+          return doLogin(context, credsObject1);
+        }).compose(w -> {
+          return doLogin(context, credsObject2);
+        }).compose(w -> {
+          return postNewCredentials(context, credsObject3);
+        }).compose(w -> {
+          return doInactiveLogin(context, credsObject3);
+        }).compose(w -> {
+          return doBadPasswordLogin(context, credsObject4);
+        }).compose(w -> {
+          return doBadPasswordLogin(context, credsObject5);
+        }).compose(w -> {
+          return doUpdatePassword(context, credsObject6);
+        }).compose(w -> {
+          return doLogin(context, credsObject4);
+        }).compose(w -> {
+          return doLogin(context, credsObject5);
+        }).compose(w -> {
+          return doBadCredentialsUpdatePassword(context, credsObject6);
+        }).compose(w -> {
+          return doBadInputUpdatePassword(context, credsObject4);
+        });
+    chainedFuture.setHandler(chainedRes -> {
+      if(chainedRes.failed()) {
+        logger.error("Test failed: " + chainedRes.cause().getLocalizedMessage());
+        context.fail(chainedRes.cause());
+      } else {
+        async.complete();
+      }
+    });
+  }
+  
+  
+  //@Test
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/authn/credentials";
     try {
@@ -120,6 +215,9 @@ public class RestVerticleTest {
          SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,  new HTTPResponseHandler(addPUCF));
        Response addPUResponse = addPUCF.get(5, TimeUnit.SECONDS);
        credentialsId = addPUResponse.body.getString("id");
+       if(credentialsId == null) {
+         System.out.println("Null id status for body: " + addPUResponse.body.encode());
+       }
        context.assertEquals(addPUResponse.code, HttpURLConnection.HTTP_CREATED);
        System.out.println("Status - " + addPUResponse.code + " at " +
            System.currentTimeMillis() + " for " + addPUURL);
@@ -323,6 +421,96 @@ public class RestVerticleTest {
      return true;
    }
    return false;
+ }
+ 
+ private Future<WrappedResponse> postNewCredentials(TestContext context,
+     JsonObject newCredentials) {   
+   return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
+       201, "Add a new credential object");
+ }
+ 
+ private Future<WrappedResponse> postDuplicateCredentials(TestContext context,
+     JsonObject newCredentials) {   
+   return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
+       422, "Try to add a duplicate credential object");
+ }
+ 
+ private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {   
+   return doRequest(vertx, credentialsUrl +"/" + credsId, HttpMethod.GET, null, null,
+       200, "Retrieve an existing credential by id");
+ }
+ 
+ private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
+   String url;
+   if(username != null) {
+     url = okapiUrl + "/users?query=username==" + username;
+   } else {
+     url = okapiUrl + "/users?query=id==" + userId;
+   }
+   return doRequest(vertx, url, HttpMethod.GET, null, null, 200, 
+       "Test mock /user endpoint at url " + url);
+ }
+ 
+ private Future<WrappedResponse> failMockUser(TestContext context, String username, String userId) {
+   String url;
+   if(username != null) {
+     url = okapiUrl + "/users?query=username==" + username;
+   } else {
+     url = okapiUrl + "/users?query=id==" + userId;
+   }
+   return doRequest(vertx, url, HttpMethod.GET, null, null, 404, 
+       "Fail nonexistent mock /user endpoint at url " + url);
+ }
+ 
+ private Future<WrappedResponse> doLogin(TestContext context, JsonObject loginCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
+       201, "Login with created credentials");
+ }
+ 
+ private Future<WrappedResponse> doInactiveLogin(TestContext context, JsonObject loginCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
+       400, "Fail login with inactive credentials");
+ }
+ 
+ private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
+       400, "Fail login with bad credentials");
+ }
+ 
+ private Future<WrappedResponse> doUpdatePassword(TestContext context, 
+     JsonObject updateCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+       204, "Update existing credentials");
+ }
+ 
+ private Future<WrappedResponse> doBadCredentialsUpdatePassword(TestContext context, 
+     JsonObject updateCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+       401, "Attempt to update password with bad credentials");
+ }
+ 
+ private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context, 
+     JsonObject updateCredentials) {
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("X-Okapi-Token", "dummytoken");
+   headers.add("X-Okapi-Url", okapiUrl);
+   return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+       400, "Attempt to update password with bad data");
  }
 
 }
