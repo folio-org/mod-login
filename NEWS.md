@@ -1,3 +1,6 @@
+## 2018-07-30 v 4.2.0
+ * Add /authn/update endpoint to allow self-updating of credentials
+
 ## 2018-07-05 v4.1.0
  * Enable option to refuse login when associated user record is flagged as inactive
  * Enable option to set the timeout (in ms) for looking up associated user records

@@ -1,0 +1,24 @@
+{
+  "scripts": [],
+  "tables": [
+    {
+      "tableName": "auth_credentials",
+      "generateId": false,
+      "fromModuleVersion" : "1.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id",
+      "uniqueIndex" : [
+        {
+          "fieldName" : "userId",
+          "tOps" : "ADD"
+        }
+      ],
+      "index": [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
+    }
+  ]
+}
