@@ -35,6 +35,10 @@
           "methods" : [ "DELETE" ],
           "pathPattern" : "/authn/credentials/{id}",
           "permissionsRequired" : [ "login.item.delete" ]
+        },
+        {
+          "methods": [ "POST" ],
+          "pathPattern" : "/authn/update"
         }
       ]
     },
