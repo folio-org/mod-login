@@ -38,7 +38,8 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern" : "/authn/update"
+          "pathPattern" : "/authn/update",
+          "modulePermissions" : [ "users.collection.get" ]
         }
       ]
     },
