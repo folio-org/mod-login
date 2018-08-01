@@ -1,4 +1,7 @@
-## 2018-07-30 v 4.2.0
+## 2018-08-01 v4.2.1
+ * Add /authn/update info to module descriptor
+
+## 2018-07-30 v4.2.0
  * Add /authn/update endpoint to allow self-updating of credentials
 
 ## 2018-07-05 v4.1.0
