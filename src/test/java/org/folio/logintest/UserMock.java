@@ -122,7 +122,12 @@ public class UserMock extends AbstractVerticle {
         context.response()
           .setStatusCode(200)
           .end(responseAdmin.encode());
-      } else {
+      } else if (query.equals("id=="+adminId)) {
+        context.response()
+          .setStatusCode(200)
+          .end(responseAdmin.encode());
+      }
+      else {
         context.response()
           .setStatusCode(404)
           .end("Not found");
