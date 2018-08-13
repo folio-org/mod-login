@@ -195,7 +195,7 @@ public class LoginAPI implements AuthnResource {
         String tenantId = getTenant(okapiHeaders);
         try {
           testForFile(LOGIN_ATTEMPTS_SCHEMA_PATH);
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(id), true, false, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(id), true,  getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError("Internal Server error")));
@@ -648,7 +648,7 @@ public class LoginAPI implements AuthnResource {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
             } else {
-              List<Credential> credList = (List<Credential>)getReply.result()[0];
+              List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
                 asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainNotFound("No credentials for id " + id + " found")));
               } else {

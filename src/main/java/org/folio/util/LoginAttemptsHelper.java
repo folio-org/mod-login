@@ -92,7 +92,7 @@ public class LoginAttemptsHelper {
                                   Handler<AsyncResult<Response>> asyncResultHandler,
                                   Handler<AsyncResult<String>> replyHandler) {
     try {
-      pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, replyHandler);
+      pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, replyHandler);
     } catch (Exception e) {
       logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
@@ -372,6 +372,9 @@ public class LoginAttemptsHelper {
                   asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
                     .withPlainInternalServerError(errMsg)));
                 }
+                attempt.setAttemptCount(0);
+                attempt.setLastAttempt(new Date());
+                updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
               });
             } else {
               attempt.setAttemptCount(attempt.getAttemptCount() + 1);

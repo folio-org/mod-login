@@ -19,6 +19,25 @@
           "tOps" : "ADD"
         }
       ]
+    },
+    {
+      "tableName": "auth_attempts",
+      "generateId": false,
+      "fromModuleVersion" : "1.0",
+      "withMetadata" : false,
+      "pkColumnName": "_id",
+      "uniqueIndex" : [
+        {
+          "fieldName" : "userId",
+          "tOps" : "ADD"
+        }
+      ],
+      "index": [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
     }
   ]
 }
