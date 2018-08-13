@@ -1,3 +1,7 @@
+## 2018-08-07 v4.3.0
+ * Enable option to block user account after fail logins
+ * Enable option to set number of login attempts before blocking account
+
 ## 2018-08-01 v4.2.1
  * Add /authn/update info to module descriptor
 

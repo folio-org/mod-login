@@ -13,6 +13,11 @@
         },
         {
           "methods" : [ "GET" ],
+          "pathPattern" : "/authn/loginAttempts/{id}",
+          "modulePermissions" : [ "auth.signtoken", "users.collection.get" ]
+        },
+        {
+          "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials",
           "permissionsRequired" : [ "login.collection.get", "users.collection.get" ]
         },

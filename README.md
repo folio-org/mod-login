@@ -23,3 +23,7 @@ See project [MODLOGIN](https://issues.folio.org/browse/MODLOGIN)
 at the [FOLIO issue tracker](https://dev.folio.org/guidelines/issue-tracker).
 
 Other FOLIO Developer documentation is at [dev.folio.org](https://dev.folio.org/)
+
+# Module properties to set up at mod-configuration
+* login.fail.attempts - number of login attempts before block user account (default value - 5)
+* login.fail.timeout - after timeout in minutes, fail login attempts will be dropped (default value - 10)
