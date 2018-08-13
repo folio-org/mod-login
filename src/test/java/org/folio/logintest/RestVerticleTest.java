@@ -204,9 +204,6 @@ public class RestVerticleTest {
       }
     });
   }
-
-
-  //@Test
   @Test
   public void testLogin(TestContext context) {
     String url = "http://localhost:" + port + "/authn/loginAttempts";
@@ -328,7 +325,7 @@ public class RestVerticleTest {
     }
   }
 
-  @Test
+  //@Test
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/authn/credentials";
     try {
