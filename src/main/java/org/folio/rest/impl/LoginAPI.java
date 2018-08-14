@@ -38,14 +38,19 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import java.io.Reader;
 import java.net.URL;
 
 import java.util.MissingResourceException;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
+import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
+import static org.folio.util.LoginAttemptsHelper.onLoginFailAttemptHandler;
+import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
+import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
+import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
+
 import org.folio.rest.jaxrs.model.Errors;
-import static org.folio.util.LoginAttemptsHelper.*;
 
 /**
  *
@@ -60,6 +65,8 @@ public class LoginAPI implements AuthnResource {
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String CREDENTIAL_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/credentials.json";
+  private static final String POSTGRES_ERROR = "Error from PostgresClient ";
+  public static final String INTERNAL_ERROR = "Internal Server error";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -198,7 +205,7 @@ public class LoginAPI implements AuthnResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(id), true,  getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
             } else {
               List<LoginAttempts> attemptsList = (List<LoginAttempts>)getReply.result().getResults();
               if(attemptsList.isEmpty()) {
@@ -209,13 +216,13 @@ public class LoginAPI implements AuthnResource {
             }
           });
         } catch(Exception e) {
-          logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError("Internal Server error")));
+          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(GetAuthnLoginAttemptsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -308,7 +315,7 @@ public class LoginAPI implements AuthnResource {
                       getReply.cause().getLocalizedMessage());
                   asyncResultHandler.handle(Future.succeededFuture(
                       PostAuthnLoginResponse.withPlainInternalServerError(
-                      "Internal Server error")));
+                      INTERNAL_ERROR)));
                 } else {
                   try {
                     List<Credential> credList = (List<Credential>)getReply.result().getResults();
@@ -360,19 +367,11 @@ public class LoginAPI implements AuthnResource {
                           }
                         });
                       } else {
-                          try {
-                            // after fail login check user login attempts and Increment attempts counter
-                            // if counter > max attempts, then block user
-                            PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                            OkapiConnectionParams params = new OkapiConnectionParams(okapiURL, tenantId, requestToken, vertxContext.owner(), null);
+                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                        OkapiConnectionParams params = new OkapiConnectionParams(okapiURL, tenantId, requestToken, vertxContext.owner(), null);
 
-                            getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
-                              onLoginFailAttemptHandler(userObject, params, pgClient, asyncResultHandler));
-                          } catch (Exception e) {
-                            String message = e.getLocalizedMessage();
-                            logger.error(message, e);
-                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(message)));
-                          }
+                        getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
+                          onLoginFailAttemptHandler(userObject, params, pgClient, asyncResultHandler));
                         logger.error("Password does not match for userid " + userCred.getUserId());
                         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainBadRequest("Bad credentials")));
                       }
@@ -388,14 +387,14 @@ public class LoginAPI implements AuthnResource {
               //Make sure this username isn't already added
             } catch(Exception e) {
               logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(INTERNAL_ERROR)));
             }
           }
         });
       });
     } catch(Exception e) {
       logger.debug("Error running on verticle for postAuthnLogin: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -413,7 +412,7 @@ public class LoginAPI implements AuthnResource {
                    TABLE_NAME_CREDENTIALS, Credential.class, fieldList, cql, true, false, getReply -> {
              if(getReply.failed()) {
                logger.debug("Error in PostgresClient get operation " + getReply.cause().getLocalizedMessage());
-               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
+               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError(INTERNAL_ERROR)));
              } else {
                CredentialsListObject credentialsListObject = new CredentialsListObject();
                List<Credential> credentialList = (List<Credential>)getReply.result().getResults();
@@ -424,7 +423,7 @@ public class LoginAPI implements AuthnResource {
            });
          } catch(Exception e) {
            logger.debug("Error invoking Postgresclient: "+ e.getLocalizedMessage());
-           asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
+           asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError(INTERNAL_ERROR)));
          }
        });
     } catch(Exception e) {
@@ -433,7 +432,7 @@ public class LoginAPI implements AuthnResource {
         asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainBadRequest("CQL Parsing Error for '" + query + "': " +
                 e.getLocalizedMessage())));
       } else {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
+        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.withPlainInternalServerError(INTERNAL_ERROR)));
       }
     }
   }
@@ -536,7 +535,7 @@ public class LoginAPI implements AuthnResource {
       });
     } catch(Exception e) {
       logger.error("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -556,7 +555,7 @@ public class LoginAPI implements AuthnResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
             if(getReply.failed()) {
               logger.debug("PostgresClient get operation failed: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
@@ -571,26 +570,26 @@ public class LoginAPI implements AuthnResource {
                   PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_CREDENTIALS, cred, new Criterion(idCrit), true, putReply -> {
                     if(putReply.failed()) {
                       logger.debug("Error with PostgresClient update operation: " + putReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
                     } else {
                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withJsonOK(entity)));
                     }
                   });
                 } catch(Exception e) {
                   logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+                  asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
                 }
               }
             }
           });
         } catch(Exception e) {
           logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+          asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
   @Override
@@ -609,7 +608,7 @@ public class LoginAPI implements AuthnResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
@@ -620,13 +619,13 @@ public class LoginAPI implements AuthnResource {
             }
           });
         } catch(Exception e) {
-          logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -646,7 +645,7 @@ public class LoginAPI implements AuthnResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
             if(getReply.failed()) {
               logger.debug("Error in PostgresClient get operation: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
             } else {
               List<Credential> credList = (List<Credential>)getReply.result().getResults();
               if(credList.isEmpty()) {
@@ -656,26 +655,26 @@ public class LoginAPI implements AuthnResource {
                   PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(nameCrit), deleteReply-> {
                     if(deleteReply.failed()) {
                       logger.debug("Error in PostgresClient get operation: " + deleteReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
                     } else {
                       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainNoContent("")));
                     }
                    });
                 } catch(Exception e) {
                   logger.debug("Error from PostgresClient: " + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
                 }
               }
             }
           });
         } catch(Exception e) {
-          logger.debug("Error from PostgresClient " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
         }
       });
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError("Internal Server error")));
+      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 

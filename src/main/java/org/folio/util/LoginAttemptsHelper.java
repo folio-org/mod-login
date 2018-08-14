@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.rest.impl.LoginAPI.INTERNAL_ERROR;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 
@@ -38,6 +39,7 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
+  private static final String JSON_TYPE = "application/json";
 
   /**
    * Method build criteria for lookup Login Attempts for user by user id
@@ -96,7 +98,7 @@ public class LoginAttemptsHelper {
     } catch (Exception e) {
       logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError("Internal Server error")));
+        .withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -114,7 +116,7 @@ public class LoginAttemptsHelper {
     } catch (Exception e) {
       logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError("Internal Server error")));
+        .withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -134,7 +136,7 @@ public class LoginAttemptsHelper {
     } catch (Exception e) {
       logger.error("Error with postgres client on getting login attempt during post login request: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError("Internal Server error")));
+        .withPlainInternalServerError(INTERNAL_ERROR)));
     }
   }
 
@@ -220,8 +222,8 @@ public class LoginAttemptsHelper {
       HttpClientRequest request = client.getAbs(requestURL);
       request.putHeader(OKAPI_TENANT_HEADER, params.getTenantId())
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader("Content-type", "application/json")
-        .putHeader("Accept", "application/json");
+        .putHeader("Content-type", JSON_TYPE)
+        .putHeader("Accept", JSON_TYPE);
       request.handler(res -> {
         if (res.statusCode() != 200) {
           res.bodyHandler(buf -> {
@@ -309,7 +311,7 @@ public class LoginAttemptsHelper {
       });
       request.putHeader(OKAPI_TENANT_HEADER, params.getTenantId())
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader("Content-type", "application/json");
+        .putHeader("Content-type", JSON_TYPE);
       request.handler(res -> {
         if (res.statusCode() != 204) {
           res.bodyHandler(buf -> {
@@ -349,7 +351,7 @@ public class LoginAttemptsHelper {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
         asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-          .withPlainInternalServerError("Internal Server error")));
+          .withPlainInternalServerError(INTERNAL_ERROR)));
       } else {
         List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
         // if there no attempts record for user, create one
@@ -401,7 +403,7 @@ public class LoginAttemptsHelper {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
         asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-          .withPlainInternalServerError("Internal Server error")));
+          .withPlainInternalServerError(INTERNAL_ERROR)));
       } else {
         List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
         // if there no attempts record for user, create one

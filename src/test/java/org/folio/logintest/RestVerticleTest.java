@@ -32,12 +32,13 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.logintest.TestUtil.WrappedResponse;
+
+import static java.lang.Thread.sleep;
 import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
 import static org.folio.logintest.UserMock.sarumanId;
-import static java.lang.Thread.sleep;
-import static org.folio.logintest.UserMock.*;
+import static org.folio.logintest.UserMock.adminId;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -206,13 +207,13 @@ public class RestVerticleTest {
   }
   @Test
   public void testLogin(TestContext context) {
-    String url = "http://localhost:" + port + "/authn/loginAttempts";
+    String url = "http://localhost:" + port;
     try {
       /* get attempts not found */
       CompletableFuture<Response> getLA = new CompletableFuture<>();
-      String getLAURL = url + "/" + adminId;
+      String getLAURL = url + "/authn/loginAttempts/" + UserMock.adminId;
       send(getLAURL, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 404, new HTTPResponseHandler(getLA));
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
       Response getLAResponse = getLA.get(5, TimeUnit.SECONDS);
       context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_NOT_FOUND);
       System.out.println("Status - " + getLAResponse.code + " at " +
@@ -220,32 +221,29 @@ public class RestVerticleTest {
 
       /* add admin creds */
       CompletableFuture<Response> addAdminFu = new CompletableFuture<>();
-      String credentialsId = null;
-      String addAdminUrl = "http://localhost:" + port + "/authn/credentials";
+      String addAdminUrl = url + "/authn/credentials";
       send(addAdminUrl, context, HttpMethod.POST, postCredsRequest7,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addAdminFu));
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_CREATED, new HTTPResponseHandler(addAdminFu));
       Response addAdminResponse = addAdminFu.get(5, TimeUnit.SECONDS);
-      credentialsId = addAdminResponse.body.getString("id");
       context.assertEquals(addAdminResponse.code, HttpURLConnection.HTTP_CREATED);
       System.out.println("Status - " + addAdminResponse.code + " at " +
         System.currentTimeMillis() + " for " + addAdminUrl);
 
       /* login with admin 201 */
       CompletableFuture<Response> loginAdminFu = new CompletableFuture<>();
-      String LoginAdminUrl = "http://localhost:" + port + "/authn/login";
-      send(LoginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(loginAdminFu));
+      String loginAdminUrl = url + "/authn/login";
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_CREATED, new HTTPResponseHandler(loginAdminFu));
       Response loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
-      context.assertEquals(loginResponse.code, 201);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_CREATED);
       System.out.println(loginResponse.body +
         "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
-        + LoginAdminUrl);
+        + loginAdminUrl);
 
       /* get admin login attempts 200 */
       getLA = new CompletableFuture<>();
-      getLAURL = url + "/" + adminId;
       send(getLAURL, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 404, new HTTPResponseHandler(getLA));
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
       getLAResponse = getLA.get(5, TimeUnit.SECONDS);
       String userId = getLAResponse.body.getString("userId");
       context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_OK);
@@ -256,22 +254,35 @@ public class RestVerticleTest {
 
       /* login with admin fail */
       loginAdminFu = new CompletableFuture<>();
-      LoginAdminUrl = "http://localhost:" + port + "/authn/login";
-      send(LoginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400, new HTTPResponseHandler(loginAdminFu));
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
       loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
-      context.assertEquals(loginResponse.code, 400);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
       System.out.println(loginResponse.body +
         "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
-        + LoginAdminUrl);
+        + loginAdminUrl);
+
+      /* test admin user not blocked*/
+      CompletableFuture<Response> addPUCF4 = new CompletableFuture<>();
+      String addPUURL4 = "http://localhost:" + mockPort + "/users?query=username==admin";
+      send(addPUURL4, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_OK, new HTTPResponseHandler(addPUCF4));
+      Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
+      context.assertEquals(addPUResponse4.code, HttpURLConnection.HTTP_OK);
+      context.assertEquals(addPUResponse4.body
+        .getJsonArray("users")
+        .getJsonObject(0)
+        .getBoolean("active"), true);
+      System.out.println(addPUResponse4.body +
+        "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
+        + addPUURL4);
 
       sleep(500);
 
       /* get admin login attempts 200 check login fail counter */
       getLA = new CompletableFuture<>();
-      getLAURL = url + "/" + adminId;
       send(getLAURL, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_TEXT_DEF, 404, new HTTPResponseHandler(getLA));
+        SUPPORTED_CONTENT_TYPE_TEXT_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
       getLAResponse = getLA.get(5, TimeUnit.SECONDS);
       userId = getLAResponse.body.getString("userId");
       context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_OK);
@@ -282,24 +293,22 @@ public class RestVerticleTest {
 
       /* login with admin fail */
       loginAdminFu = new CompletableFuture<>();
-      LoginAdminUrl = "http://localhost:" + port + "/authn/login";
-      send(LoginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400, new HTTPResponseHandler(loginAdminFu));
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
       loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
-      context.assertEquals(loginResponse.code, 400);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
       System.out.println(loginResponse.body +
         "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
-        + LoginAdminUrl);
+        + loginAdminUrl);
 
       sleep(500);
 
       /* test admin user blocked*/
-      CompletableFuture<Response> addPUCF4 = new CompletableFuture<>();
-      String addPUURL4 = "http://localhost:" + mockPort + "/users?query=username==admin";
+      addPUCF4 = new CompletableFuture<>();
       send(addPUURL4, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, new HTTPResponseHandler(addPUCF4));
-      Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPUResponse4.code, 200);
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_OK, new HTTPResponseHandler(addPUCF4));
+      addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
+      context.assertEquals(addPUResponse4.code, HttpURLConnection.HTTP_OK);
       context.assertEquals(addPUResponse4.body
         .getJsonArray("users")
         .getJsonObject(0)
@@ -310,14 +319,13 @@ public class RestVerticleTest {
 
       /* login with correct admin 400 */
       loginAdminFu = new CompletableFuture<>();
-      LoginAdminUrl = "http://localhost:" + port + "/authn/login";
-      send(LoginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400, new HTTPResponseHandler(loginAdminFu));
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
       loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
-      context.assertEquals(loginResponse.code, 400);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
       System.out.println(loginResponse.body +
         "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
-        + LoginAdminUrl);
+        + loginAdminUrl);
 
     } catch (Exception e) {
       e.printStackTrace();
