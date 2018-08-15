@@ -13,8 +13,7 @@
         },
         {
           "methods" : [ "GET" ],
-          "pathPattern" : "/authn/loginAttempts/{id}",
-          "modulePermissions" : [ "auth.signtoken", "users.collection.get" ]
+          "pathPattern" : "/authn/loginAttempts/{id}"
         },
         {
           "methods" : [ "GET" ],
@@ -85,6 +84,11 @@
       "permissionName" : "login.item.delete",
       "displayName" : "login item delete",
       "description" : "Remove existing login credentials"
+    },
+    {
+      "permissionName" : "login.attempts.item.get",
+      "displayName" : "login attempt item get",
+      "description" : "Read a login attempt entity for user"
     },
     {
       "permissionName" : "login.all",
