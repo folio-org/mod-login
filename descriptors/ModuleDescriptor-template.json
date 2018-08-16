@@ -9,11 +9,13 @@
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
-          "modulePermissions" : [ "auth.signtoken", "users.collection.get" ]
+          "modulePermissions" : [ "auth.signtoken", "users.collection.get",
+            "users.item.put", "configuration.entries.collection.get" ]
         },
         {
           "methods" : [ "GET" ],
-          "pathPattern" : "/authn/loginAttempts/{id}"
+          "pathPattern" : "/authn/loginAttempts/{id}",
+          "permissionsRequired" : [ "login.attempts.item.get" ]
         },
         {
           "methods" : [ "GET" ],
@@ -99,7 +101,8 @@
         "login.collection.get",
         "login.item.post",
         "login.item.put",
-        "login.item.delete"
+        "login.item.delete",
+        "login.attempts.item.get"
       ]
     }
   ],
