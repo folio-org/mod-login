@@ -10,6 +10,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.resource.AuthnResource;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -355,11 +356,13 @@ public class LoginAttemptsHelper {
           .withPlainInternalServerError(INTERNAL_ERROR)));
       } else {
         List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
+        String userId = userObject.getString("id");
         // if there no attempts record for user, create one
         if (attempts.isEmpty()) {
           // save new attempt record to database
-          saveAttempt(pgClient, buildLoginAttemptsObject(userObject.getString("id"), 1),
+          saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1),
             asyncResultHandler, saveAttemptHandler(asyncResultHandler));
+          logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, 1);
         } else {
           // check users login attempts
           LoginAttempts attempt = attempts.get(0);
@@ -378,11 +381,13 @@ public class LoginAttemptsHelper {
                 attempt.setAttemptCount(0);
                 attempt.setLastAttempt(new Date());
                 updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
+                logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
               });
             } else {
               attempt.setAttemptCount(attempt.getAttemptCount() + 1);
               attempt.setLastAttempt(new Date());
               updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
+              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attempt.getAttemptCount());
             }
           });
         }
@@ -407,10 +412,11 @@ public class LoginAttemptsHelper {
           .withPlainInternalServerError(INTERNAL_ERROR)));
       } else {
         List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
+        String userId = userObject.getString("id");
         // if there no attempts record for user, create one
         if (attempts.isEmpty()) {
           // save new attempt record to database
-          saveAttempt(pgClient, buildLoginAttemptsObject(userObject.getString("id"), 0),
+          saveAttempt(pgClient, buildLoginAttemptsObject(userId, 0),
             asyncResultHandler, saveAttemptHandler(asyncResultHandler));
         } else {
           // drops user login attempts
@@ -419,8 +425,36 @@ public class LoginAttemptsHelper {
           attempt.setLastAttempt(new Date());
           updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
         }
+        logLoginAttempt(LoginEvent.LOGIN_SUCCESSFUL, userId, 0);
       }
     };
+  }
+
+  /**
+   * Log login events by default logger
+   * TODO - refactor loggin after creating tech design MODLOGIN-36
+   * @param event - login event
+   * @param userId - user id of logged user
+   * @param attempts - failed login attempts number
+   */
+  private static void logLoginAttempt(LoginEvent event, String userId, Integer attempts) {
+    logger.info(event.getCaption() + "UserID: " + userId + "  Date: " + DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss") + " Failed login attempts: " + attempts);
+  }
+
+  private enum LoginEvent {
+    LOGIN_FAIL("LOGIN attempt was FAILED. "),
+    LOGIN_SUCCESSFUL("LOGIN attempt was SUCCESSFUL. "),
+    LOGIN_FAIL_BLOCK_USER("LOGIN attempt was FAILED. User was BLOCKED. ");
+
+    LoginEvent(String caption) {
+      this.caption = caption;
+    }
+
+    private String caption;
+
+    public String getCaption() {
+      return caption;
+    }
   }
 
 }
