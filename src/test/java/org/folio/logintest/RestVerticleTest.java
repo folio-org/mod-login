@@ -79,20 +79,24 @@ public class RestVerticleTest {
 
   private JsonObject credsObject8 = new JsonObject()
     .put("username", "admin")
-    .put("password", "admin1");
+    .put("password", "admin1")
+    .put("userId", adminId);
 
   private JsonObject credsObject8Fail = new JsonObject()
     .put("username", "admin")
-    .put("password", "admin");
+    .put("password", "admin")
+    .put("userId", adminId);
 
   private JsonObject credsObject8Update = new JsonObject()
     .put("username", "admin")
     .put("password", "admin1")
-    .put("newPassword", "admin2");
+    .put("newPassword", "admin2")
+    .put("userId", adminId);
 
   private JsonObject credsObject8Login = new JsonObject()
     .put("username", "admin")
-    .put("password", "admin2");
+    .put("password", "admin2")
+    .put("userId", adminId);
 
   private static String postCredsRequest = "{\"username\": \"gollum\", \"userId\":\"" +gollumId+ "\", \"password\":\"12345\"}";
   private static String postCredsRequest2 = "{\"username\": \"gollum\", \"password\":\"12345\"}";
@@ -254,9 +258,11 @@ public class RestVerticleTest {
         .compose(w -> doBadPasswordLogin(context, credsObject8Fail))
         // check login attempts is 0 after block user
         .compose(w -> getAttempts(context, adminId)
-          .setHandler(h-> context.assertEquals(h.result().getJson().getInteger("attemptCount"), 0)))
+          .setHandler(h -> context.assertEquals(h.result().getJson().getInteger("attemptCount"), 0)))
         // check user is blocked
-        .compose(w -> doInactiveLogin(context, credsObject8Login));
+        .compose(w -> testMockUser(context, null, adminId)
+          .setHandler(h -> context.assertEquals(h.result().getJson().getBoolean("active"), false))
+        );
     chainedFuture.setHandler(chainedRes -> {
       if(chainedRes.failed()) {
         logger.error("Test failed: " + chainedRes.cause().getLocalizedMessage());
