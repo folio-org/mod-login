@@ -307,11 +307,14 @@ public class LoginAttemptsHelper {
               "' :" + buf.toString();
             future.fail(message);
           });
+        }else {
+          future.complete();
         }
       });
       request.putHeader(OKAPI_TENANT_HEADER, params.getTenantId())
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader("Content-type", JSON_TYPE);
+        .putHeader("Content-type", JSON_TYPE)
+        .putHeader("accept", "text/plain");
       request.handler(res -> {
         if (res.statusCode() != 204) {
           res.bodyHandler(buf -> {
@@ -324,9 +327,7 @@ public class LoginAttemptsHelper {
       });
       request.setTimeout(params.getTimeout());
       request.exceptionHandler(future::fail);
-      request.setChunked(true);
-      request.write(user.encode());
-      request.end();
+      request.end(user.encode());
     } catch (Exception e) {
       String message = "User update failed: " + e.getLocalizedMessage();
       logger.error(message, e);
