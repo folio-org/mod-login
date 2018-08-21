@@ -32,37 +32,39 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.logintest.TestUtil.WrappedResponse;
+
+import static java.lang.Thread.sleep;
 import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
 import static org.folio.logintest.UserMock.sarumanId;
-import org.folio.rest.impl.LoginAPI;
+import static org.folio.logintest.UserMock.adminId;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
 
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
-  
+
   private JsonObject credsObject1 = new JsonObject()
       .put("username", "gollum")
       .put("userId", gollumId)
       .put("password", "12345");
-  
+
   private JsonObject credsObject2 = new JsonObject()
       .put("username", "gollum")
       .put("password", "12345");
   //private JsonObject loginCredsObject1 = new JsonObject()
-  
+
   private JsonObject credsObject3 = new JsonObject()
       .put("username", "saruman")
       .put("userId", sarumanId)
       .put("password", "12345");
-  
+
   private JsonObject credsObject4 = new JsonObject()
       .put("username", "gollum")
       .put("password", "54321");
-  
+
   private JsonObject credsObject5 = new JsonObject()
       .put("userId", gollumId)
       .put("password", "54321");
@@ -71,13 +73,16 @@ public class RestVerticleTest {
       .put("username", "gollum")
       .put("password", "12345")
       .put("newPassword", "54321");
-      
+
   private static String postCredsRequest = "{\"username\": \"gollum\", \"userId\":\"" +gollumId+ "\", \"password\":\"12345\"}";
   private static String postCredsRequest2 = "{\"username\": \"gollum\", \"password\":\"12345\"}";
   private static String postCredsRequest3 = "{\"username\": \"saruman\", \"userId\":\"" +sarumanId+ "\", \"password\":\"12345\"}";
   private static String postCredsRequest4 = "{\"username\": \"saruman\", \"password\":\"12345\"}";
   private static String postCredsRequest5 = "{\"username\": \"bombadil\", \"userId\":\"" +bombadilId+ "\", \"password\":\"12345\"}";
   private static String postCredsRequest6 = "{\"username\": \"bombadil\", \"password\":\"12345\"}";
+  private static String postCredsRequest7 = "{\"username\": \"admin\", \"userId\":\"" +adminId+ "\", \"password\":\"admin1\"}";
+  private static String postCredsRequest8 = "{\"username\": \"admin\", \"password\":\"admin1\"}";
+  private static String postCredsRequest8Fail = "{\"username\": \"admin\", \"password\":\"admin\"}";
 
   private static Vertx vertx;
   static int port;
@@ -104,7 +109,7 @@ public class RestVerticleTest {
     loginUrl = "http://localhost:"+port+"/authn/login";
     updateUrl = "http://localhost:"+port+"/authn/update";
     okapiUrl = "http://localhost:" +mockPort;
-    
+
     DeploymentOptions options = new DeploymentOptions().setConfig(
             new JsonObject()
                     .put("http.port", port)
@@ -152,11 +157,11 @@ public class RestVerticleTest {
     }));
   }
 
-  @Test 
+  @Test
   public void testPermsSeq(TestContext context) {
     Async async = context.async();
     String[] credsObject1Id = new String[1];
-    Future<WrappedResponse> chainedFuture = 
+    Future<WrappedResponse> chainedFuture =
         postNewCredentials(context, credsObject1).compose( w -> {
           credsObject1Id[0] = w.getJson().getString("id");
           return postDuplicateCredentials(context, credsObject1);
@@ -200,8 +205,134 @@ public class RestVerticleTest {
       }
     });
   }
-  
-  
+  @Test
+  public void testLogin(TestContext context) {
+    String url = "http://localhost:" + port;
+    try {
+      /* get attempts not found */
+      CompletableFuture<Response> getLA = new CompletableFuture<>();
+      String getLAURL = url + "/authn/loginAttempts/" + UserMock.adminId;
+      send(getLAURL, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
+      Response getLAResponse = getLA.get(5, TimeUnit.SECONDS);
+      context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_NOT_FOUND);
+      System.out.println("Status - " + getLAResponse.code + " at " +
+        System.currentTimeMillis() + " for " + getLAURL);
+
+      /* add admin creds */
+      CompletableFuture<Response> addAdminFu = new CompletableFuture<>();
+      String addAdminUrl = url + "/authn/credentials";
+      send(addAdminUrl, context, HttpMethod.POST, postCredsRequest7,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_CREATED, new HTTPResponseHandler(addAdminFu));
+      Response addAdminResponse = addAdminFu.get(5, TimeUnit.SECONDS);
+      context.assertEquals(addAdminResponse.code, HttpURLConnection.HTTP_CREATED);
+      System.out.println("Status - " + addAdminResponse.code + " at " +
+        System.currentTimeMillis() + " for " + addAdminUrl);
+
+      /* login with admin 201 */
+      CompletableFuture<Response> loginAdminFu = new CompletableFuture<>();
+      String loginAdminUrl = url + "/authn/login";
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_CREATED, new HTTPResponseHandler(loginAdminFu));
+      Response loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_CREATED);
+      System.out.println(loginResponse.body +
+        "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
+        + loginAdminUrl);
+
+      /* get admin login attempts 200 */
+      getLA = new CompletableFuture<>();
+      send(getLAURL, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
+      getLAResponse = getLA.get(5, TimeUnit.SECONDS);
+      String userId = getLAResponse.body.getString("userId");
+      context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_OK);
+      context.assertEquals(userId, adminId);
+      context.assertEquals(0, getLAResponse.body.getInteger("attemptCount"));
+      System.out.println("Status - " + getLAResponse.code + " at " +
+        System.currentTimeMillis() + " for " + getLAURL);
+
+      /* login with admin fail */
+      loginAdminFu = new CompletableFuture<>();
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
+      loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
+      System.out.println(loginResponse.body +
+        "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
+        + loginAdminUrl);
+
+      /* test admin user not blocked*/
+      CompletableFuture<Response> addPUCF4 = new CompletableFuture<>();
+      String addPUURL4 = "http://localhost:" + mockPort + "/users?query=username==admin";
+      send(addPUURL4, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_OK, new HTTPResponseHandler(addPUCF4));
+      Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
+      context.assertEquals(addPUResponse4.code, HttpURLConnection.HTTP_OK);
+      context.assertEquals(addPUResponse4.body
+        .getJsonArray("users")
+        .getJsonObject(0)
+        .getBoolean("active"), true);
+      System.out.println(addPUResponse4.body +
+        "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
+        + addPUURL4);
+
+      sleep(500);
+
+      /* get admin login attempts 200 check login fail counter */
+      getLA = new CompletableFuture<>();
+      send(getLAURL, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_TEXT_DEF, HttpURLConnection.HTTP_NOT_FOUND, new HTTPResponseHandler(getLA));
+      getLAResponse = getLA.get(5, TimeUnit.SECONDS);
+      userId = getLAResponse.body.getString("userId");
+      context.assertEquals(getLAResponse.code, HttpURLConnection.HTTP_OK);
+      context.assertEquals(userId, adminId);
+      context.assertEquals(1, getLAResponse.body.getInteger("attemptCount"));
+      System.out.println("Status - " + getLAResponse.code + " at " +
+        System.currentTimeMillis() + " for " + getLAURL);
+
+      /* login with admin fail */
+      loginAdminFu = new CompletableFuture<>();
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8Fail,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
+      loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
+      System.out.println(loginResponse.body +
+        "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
+        + loginAdminUrl);
+
+      sleep(500);
+
+      /* test admin user blocked*/
+      addPUCF4 = new CompletableFuture<>();
+      send(addPUURL4, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_OK, new HTTPResponseHandler(addPUCF4));
+      addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
+      context.assertEquals(addPUResponse4.code, HttpURLConnection.HTTP_OK);
+      context.assertEquals(addPUResponse4.body
+        .getJsonArray("users")
+        .getJsonObject(0)
+        .getBoolean("active"), false);
+      System.out.println(addPUResponse4.body +
+        "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
+        + addPUURL4);
+
+      /* login with correct admin 400 */
+      loginAdminFu = new CompletableFuture<>();
+      send(loginAdminUrl, context, HttpMethod.POST, postCredsRequest8,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, HttpURLConnection.HTTP_BAD_REQUEST, new HTTPResponseHandler(loginAdminFu));
+      loginResponse = loginAdminFu.get(5, TimeUnit.SECONDS);
+      context.assertEquals(loginResponse.code, HttpURLConnection.HTTP_BAD_REQUEST);
+      System.out.println(loginResponse.body +
+        "\nStatus - " + loginResponse.code + " at " + System.currentTimeMillis() + " for "
+        + loginAdminUrl);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      context.fail(e.getMessage());
+    }
+  }
+
   //@Test
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/authn/credentials";
@@ -422,24 +553,24 @@ public class RestVerticleTest {
    }
    return false;
  }
- 
+
  private Future<WrappedResponse> postNewCredentials(TestContext context,
-     JsonObject newCredentials) {   
+     JsonObject newCredentials) {
    return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
        201, "Add a new credential object");
  }
- 
+
  private Future<WrappedResponse> postDuplicateCredentials(TestContext context,
-     JsonObject newCredentials) {   
+     JsonObject newCredentials) {
    return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
        422, "Try to add a duplicate credential object");
  }
- 
- private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {   
+
+ private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {
    return doRequest(vertx, credentialsUrl +"/" + credsId, HttpMethod.GET, null, null,
        200, "Retrieve an existing credential by id");
  }
- 
+
  private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
    String url;
    if(username != null) {
@@ -447,10 +578,10 @@ public class RestVerticleTest {
    } else {
      url = okapiUrl + "/users?query=id==" + userId;
    }
-   return doRequest(vertx, url, HttpMethod.GET, null, null, 200, 
+   return doRequest(vertx, url, HttpMethod.GET, null, null, 200,
        "Test mock /user endpoint at url " + url);
  }
- 
+
  private Future<WrappedResponse> failMockUser(TestContext context, String username, String userId) {
    String url;
    if(username != null) {
@@ -458,10 +589,10 @@ public class RestVerticleTest {
    } else {
      url = okapiUrl + "/users?query=id==" + userId;
    }
-   return doRequest(vertx, url, HttpMethod.GET, null, null, 404, 
+   return doRequest(vertx, url, HttpMethod.GET, null, null, 404,
        "Fail nonexistent mock /user endpoint at url " + url);
  }
- 
+
  private Future<WrappedResponse> doLogin(TestContext context, JsonObject loginCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");
@@ -469,7 +600,7 @@ public class RestVerticleTest {
    return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
        201, "Login with created credentials");
  }
- 
+
  private Future<WrappedResponse> doInactiveLogin(TestContext context, JsonObject loginCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");
@@ -477,7 +608,7 @@ public class RestVerticleTest {
    return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
        400, "Fail login with inactive credentials");
  }
- 
+
  private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");
@@ -485,8 +616,8 @@ public class RestVerticleTest {
    return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
        400, "Fail login with bad credentials");
  }
- 
- private Future<WrappedResponse> doUpdatePassword(TestContext context, 
+
+ private Future<WrappedResponse> doUpdatePassword(TestContext context,
      JsonObject updateCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");
@@ -494,8 +625,8 @@ public class RestVerticleTest {
    return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
        204, "Update existing credentials");
  }
- 
- private Future<WrappedResponse> doBadCredentialsUpdatePassword(TestContext context, 
+
+ private Future<WrappedResponse> doBadCredentialsUpdatePassword(TestContext context,
      JsonObject updateCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");
@@ -503,8 +634,8 @@ public class RestVerticleTest {
    return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
        401, "Attempt to update password with bad credentials");
  }
- 
- private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context, 
+
+ private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context,
      JsonObject updateCredentials) {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("X-Okapi-Token", "dummytoken");

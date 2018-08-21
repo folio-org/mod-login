@@ -1,5 +1,8 @@
 /target/
 client/
+*.iml
 *.swp
 *.swo
+.idea
+
 

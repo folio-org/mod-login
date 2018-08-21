@@ -4,12 +4,18 @@
   "provides": [
     {
       "id": "login",
-      "version": "4.1",
+      "version": "4.3",
       "handlers" : [
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
-          "modulePermissions" : [ "auth.signtoken", "users.collection.get" ]
+          "modulePermissions" : [ "auth.signtoken", "users.collection.get",
+            "users.item.put", "configuration.entries.collection.get" ]
+        },
+        {
+          "methods" : [ "GET" ],
+          "pathPattern" : "/authn/loginAttempts/{id}",
+          "permissionsRequired" : [ "login.attempts.item.get" ]
         },
         {
           "methods" : [ "GET" ],
@@ -82,6 +88,11 @@
       "description" : "Remove existing login credentials"
     },
     {
+      "permissionName" : "login.attempts.item.get",
+      "displayName" : "login attempt item get",
+      "description" : "Read a login attempt entity for user"
+    },
+    {
       "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
@@ -90,7 +101,8 @@
         "login.collection.get",
         "login.item.post",
         "login.item.put",
-        "login.item.delete"
+        "login.item.delete",
+        "login.attempts.item.get"
       ]
     }
   ],
