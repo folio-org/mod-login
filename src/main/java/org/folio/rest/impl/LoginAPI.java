@@ -82,7 +82,7 @@ public class LoginAPI implements AuthnResource {
     }
     return response;
   }
-  private CQLWrapper getCQL(String query, int limit, int offset) 
+  private CQLWrapper getCQL(String query, int limit, int offset)
       throws org.z3950.zing.cql.cql2pgjson.FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(
@@ -94,7 +94,7 @@ public class LoginAPI implements AuthnResource {
   };
 
   /*
-    Query the mod-users module to determine whether or not the username is 
+    Query the mod-users module to determine whether or not the username is
     valid for login
   */
   private Future<JsonObject> lookupUser(String username, String userId, String tenant,
@@ -143,7 +143,7 @@ public class LoginAPI implements AuthnResource {
           res.bodyHandler(buf -> {
             try {
               JsonObject resultObject = buf.toJsonObject();
-              if(!resultObject.containsKey("totalRecords") || 
+              if(!resultObject.containsKey("totalRecords") ||
                   !resultObject.containsKey("users")) {
                 future.fail("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
               } else {

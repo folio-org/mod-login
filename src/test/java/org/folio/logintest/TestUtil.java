@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.logintest;
 
 import io.vertx.core.Future;
@@ -39,7 +34,7 @@ public class TestUtil {
         json = null;
       }
     }
-    
+
     public String getExplanation() {
       return explanation;
     }
@@ -100,7 +95,7 @@ public class TestUtil {
               url + " with payload: " + payload + "'\n");
     if(method == HttpMethod.PUT || method == HttpMethod.POST) {
       request.end(payload);
-    } else {      
+    } else {
       request.end();
     }
     return future;

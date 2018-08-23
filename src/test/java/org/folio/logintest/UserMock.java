@@ -17,7 +17,7 @@ import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
  * @author kurt
  */
 public class UserMock extends AbstractVerticle {
-  
+
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
