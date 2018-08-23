@@ -409,7 +409,7 @@ public class RestVerticleTest {
        System.out.println(addPUResponse5.body +
          "\nStatus - " + addPUResponse5.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL5);
- 
+
 
        /**login with creds, no userid supplied, 201 */
        CompletableFuture<Response> addPUCF6 = new CompletableFuture();
@@ -421,8 +421,8 @@ public class RestVerticleTest {
        System.out.println(addPUResponse6.body +
          "\nStatus - " + addPUResponse6.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL6);
-       
-       /*add creds for inactive user */       
+
+       /*add creds for inactive user */
        CompletableFuture<Response> addPUCF7 = new CompletableFuture();
        String addPUURL7 = url;
        send(addPUURL7, context, HttpMethod.POST, postCredsRequest3,
@@ -431,8 +431,8 @@ public class RestVerticleTest {
        credentialsId = addPUResponse7.body.getString("id");
        context.assertEquals(addPUResponse7.code, HttpURLConnection.HTTP_CREATED);
        System.out.println("Status - " + addPUResponse7.code + " at " +
-           System.currentTimeMillis() + " for " + addPUURL7);       
-       
+           System.currentTimeMillis() + " for " + addPUURL7);
+
        /* try to login with inactive user */
        CompletableFuture<Response> addPUCF8 = new CompletableFuture();
        String addPUURL8 = "http://localhost:"+port+"/authn/login";
@@ -443,8 +443,8 @@ public class RestVerticleTest {
        System.out.println(addPUResponse8.body +
          "\nStatus - " + addPUResponse8.code + " at " + System.currentTimeMillis() + " for "
            + addPUURL8);
-       
-       /*add creds for slow lookup user */       
+
+       /*add creds for slow lookup user */
        CompletableFuture<Response> addPUCF9 = new CompletableFuture();
        String addPUURL9 = url;
        send(addPUURL9, context, HttpMethod.POST, postCredsRequest5,
@@ -453,8 +453,8 @@ public class RestVerticleTest {
        credentialsId = addPUResponse9.body.getString("id");
        context.assertEquals(addPUResponse9.code, HttpURLConnection.HTTP_CREATED);
        System.out.println("Status - " + addPUResponse9.code + " at " +
-           System.currentTimeMillis() + " for " + addPUURL9);       
-       
+           System.currentTimeMillis() + " for " + addPUURL9);
+
        /* try to login with slow lookup user */
        CompletableFuture<Response> addPUCF10 = new CompletableFuture();
        String addPUURL10 = "http://localhost:"+port+"/authn/login";
