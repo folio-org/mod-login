@@ -162,40 +162,47 @@ public class LoginAttemptsHelper {
    */
   private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
     Future<Boolean> future = Future.future();
-    getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res -> {
-      Integer loginFailConfigValue;
-      if (res.failed()) {
-        loginFailConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-          .getOrDefault(LOGIN_ATTEMPTS_CODE, "5"));
-      } else {
-        loginFailConfigValue = res.result().getInteger("value");
-      }
-      getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle -> {
-        Integer loginTimeoutConfigValue;
-        if (handle.failed()) {
-          loginTimeoutConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-            .getOrDefault(LOGIN_ATTEMPTS_TIMEOUT_CODE, "10"));
-        } else {
-          loginTimeoutConfigValue = handle.result().getInteger("value");
-        }
-        if (loginFailConfigValue.equals(0)) {
-          future.complete(false);
-        } else {
-          // get time diff between current date and last login attempt
-          long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
-          // calc date diff in minutes
-          long diffMinutes = diff / (60 * 1000) % 60;
-          if (diffMinutes > loginTimeoutConfigValue) {
-            attempts.setAttemptCount(0);
-            future.complete(false);
-          } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
-            future.complete(true);
+    try {
+      getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res -> {
+        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle -> {
+          Integer loginTimeoutConfigValue;
+          if (handle.failed()) {
+            logger.warn(handle.cause());
+            loginTimeoutConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
+              .getOrDefault(LOGIN_ATTEMPTS_TIMEOUT_CODE, "10"));
           } else {
-            future.complete(false);
+            loginTimeoutConfigValue = Integer.parseInt(handle.result().getString("value"));
           }
-        }
+          Integer loginFailConfigValue;
+          if (res.failed()) {
+            logger.warn(res.cause());
+            loginFailConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
+              .getOrDefault(LOGIN_ATTEMPTS_CODE, "5"));
+          } else {
+            loginFailConfigValue = Integer.parseInt(res.result().getString("value"));
+          }
+          if (loginFailConfigValue.equals(0)) {
+            future.complete(false);
+          } else {
+            // get time diff between current date and last login attempt
+            long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
+            // calc date diff in minutes
+            long diffMinutes = diff / (60 * 1000) % 60;
+            if (diffMinutes > loginTimeoutConfigValue) {
+              attempts.setAttemptCount(0);
+              future.complete(false);
+            } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
+              future.complete(true);
+            } else {
+              future.complete(false);
+            }
+          }
+        });
       });
-    });
+    }catch (Exception e){
+      logger.error(e);
+      future.complete(false);
+    }
     return future;
   }
 
@@ -212,8 +219,8 @@ public class LoginAttemptsHelper {
     String requestURL;
     String requestToken = params.getToken() != null ? params.getToken() : "";
     try {
-      requestURL = params.getOkapiUrl() + "/configurations/entries?query=" + URLEncoder.encode(
-        "active==true&module==LOGIN&code==" + configCode, "UTF-8");
+      requestURL = params.getOkapiUrl() + "/configurations/entries?query=" +
+        "code==" + URLEncoder.encode(configCode, "UTF-8");
     } catch (Exception e) {
       logger.error("Error building request URL: " + e.getLocalizedMessage());
       future.fail(e);
@@ -252,6 +259,7 @@ public class LoginAttemptsHelper {
                 }
               }
             } catch (Exception e) {
+              logger.error(e);
               future.fail(e);
             }
           });
@@ -366,6 +374,8 @@ public class LoginAttemptsHelper {
         } else {
           // check users login attempts
           LoginAttempts attempt = attempts.get(0);
+          attempt.setAttemptCount(attempt.getAttemptCount() + 1);
+          attempt.setLastAttempt(new Date());
           needToUserBlock(attempt, params).setHandler(needBlockHandler -> {
             if (needBlockHandler.result()) {
               // lock user account
@@ -384,8 +394,6 @@ public class LoginAttemptsHelper {
                 logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
               });
             } else {
-              attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-              attempt.setLastAttempt(new Date());
               updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
               logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attempt.getAttemptCount());
             }

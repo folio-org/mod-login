@@ -148,11 +148,11 @@ public class UserMock extends AbstractVerticle {
   private void handleConfig(RoutingContext context) {
     try {
       JsonObject responseJson = new JsonObject();
-      String queryString = "active==true&module==LOGIN&code==";
+      String queryString = "code==";
       String query = context.request().getParam("query");
       if (query.equals(queryString + LOGIN_ATTEMPTS_CODE)) {
         JsonObject configOb = new JsonObject()
-          .put("value", 1);
+          .put("value", 2);
         JsonArray array = new JsonArray();
         array.add(configOb);
         responseJson.put("configs", array)

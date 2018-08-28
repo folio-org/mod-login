@@ -6,7 +6,7 @@ import io.vertx.core.Vertx;
  * Wrapper class for Okapi connection params
  */
 public class OkapiConnectionParams {
-  private static final int DEF_TIMEOUT = 1000;
+  private static final int DEF_TIMEOUT = 2000;
   private String okapiUrl;
   private String tenantId;
   private String token;
