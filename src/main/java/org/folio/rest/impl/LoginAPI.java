@@ -737,7 +737,8 @@ public class LoginAPI implements AuthnResource {
                 PostAuthnUpdateResponse.withPlainBadRequest(getErrorResponse(
                 errMsg))));
           } else {
-            checkValidLogin(verifyResult.result().getString("id"), entity.getPassword(),
+            JsonObject userEntity = verifyResult.result();
+            checkValidLogin(userEntity.getString("id"), entity.getPassword(),
                 tenantId, vertxContext).setHandler(checkLoginResult -> {
               if(checkLoginResult.failed()) {
                 String message = checkLoginResult.cause().getLocalizedMessage();
@@ -760,7 +761,7 @@ public class LoginAPI implements AuthnResource {
                         PostAuthnUpdateResponse.withJsonUnprocessableEntity(
                         checkPasswordResult.result())));
                   } else { //Update the credentials with the new password
-                    Credential newCred = makeCredentialObject(null, verifyResult.result().getString("id"),
+                    Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                         entity.getNewPassword());
                     updateCredential(newCred, tenantId, vertxContext)
                         .setHandler(updateCredResult -> {
@@ -775,6 +776,11 @@ public class LoginAPI implements AuthnResource {
                             PostAuthnUpdateResponse.withPlainBadRequest(
                             "Unable to update credentials for that userId")));
                         } else {
+                          // after succesfull change password skip login attempts counter
+                          PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                          getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
+                            onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+
                            asyncResultHandler.handle(Future.succeededFuture(
                                PostAuthnUpdateResponse.withPlainNoContent(tenantId)));
                         }

@@ -1,3 +1,8 @@
+## 2018-08-07 v4.3.1
+ * Add logs for successful or fail login attempts
+ * Add logs for event when user is blocked after n fail login attempts
+ * Improved login attempt's tests
+
 ## 2018-08-07 v4.3.0
  * Enable option to block user account after fail logins
  * Enable option to set number of login attempts before blocking account
