@@ -1,3 +1,6 @@
+## 2018-09-10 v4.4.0
+ * Accomodate either 200 or 201 response from authtoken creation request
+
 ## 2018-08-07 v4.3.1
  * Add logs for successful or fail login attempts
  * Add logs for event when user is blocked after n fail login attempts
