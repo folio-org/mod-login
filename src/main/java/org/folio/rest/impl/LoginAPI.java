@@ -182,13 +182,30 @@ public class LoginAPI implements AuthnResource {
     request.putHeader(OKAPI_TOKEN_HEADER, requestToken);
     request.putHeader(OKAPI_TENANT_HEADER, tenant);
     request.handler(response -> {
-      if(response.statusCode() != 200) {
-        future.fail("Got response " + response.statusCode() + " fetching token");
-      } else {
-        String token = response.getHeader(OKAPI_TOKEN_HEADER);
-        logger.debug("Got token " + token + " from authz");
-        future.complete(token);
-      }
+      response.bodyHandler(buf -> {
+        try {
+          String token = null;
+          if(response.statusCode() == 200 || response.statusCode() == 201) {
+            if(response.statusCode() == 200) {
+              token = response.getHeader(OKAPI_TOKEN_HEADER);
+            } else if(response.statusCode() == 201) {
+              JsonObject json = new JsonObject(buf.toString());
+              token = json.getString("token");
+            } 
+            if(token == null) {
+              future.fail(String.format("Got response %s fetching token, but content is null",
+                  response.statusCode()));
+            } else {
+              logger.debug("Got token " + token + " from authz");
+              future.complete(token);
+            }
+          } else {
+            future.fail("Got response " + response.statusCode() + " fetching token");
+          }
+        } catch(Exception e) {
+          future.fail(String.format("Error getting token: %s", e.getLocalizedMessage()));
+        }
+      });
     });
     request.exceptionHandler(e -> {future.fail(e);});
     request.end(new JsonObject().put("payload", payload).encode());

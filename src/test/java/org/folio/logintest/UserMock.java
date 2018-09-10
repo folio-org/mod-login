@@ -142,6 +142,7 @@ public class UserMock extends AbstractVerticle {
   private void handleToken(RoutingContext context) {
     context.response()
             .setStatusCode(200)
+            .putHeader("X-Okapi-Token", "dummytoken")
             .end("dummytoken");
   }
 
