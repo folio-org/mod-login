@@ -191,7 +191,7 @@ public class LoginAPI implements AuthnResource {
             } else if(response.statusCode() == 201) {
               JsonObject json = new JsonObject(buf.toString());
               token = json.getString("token");
-            } 
+            }
             if(token == null) {
               future.fail(String.format("Got response %s fetching token, but content is null",
                   response.statusCode()));
