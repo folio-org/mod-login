@@ -1,3 +1,7 @@
+## 2018-09-12 v4.5.0
+ * Restructure RAML to make module RAML and JSON local to repo
+ * Return refresh token in login response when available
+
 ## 2018-09-10 v4.4.0
  * Accomodate either 200 or 201 response from authtoken creation request
 
