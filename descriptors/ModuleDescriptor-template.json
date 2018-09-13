@@ -9,8 +9,9 @@
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
-          "modulePermissions" : [ "auth.signtoken", "users.collection.get",
-            "users.item.put", "configuration.entries.collection.get" ]
+          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
+            "users.collection.get", "users.item.put", 
+            "configuration.entries.collection.get" ]
         },
         {
           "methods" : [ "GET" ],
