@@ -41,6 +41,7 @@ public class UserMock extends AbstractVerticle {
     router.route("/users").handler(this::handleUsers);
     router.put("/users/"+adminId).handler(this::handleUserPut);
     router.route("/token").handler(this::handleToken);
+    router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
     System.out.println("Running UserMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
@@ -141,9 +142,15 @@ public class UserMock extends AbstractVerticle {
 
   private void handleToken(RoutingContext context) {
     context.response()
-            .setStatusCode(200)
+            .setStatusCode(201)
             .putHeader("X-Okapi-Token", "dummytoken")
-            .end("dummytoken");
+            .end(new JsonObject().put("token", "dummytoken").encode());
+  }
+  
+  private void handleRefreshToken(RoutingContext context) {
+    context.response()
+        .setStatusCode(201)
+        .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
   private void handleConfig(RoutingContext context) {

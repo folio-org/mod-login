@@ -28,6 +28,7 @@ import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 import java.util.UUID;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -211,6 +212,38 @@ public class LoginAPI implements AuthnResource {
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
+  
+  private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
+      String okapiURL, String requestToken, Vertx vertx) {
+    Future<String> future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    HttpClientRequest request = client.postAbs(okapiURL + "/refreshtoken");
+    request.putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(OKAPI_TENANT_HEADER, tenant);
+    request.handler(response -> {});
+    JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
+    request.handler(response -> {
+      response.bodyHandler(buf -> {
+        if(response.statusCode() != 201) {
+          String message = String.format("Expected code 201 from /refreshtoken, got %s",
+              response.statusCode());
+          future.fail(message);
+        } else {
+          String refreshToken = null;
+          try {
+            refreshToken = new JsonObject(buf.toString()).getString("refreshToken");
+          } catch(Exception e) {
+            future.fail(e);
+            return;
+          }
+          future.complete(refreshToken);
+        }
+      });
+    });
+    request.exceptionHandler(e -> {future.fail(e);});
+    request.end(payload.encode());
+    return future;
+  }
 
   @Override
   public void getAuthnLoginAttemptsById(String id, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
@@ -349,17 +382,20 @@ public class LoginAPI implements AuthnResource {
                       }
                       logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
                       String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
+                      String sub = null;
                       if(userCred.getHash().equals(testHash)) {
                         JsonObject payload = new JsonObject();
                         if(userObject.containsKey("username")) {
-                          payload.put("sub", userObject.getString("username"));
+                          sub = userObject.getString("username");                          
                         } else {
-                          payload.put("sub", userObject.getString("id"));
+                          sub = userObject.getString("id"); 
                         }
+                        payload.put("sub", sub);
                         if(!userObject.isEmpty()) {
                           payload.put("user_id", userObject.getString("id"));
                         }
                         Future<String> fetchTokenFuture;
+                        Future<String> fetchRefreshTokenFuture;
                         Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                         if(fetchTokenFlag != null && ((String)fetchTokenFlag).equals("no")) {
                         //if(true) {
@@ -368,19 +404,33 @@ public class LoginAPI implements AuthnResource {
                           logger.debug("Fetching token from authz with payload " + payload.encode());
                           fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, vertxContext.owner());
                         }
-                        fetchTokenFuture.setHandler(fetchTokenRes -> {
-                          if(fetchTokenRes.failed()) {
-                            String errMsg = "Error fetching token: " + fetchTokenRes.cause().getLocalizedMessage();
+                        fetchRefreshTokenFuture = fetchRefreshToken(userObject.getString("id"),
+                            sub, tenantId, okapiURL, requestToken, vertxContext.owner());
+                        CompositeFuture compositeFuture = CompositeFuture.join(fetchTokenFuture,
+                            fetchRefreshTokenFuture);
+                        
+                        //fetchTokenFuture.setHandler(fetchTokenRes -> {
+                        compositeFuture.setHandler(fetchTokenRes -> {
+                          if(fetchTokenFuture.failed()) {
+                            String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
                             logger.error(errMsg);
                             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withPlainInternalServerError(getErrorResponse(errMsg))));
                           } else {
-                              PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                            String refreshToken = null;
+                            if(fetchRefreshTokenFuture.failed()) {
+                              logger.error(String.format("Error getting refresh token: %s",
+                                  fetchRefreshTokenFuture.cause().getLocalizedMessage()));
+                            } else {
+                              refreshToken = fetchRefreshTokenFuture.result();
+                            }
+                            PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesfull login skip login attempts counter
-                              getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
+                            getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
                                 onLoginSuccessAttemptHandler(userObject, pgClient, asyncResultHandler));
                             //Append token as header to result
-                            String authToken = fetchTokenRes.result();
-                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.withJsonCreated(authToken, entity)));
+                            String authToken = fetchTokenFuture.result();
+                            asyncResultHandler.handle(Future.succeededFuture(
+                                PostAuthnLoginResponse.withJsonCreated(authToken, refreshToken, entity)));
                           }
                         });
                       } else {
