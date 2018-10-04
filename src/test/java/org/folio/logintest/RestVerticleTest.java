@@ -159,7 +159,7 @@ public class RestVerticleTest {
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
           try {
-            tenantClient.post(null, res2 -> {
+            tenantClient.postTenant(null, res2 -> {
                async.complete();
             });
           } catch(Exception e) {
