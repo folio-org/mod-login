@@ -14,7 +14,7 @@ import org.folio.rest.resource.interfaces.InitAPI;
  * @author kurt
  */
 public class InitAPIs implements InitAPI {
-  private static final String CREDENTIAL_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/credentials.json";
+  private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
 
   public void init(Vertx vertx, Context context, Handler<AsyncResult<Boolean>> resultHandler) {
     URL u = InitAPIs.class.getClassLoader().getResource(CREDENTIAL_SCHEMA_PATH);

@@ -1,4 +1,4 @@
-#%RAML 0.8
+#%RAML 1.0
 title: Login
 version: v1.1
 baseUri: http://github.com/org/folio/mod-auth/login_module
@@ -7,50 +7,45 @@ documentation:
   - title: mod-login API
     content: This module provides a username/password based login mechanism for FOLIO credentials
 
-schemas:
-  - credentials.json: !include credentials.json
-  - credentialsListObject: !include credentialsListObject.json
-  - loginCredentials.json: !include loginCredentials.json
-  - updateCredentials.json: !include updateCredentials.json
-  - loginAttempts: !include loginAttempts.json
-  - errors: !include raml-util/schemas/errors.schema
-  - error.schema: !include raml-util/schemas/error.schema
-  - parameters.schema: !include raml-util/schemas/parameters.schema
-  - raml-util/schemas/metadata.schema: !include raml-util/schemas/metadata.schema
+types:
+  credential: !include credentials.json
+  credentialsListObject: !include credentialsListObject.json
+  loginCredentials: !include loginCredentials.json
+  updateCredentials: !include updateCredentials.json
+  loginAttempts: !include loginAttempts.json
+  errors: !include raml-util/schemas/errors.schema
 
 traits:
-  - validate: !include raml-util/traits/validation.raml
-  - pageable:
-      queryParameters:
-        length:
-          description: "The maximum number of results to return."
-          required: false
-          type: integer
-          example: 10
-          minimum: 1
-          default: 10
-          maximum: 1000
-        start:
-          description: "The starting index in a list of results (starts at one)."
-          required: false
-          type: integer
-          minimum: 1
-          default: 1
-          maximum: 1000
-  - sortable:
-      queryParameters:
-        sortBy:
-          description: "A comma-separated list of fieldnames to sort by"
-          required: false
-          type: string
-  - queryable:
-      queryParameters:
-        query:
-          description: "A query string to filter users based on matching criteria in fields."
-          required: false
-          type: string
-
-
+  validate: !include raml-util/traits/validation.raml
+  pageable:
+    queryParameters:
+      length:
+        description: "The maximum number of results to return."
+        required: false
+        type: integer
+        example: 10
+        minimum: 1
+        default: 10
+        maximum: 1000
+      start:
+        description: "The starting index in a list of results (starts at one)."
+        required: false
+        type: integer
+        minimum: 1
+        default: 1
+        maximum: 1000
+  sortable:
+    queryParameters:
+      sortBy:
+        description: "A comma-separated list of fieldnames to sort by"
+        required: false
+        type: string
+  queryable:
+    queryParameters:
+      query:
+        description: "A query string to filter users based on matching criteria in fields."
+        required: false
+        type: string
 /authn:
   /loginAttempts:
     /{id}:
@@ -76,7 +71,7 @@ traits:
       description: Get a new login token
       body:
         application/json:
-          schema: loginCredentials.json
+          type: loginCredentials
       responses:
         201:
           headers:
@@ -84,7 +79,7 @@ traits:
             refreshtoken:
           body:
             application/json:
-              schema: loginCredentials.json
+              type: loginCredentials
         400:
           description: "Bad request"
           body:
@@ -100,7 +95,7 @@ traits:
       description: Self-update existing credentials
       body:
         application/json:
-          schema: updateCredentials.json
+          type: updateCredentials
       responses:
         204:
           description: "Successful update"
@@ -120,7 +115,7 @@ traits:
           description: "Unprocessable Entity"
           body:
             application/json:
-              schema: errors
+              type: errors
         500:
           description: "Internal server error"
           body:
@@ -138,7 +133,7 @@ traits:
         200:
           body:
             application/json:
-              schema: credentialsListObject
+              type: credentialsListObject
         400:
           description: "Bad request"
           body:
@@ -154,12 +149,12 @@ traits:
       is: [validate]
       body:
         application/json:
-          schema: loginCredentials.json
+          type: loginCredentials
       responses:
         201:
           body:
             application/json:
-              schema: credentials.json
+              type: credential
         400:
           description: "Bad request"
           body:
@@ -177,7 +172,7 @@ traits:
           200:
             body:
               application/json:
-                schema: credentials.json
+                type: credential
           404:
             description: "User not found"
             body:
@@ -192,12 +187,12 @@ traits:
         description: Modify a user's login credentials
         body:
           application/json:
-            schema: loginCredentials.json
+            type: loginCredentials
         responses:
           200:
             body:
               application/json:
-                schema: loginCredentials.json
+                type: loginCredentials
           404:
             description: "User not found"
             body:
