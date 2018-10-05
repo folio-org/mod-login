@@ -12,11 +12,10 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.folio.rest.jaxrs.model.LoginAttempts;
-import org.folio.rest.jaxrs.resource.AuthnResource;
+import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.interfaces.Results;
 
 import javax.ws.rs.core.Response;
 import java.net.URLEncoder;
@@ -28,13 +27,14 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.INTERNAL_ERROR;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
+import org.folio.rest.persist.interfaces.Results;
 
 /**
  * Helper class that contains static methods which helps with processing Login Attempts business logic
  */
 public class LoginAttemptsHelper {
 
-  public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-login/loginAttempts.json";
+  public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
@@ -65,7 +65,7 @@ public class LoginAttemptsHelper {
         String message = "Saving record failed: " + saveAttempt.cause().getLocalizedMessage();
         logger.error(message, saveAttempt.cause());
         asyncResultHandler.handle(Future.succeededFuture(
-          AuthnResource.PostAuthnLoginResponse.withPlainInternalServerError(message)));
+          Authn.PostAuthnLoginResponse.respond500WithTextPlain(message)));
       }
     };
   }
@@ -79,7 +79,7 @@ public class LoginAttemptsHelper {
         String message = "Saving record failed: " + updateAttempt.cause().getLocalizedMessage();
         logger.error(message, updateAttempt.cause());
         asyncResultHandler.handle(Future.succeededFuture(
-          AuthnResource.PostAuthnLoginResponse.withPlainInternalServerError(message)));
+          Authn.PostAuthnLoginResponse.respond500WithTextPlain(message)));
       }
     };
   }
@@ -98,8 +98,8 @@ public class LoginAttemptsHelper {
       pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, replyHandler);
     } catch (Exception e) {
       logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError(INTERNAL_ERROR)));
+      asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+        .respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
@@ -116,8 +116,8 @@ public class LoginAttemptsHelper {
       pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), replyHandler);
     } catch (Exception e) {
       logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError(INTERNAL_ERROR)));
+      asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+        .respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
@@ -130,14 +130,14 @@ public class LoginAttemptsHelper {
    */
   public static void getLoginAttemptsByUserId(String userId, PostgresClient pgClient,
                                               Handler<AsyncResult<Response>> asyncResultHandler,
-                                              Handler<AsyncResult<Results>> replyHandler) {
+                                              Handler<AsyncResult<Results<LoginAttempts>>> replyHandler) {
     try {
       pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId),
         true, false, replyHandler);
     } catch (Exception e) {
       logger.error("Error with postgres client on getting login attempt during post login request: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-        .withPlainInternalServerError(INTERNAL_ERROR)));
+      asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+        .respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
@@ -353,17 +353,17 @@ public class LoginAttemptsHelper {
    * @param pgClient           - postgres client
    * @param asyncResultHandler - request async handler
    */
-  public static Handler<AsyncResult<Results>> onLoginFailAttemptHandler(JsonObject userObject,
+  public static Handler<AsyncResult<Results<LoginAttempts>>> onLoginFailAttemptHandler(JsonObject userObject,
                                                                         OkapiConnectionParams params,
                                                                         PostgresClient pgClient,
                                                                         Handler<AsyncResult<Response>> asyncResultHandler) {
     return getAttemptReply -> {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
-        asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-          .withPlainInternalServerError(INTERNAL_ERROR)));
+        asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+          .respond500WithTextPlain(INTERNAL_ERROR)));
       } else {
-        List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
+        List<LoginAttempts> attempts = getAttemptReply.result().getResults();
         String userId = userObject.getString("id");
         // if there no attempts record for user, create one
         if (attempts.isEmpty()) {
@@ -385,8 +385,8 @@ public class LoginAttemptsHelper {
                 if (onUpdate.failed()) {
                   String errMsg = "Error on user update: " + onUpdate.cause().getLocalizedMessage();
                   logger.error(errMsg);
-                  asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-                    .withPlainInternalServerError(errMsg)));
+                  asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+                    .respond500WithTextPlain(errMsg)));
                 }
                 attempt.setAttemptCount(0);
                 attempt.setLastAttempt(new Date());
@@ -410,16 +410,16 @@ public class LoginAttemptsHelper {
    * @param pgClient           - postgres client
    * @param asyncResultHandler - request async handler
    */
-  public static Handler<AsyncResult<Results>> onLoginSuccessAttemptHandler(JsonObject userObject,
+  public static Handler<AsyncResult<Results<LoginAttempts>>> onLoginSuccessAttemptHandler(JsonObject userObject,
                                                                            PostgresClient pgClient,
                                                                            Handler<AsyncResult<Response>> asyncResultHandler) {
     return getAttemptReply -> {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
-        asyncResultHandler.handle(Future.succeededFuture(AuthnResource.PostAuthnLoginResponse
-          .withPlainInternalServerError(INTERNAL_ERROR)));
+        asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+          .respond500WithTextPlain(INTERNAL_ERROR)));
       } else {
-        List<LoginAttempts> attempts = (List<LoginAttempts>) getAttemptReply.result().getResults();
+        List<LoginAttempts> attempts = getAttemptReply.result().getResults();
         String userId = userObject.getString("id");
         // if there no attempts record for user, create one
         if (attempts.isEmpty()) {
