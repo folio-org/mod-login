@@ -85,6 +85,11 @@ traits:
           body:
             text/plain:
               example: "Bad request"
+        422:
+          description: "Unprocessable Entity"
+          body:
+            application/json:
+              type: errors
         500:
           description: "Internal server error"
           body:

@@ -11,6 +11,8 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
 import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -371,6 +373,11 @@ public class LoginAttemptsHelper {
           saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1),
             asyncResultHandler, saveAttemptHandler(asyncResultHandler));
           logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, 1);
+          asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+            respond422WithApplicationJson(
+              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_PASSWORD_INVALID,
+                new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
+              ))));
         } else {
           // check users login attempts
           LoginAttempts attempt = attempts.get(0);
@@ -392,10 +399,20 @@ public class LoginAttemptsHelper {
                 attempt.setLastAttempt(new Date());
                 updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
                 logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
+                asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+                  respond422WithApplicationJson(
+                    LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED))));
               });
             } else {
+              Integer attemptCount = attempt.getAttemptCount();
               updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
-              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attempt.getAttemptCount());
+              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
+              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+                respond422WithApplicationJson(
+                  LoginAPI.getErrors("Password does not match",
+                    attemptCount == 3 ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_PASSWORD_INVALID,
+                    new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
+                ))));
             }
           });
         }

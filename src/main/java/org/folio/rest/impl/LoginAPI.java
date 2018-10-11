@@ -1,16 +1,22 @@
 package org.folio.rest.impl;
 
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsListObject;
+import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.UpdateCredentials;
 import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.PostgresClient;
@@ -68,6 +74,13 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
+  private static final String CODE_USERNAME_INVALID = "username.invalid";
+  public static final String CODE_PASSWORD_INVALID = "password.invalid";
+  public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
+  private static final String CODE_USER_BLOCKED = "user.blocked";
+  public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
+  public static final String PARAM_USERNAME = "username";
+  private static final String TYPE_ERROR = "error";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -325,8 +338,10 @@ public class LoginAPI implements Authn {
                 .cause().getLocalizedMessage();
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(
-                PostAuthnLoginResponse.respond400WithTextPlain(
-                getErrorResponse(errMsg))));
+                PostAuthnLoginResponse.respond422WithApplicationJson(
+                  getErrors(errMsg, CODE_USERNAME_INVALID, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
+            ));
+
           } else {
             //User's okay, let's try to login
             try {
@@ -346,15 +361,14 @@ public class LoginAPI implements Authn {
                 if(!foundActive) {
                   logger.error("User could not be verified as active");
                   asyncResultHandler.handle(Future.succeededFuture(
-                    PostAuthnLoginResponse.respond400WithTextPlain(
-                    "User must be flagged as active")));
+                    PostAuthnLoginResponse.respond422WithApplicationJson(
+                    getErrors("User must be flagged as active", CODE_USER_BLOCKED))));
                   return;
                 }
               }
               Criteria useridCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
-              //Criteria useridCrit = new Criteria();
               useridCrit.addField(CREDENTIAL_USERID_FIELD);
-              useridCrit.setOperation("=");
+              useridCrit.setOperation(Criteria.OP_EQUAL);
               useridCrit.setValue(userObject.getString("id"));
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
@@ -381,7 +395,7 @@ public class LoginAPI implements Authn {
                       }
                       logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
                       String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
-                      String sub = null;
+                      String sub;
                       if(userCred.getHash().equals(testHash)) {
                         JsonObject payload = new JsonObject();
                         if(userObject.containsKey("username")) {
@@ -440,9 +454,7 @@ public class LoginAPI implements Authn {
 
                         getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
                           onLoginFailAttemptHandler(userObject, params, pgClient, asyncResultHandler));
-                        logger.error("Password does not match for userid " + userCred.getUserId());
-                        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("Bad credentials")));
-                      }
+                        logger.error("Password does not match for userid " + userCred.getUserId());                      }
                     }
                   } catch(Exception e) {
                     String message = e.getLocalizedMessage();
@@ -533,7 +545,7 @@ public class LoginAPI implements Authn {
             JsonObject userOb = verifyRes.result();
             Criteria userIdCrit = new Criteria();
             userIdCrit.addField(CREDENTIAL_USERID_FIELD);
-            userIdCrit.setOperation("=");
+            userIdCrit.setOperation(Criteria.OP_EQUAL);
             userIdCrit.setValue(userOb.getString("id"));
             try {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
@@ -615,7 +627,7 @@ public class LoginAPI implements Authn {
         String tenantId = getTenant(okapiHeaders);
         Criteria idCrit = new Criteria();
         idCrit.addField(CREDENTIAL_ID_FIELD);
-        idCrit.setOperation("=");
+        idCrit.setOperation(Criteria.OP_EQUAL);
         idCrit.setValue(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
@@ -669,7 +681,7 @@ public class LoginAPI implements Authn {
           testForFile(CREDENTIAL_SCHEMA_PATH);
           Criteria idCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
           idCrit.addField(CREDENTIAL_ID_FIELD);
-          idCrit.setOperation("=");
+          idCrit.setOperation(Criteria.OP_EQUAL);
           idCrit.setValue(id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
@@ -704,7 +716,7 @@ public class LoginAPI implements Authn {
         String tenantId = getTenant(okapiHeaders);
         Criteria nameCrit = new Criteria();
         nameCrit.addField(CREDENTIAL_ID_FIELD);
-        nameCrit.setOperation("=");
+        nameCrit.setOperation(Criteria.OP_EQUAL);
         nameCrit.setValue(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
@@ -873,7 +885,7 @@ public class LoginAPI implements Authn {
     //Get credentials
     Criteria credCrit = new Criteria()
         .addField(CREDENTIAL_USERID_FIELD)
-        .setOperation("=")
+        .setOperation(Criteria.OP_EQUAL)
         .setValue(userId);
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(credCrit),
         true, getReply -> {
@@ -950,7 +962,7 @@ public class LoginAPI implements Authn {
     Future<Credential> future = Future.future();
     Criteria userIdCrit = new Criteria()
         .addField(CREDENTIAL_USERID_FIELD)
-        .setOperation("=")
+        .setOperation(Criteria.OP_EQUAL)
         .setValue(userId);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
         tenantId);
@@ -968,5 +980,27 @@ public class LoginAPI implements Authn {
       }
     });
     return future;
+  }
+
+  public static Errors getErrors(String errorMessage, String errorCode, Pair... pairs) {
+    Errors errors = new Errors();
+    Error error = new Error();
+    error.setMessage(errorMessage);
+    error.setCode(errorCode);
+    error.setType(TYPE_ERROR);
+    List<Parameter> params = new ArrayList<>();
+    if (pairs.length > 0) {
+      for (Pair p : pairs) {
+        if (p.getKey() != null && p.getValue() != null) {
+          Parameter param = new Parameter();
+          param.setKey((String) p.getKey());
+          param.setValue((String) p.getValue());
+          params.add(param);
+        }
+      }
+    }
+    error.withParameters(params);
+    errors.setErrors(Collections.singletonList(error));
+    return errors;
   }
 }

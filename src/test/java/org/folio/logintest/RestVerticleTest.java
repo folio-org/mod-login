@@ -188,37 +188,22 @@ public class RestVerticleTest {
         postNewCredentials(context, credsObject1).compose( w -> {
           credsObject1Id[0] = w.getJson().getString("id");
           return postDuplicateCredentials(context, credsObject1);
-        }).compose( w -> {
-          return getCredentials(context, credsObject1Id[0]);
-        }).compose(w -> {
-          return testMockUser(context, "gollum", null);
-        }).compose(w -> {
-          return testMockUser(context, null, gollumId);
-        }).compose(w -> {
-          return failMockUser(context, "yomomma", null);
-        }).compose(w -> {
-          return doLogin(context, credsObject1);
-        }).compose(w -> {
-          return doLogin(context, credsObject2);
-        }).compose(w -> {
-          return postNewCredentials(context, credsObject3);
-        }).compose(w -> {
-          return doInactiveLogin(context, credsObject3);
-        }).compose(w -> {
-          return doBadPasswordLogin(context, credsObject4);
-        }).compose(w -> {
-          return doBadPasswordLogin(context, credsObject5);
-        }).compose(w -> {
-          return doUpdatePassword(context, credsObject6);
-        }).compose(w -> {
-          return doLogin(context, credsObject4);
-        }).compose(w -> {
-          return doLogin(context, credsObject5);
-        }).compose(w -> {
-          return doBadCredentialsUpdatePassword(context, credsObject6);
-        }).compose(w -> {
-          return doBadInputUpdatePassword(context, credsObject4);
-        });
+        })
+          .compose( w -> getCredentials(context, credsObject1Id[0]))
+          .compose(w -> testMockUser(context, "gollum", null))
+          .compose(w -> testMockUser(context, null, gollumId))
+          .compose(w -> failMockUser(context, "yomomma", null))
+          .compose(w -> doLogin(context, credsObject1))
+          .compose(w -> doLogin(context, credsObject2))
+          .compose(w -> postNewCredentials(context, credsObject3))
+          .compose(w -> doInactiveLogin(context, credsObject3))
+          .compose(w -> doBadPasswordLogin(context, credsObject4))
+          .compose(w -> doBadPasswordLogin(context, credsObject5))
+          .compose(w -> doUpdatePassword(context, credsObject6))
+          .compose(w -> doLogin(context, credsObject4))
+          .compose(w -> doLogin(context, credsObject5))
+          .compose(w -> doBadCredentialsUpdatePassword(context, credsObject6))
+          .compose(w -> doBadInputUpdatePassword(context, credsObject4));
     chainedFuture.setHandler(chainedRes -> {
       if(chainedRes.failed()) {
         logger.error("Test failed: " + chainedRes.cause().getLocalizedMessage());
@@ -551,7 +536,7 @@ public class RestVerticleTest {
    headers.add("X-Okapi-Token", "dummytoken");
    headers.add("X-Okapi-Url", okapiUrl);
    return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
-       400, "Fail login with inactive credentials");
+       422, "Fail login with inactive credentials");
  }
 
  private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
@@ -559,7 +544,7 @@ public class RestVerticleTest {
    headers.add("X-Okapi-Token", "dummytoken");
    headers.add("X-Okapi-Url", okapiUrl);
    return doRequest(vertx, loginUrl , HttpMethod.POST, headers, loginCredentials.encode(),
-       400, "Fail login with bad credentials");
+       422, "Fail login with bad credentials");
  }
 
  private Future<WrappedResponse> doUpdatePassword(TestContext context,
