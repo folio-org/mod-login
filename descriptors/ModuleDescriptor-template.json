@@ -47,6 +47,10 @@
           "methods": [ "POST" ],
           "pathPattern" : "/authn/update",
           "modulePermissions" : [ "users.collection.get" ]
+        },
+        {
+          "methods": [ "POST" ],
+          "pathPattern" : "/authn/password/repeatable"
         }
       ]
     },

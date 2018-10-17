@@ -14,6 +14,9 @@ types:
   updateCredentials: !include updateCredentials.json
   loginAttempts: !include loginAttempts.json
   errors: !include raml-util/schemas/errors.schema
+  credentialsHistory: !include credentialsHistory.json
+  password: !include password.json
+  passwordValid: !include passwordValid.json
 
 traits:
   validate: !include raml-util/traits/validation.raml
@@ -220,5 +223,22 @@ traits:
             body:
               text/plain:
                 example: "Internal server error"
+  /password:
+    /repeatable:
+          post:
+            description: Validate password for repeatability
+            body:
+              application/json:
+                type: password
+            responses:
+              200:
+                body:
+                  application/json:
+                    type: passwordValid
+              500:
+                description: "Internal server error"
+                body:
+                  text/plain:
+                    example: "Internal server error"
 
 

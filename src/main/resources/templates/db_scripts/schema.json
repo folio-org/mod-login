@@ -38,6 +38,19 @@
           "tOps" : "ADD"
         }
       ]
+    },
+    {
+      "tableName": "auth_credentials_history",
+      "generateId": false,
+      "fromModuleVersion" : "1.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id",
+      "index": [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
     }
   ]
 }
