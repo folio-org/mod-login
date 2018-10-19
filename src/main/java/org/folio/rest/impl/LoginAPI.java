@@ -411,7 +411,6 @@ public class LoginAPI implements Authn {
                         Future<String> fetchRefreshTokenFuture;
                         Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                         if(fetchTokenFlag != null && ((String)fetchTokenFlag).equals("no")) {
-                        //if(true) {
                           fetchTokenFuture = Future.succeededFuture("dummytoken");
                         } else {
                           logger.debug("Fetching token from authz with payload " + payload.encode());
@@ -422,7 +421,6 @@ public class LoginAPI implements Authn {
                         CompositeFuture compositeFuture = CompositeFuture.join(fetchTokenFuture,
                             fetchRefreshTokenFuture);
                         
-                        //fetchTokenFuture.setHandler(fetchTokenRes -> {
                         compositeFuture.setHandler(fetchTokenRes -> {
                           if(fetchTokenFuture.failed()) {
                             String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
@@ -454,7 +452,8 @@ public class LoginAPI implements Authn {
 
                         getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
                           onLoginFailAttemptHandler(userObject, params, pgClient, asyncResultHandler));
-                        logger.error("Password does not match for userid " + userCred.getUserId());                      }
+                        logger.error("Password does not match for userid " + userCred.getUserId());
+                      }
                     }
                   } catch(Exception e) {
                     String message = e.getLocalizedMessage();
