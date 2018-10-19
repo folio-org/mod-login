@@ -171,42 +171,11 @@ public class LoginAttemptsHelper {
         getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
           getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
         boolean result = false;
-        int loginTimeoutConfigValue = 10;
-        if (handle.failed()) {
-          logger.warn(handle.cause());
-          loginTimeoutConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-            .getOrDefault(LOGIN_ATTEMPTS_TIMEOUT_CODE, "10"));
-        } else {
-          try {
-            loginTimeoutConfigValue = Integer.parseInt(handle.result().getString(VALUE));
-          } catch (Exception e) {
-            logger.error(e);
-          }
-        }
-        int loginFailConfigValue = 5;
-        if (res.failed()) {
-          logger.warn(res.cause());
-          loginFailConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-            .getOrDefault(LOGIN_ATTEMPTS_CODE, "5"));
-        } else {
-          try {
-            loginFailConfigValue = Integer.parseInt(res.result().getString(VALUE));
-          } catch (Exception e) {
-            logger.error(e);
-          }
-        }
-        int loginFailToWarnValue = 3;
-        if (res1.failed()) {
-          logger.warn(res1.cause());
-          loginFailToWarnValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-            .getOrDefault(LOGIN_ATTEMPTS_TO_WARN_CODE, "3"));
-        } else {
-          try {
-            loginFailToWarnValue = Integer.parseInt(res1.result().getString(VALUE));
-          } catch (Exception e) {
-            logger.error(e);
-          }
-        }
+
+        int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+        int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
+        int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+
         if (loginFailConfigValue != 0) {
           // get time diff between current date and last login attempt
           long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
@@ -239,6 +208,19 @@ public class LoginAttemptsHelper {
 
     return future;
 
+  }
+
+  private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+    if (res.failed()) {
+      logger.warn(res.cause());
+      return Integer.parseInt(MODULE_SPECIFIC_ARGS
+        .getOrDefault(key, "10"));
+    } else try {
+      return Integer.parseInt(res.result().getString(VALUE));
+    } catch (Exception e) {
+      logger.error(e);
+    }
+    return defaultValue;
   }
 
   /**
