@@ -225,7 +225,7 @@ public class LoginAttemptsHelper {
                 asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
                   respond422WithApplicationJson(
                     LoginAPI.getErrors("Password does not match",
-                      attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_PASSWORD_INVALID,
+                      attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
                       new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
                   ))));
             }
@@ -410,7 +410,7 @@ public class LoginAttemptsHelper {
 
           asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
             respond422WithApplicationJson(
-              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_PASSWORD_INVALID,
+              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
                 new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
               ))));
         } else {

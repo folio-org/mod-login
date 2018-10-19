@@ -75,7 +75,7 @@ public class LoginAPI implements Authn {
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INVALID = "username.invalid";
-  public static final String CODE_PASSWORD_INVALID = "password.invalid";
+  public static final String CODE_P_A_S_S_W_O_R_D_INVALID = "wordpass.invalid";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
