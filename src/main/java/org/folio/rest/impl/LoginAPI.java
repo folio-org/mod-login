@@ -56,8 +56,6 @@ import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
 import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 
-import org.folio.rest.jaxrs.model.Errors;
-
 /**
  *
  * @author kurt
@@ -883,45 +881,31 @@ public class LoginAPI implements Authn {
                 asyncResultHandler.handle(Future.succeededFuture(
                     PostAuthnUpdateResponse.respond401WithTextPlain("Invalid credentials")));
               } else { //Password checks out, we can proceed
-                checkValidPassword(entity.getNewPassword()).setHandler(
-                    checkPasswordResult -> {
-                  if(checkPasswordResult.failed()) {
-                    String message = checkPasswordResult.cause().getLocalizedMessage();
-                    logger.error(message);
-                    asyncResultHandler.handle(Future.succeededFuture(
+                Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
+                  entity.getNewPassword());
+                updateCredential(newCred, tenantId, vertxContext)
+                  .setHandler(updateCredResult -> {
+                    if(updateCredResult.failed()) {
+                      String message = updateCredResult.cause().getLocalizedMessage();
+                      logger.error(message);
+                      asyncResultHandler.handle(Future.succeededFuture(
                         PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                  } else if(checkPasswordResult.result() != null) { //Errors found
-                    asyncResultHandler.handle(Future.succeededFuture(
-                        PostAuthnUpdateResponse.respond422WithApplicationJson(
-                        checkPasswordResult.result())));
-                  } else { //Update the credentials with the new password
-                    Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
-                        entity.getNewPassword());
-                    updateCredential(newCred, tenantId, vertxContext)
-                        .setHandler(updateCredResult -> {
-                      if(updateCredResult.failed()) {
-                        String message = updateCredResult.cause().getLocalizedMessage();
-                        logger.error(message);
+                    } else {
+                      if(!updateCredResult.result()) { //404
                         asyncResultHandler.handle(Future.succeededFuture(
-                            PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                      } else {
-                        if(!updateCredResult.result()) { //404
-                          asyncResultHandler.handle(Future.succeededFuture(
-                            PostAuthnUpdateResponse.respond400WithTextPlain(
+                          PostAuthnUpdateResponse.respond400WithTextPlain(
                             "Unable to update credentials for that userId")));
-                        } else {
-                          // after succesfull change password skip login attempts counter
-                          PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                          getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
-                            onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+                      } else {
+                        // after succesfull change password skip login attempts counter
+                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                        getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
+                          onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
 
-                           asyncResultHandler.handle(Future.succeededFuture(
-                               PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
-                        }
+                        asyncResultHandler.handle(Future.succeededFuture(
+                          PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
                       }
-                    });
-                  }
-                });
+                    }
+                  });
               }
             });
           }
@@ -964,11 +948,6 @@ public class LoginAPI implements Authn {
       }
     });
     return validLoginFuture;
-  }
-
-  private Future<Errors> checkValidPassword(String password) {
-    //Here is where we make calls to whatever password validation we need to do
-    return Future.succeededFuture(); //Null result
   }
 
   private Credential makeCredentialObject(String id, String userId, String password) {
