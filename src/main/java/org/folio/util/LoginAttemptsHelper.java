@@ -11,6 +11,8 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
 import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -37,10 +39,12 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
+  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
   private static final String JSON_TYPE = "application/json";
+  private static final String VALUE = "value";
 
   /**
    * Method build criteria for lookup Login Attempts for user by user id
@@ -51,7 +55,7 @@ public class LoginAttemptsHelper {
   public static Criterion buildCriteriaForUserAttempts(String userId) throws Exception {
     Criteria attemptCrit = new Criteria(LOGIN_ATTEMPTS_SCHEMA_PATH);
     attemptCrit.addField(LOGIN_ATTEMPTS_USERID_FIELD);
-    attemptCrit.setOperation("=");
+    attemptCrit.setOperation(Criteria.OP_EQUAL);
     attemptCrit.setValue(userId);
     return new Criterion(attemptCrit);
   }
@@ -160,50 +164,63 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
+  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params, JsonObject userObject, Handler<AsyncResult<Response>> asyncResultHandler) {
     Future<Boolean> future = Future.future();
     try {
-      getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res -> {
-        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle -> {
-          Integer loginTimeoutConfigValue;
-          if (handle.failed()) {
-            logger.warn(handle.cause());
-            loginTimeoutConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-              .getOrDefault(LOGIN_ATTEMPTS_TIMEOUT_CODE, "10"));
-          } else {
-            loginTimeoutConfigValue = Integer.parseInt(handle.result().getString("value"));
+      getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res ->
+        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
+          getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
+        boolean result = false;
+
+        int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+        int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
+        int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+
+        if (loginFailConfigValue != 0) {
+          // get time diff between current date and last login attempt
+          long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
+          // calc date diff in minutes
+          long diffMinutes = diff / (60 * 1000) % 60;
+          if (diffMinutes > loginTimeoutConfigValue) {
+            attempts.setAttemptCount(0);
+          } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
+            result = true;
           }
-          Integer loginFailConfigValue;
-          if (res.failed()) {
-            logger.warn(res.cause());
-            loginFailConfigValue = Integer.parseInt(MODULE_SPECIFIC_ARGS
-              .getOrDefault(LOGIN_ATTEMPTS_CODE, "5"));
-          } else {
-            loginFailConfigValue = Integer.parseInt(res.result().getString("value"));
-          }
-          if (loginFailConfigValue.equals(0)) {
-            future.complete(false);
-          } else {
-            // get time diff between current date and last login attempt
-            long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
-            // calc date diff in minutes
-            long diffMinutes = diff / (60 * 1000) % 60;
-            if (diffMinutes > loginTimeoutConfigValue) {
-              attempts.setAttemptCount(0);
-              future.complete(false);
-            } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
-              future.complete(true);
-            } else {
-              future.complete(false);
-            }
-          }
-        });
-      });
-    }catch (Exception e){
+        }
+        if (result) {
+            asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+              respond422WithApplicationJson(
+                LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED))));
+        } else {
+            asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+              respond422WithApplicationJson(
+                LoginAPI.getErrors("Password does not match",
+                  attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
+                  new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
+              ))));
+        }
+        future.complete(result);
+      })));
+    } catch (Exception e){
       logger.error(e);
       future.complete(false);
     }
+
     return future;
+
+  }
+
+  private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+    if (res.failed()) {
+      logger.warn(res.cause());
+      return Integer.parseInt(MODULE_SPECIFIC_ARGS
+        .getOrDefault(key, "10"));
+    } else try {
+      return Integer.parseInt(res.result().getString(VALUE));
+    } catch (Exception e) {
+      logger.error(e);
+    }
+    return defaultValue;
   }
 
   /**
@@ -371,12 +388,18 @@ public class LoginAttemptsHelper {
           saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1),
             asyncResultHandler, saveAttemptHandler(asyncResultHandler));
           logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, 1);
+
+          asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
+            respond422WithApplicationJson(
+              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
+                new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
+              ))));
         } else {
           // check users login attempts
           LoginAttempts attempt = attempts.get(0);
           attempt.setAttemptCount(attempt.getAttemptCount() + 1);
           attempt.setLastAttempt(new Date());
-          needToUserBlock(attempt, params).setHandler(needBlockHandler -> {
+          needToUserBlock(attempt, params, userObject, asyncResultHandler).setHandler(needBlockHandler -> {
             if (needBlockHandler.result()) {
               // lock user account
               JsonObject user = userObject.copy();
@@ -394,8 +417,9 @@ public class LoginAttemptsHelper {
                 logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
               });
             } else {
+              Integer attemptCount = attempt.getAttemptCount();
               updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
-              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attempt.getAttemptCount());
+              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
             }
           });
         }
