@@ -195,7 +195,7 @@ public class LoginAttemptsHelper {
             asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
               respond422WithApplicationJson(
                 LoginAPI.getErrors("Password does not match",
-                  attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
+                  attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_PASSWORD_INCORRECT,
                   new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
               ))));
         }
@@ -214,7 +214,7 @@ public class LoginAttemptsHelper {
     if (res.failed()) {
       logger.warn(res.cause());
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
-        .getOrDefault(key, "10"));
+        .getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
       return Integer.parseInt(res.result().getString(VALUE));
     } catch (Exception e) {
@@ -391,7 +391,7 @@ public class LoginAttemptsHelper {
 
           asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
             respond422WithApplicationJson(
-              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_P_A_S_S_W_O_R_D_INVALID,
+              LoginAPI.getErrors("Password does not match", LoginAPI.CODE_PASSWORD_INCORRECT,
                 new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
               ))));
         } else {
