@@ -214,7 +214,7 @@ public class LoginAttemptsHelper {
     if (res.failed()) {
       logger.warn(res.cause());
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
-        .getOrDefault(key, "10"));
+        .getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
       return Integer.parseInt(res.result().getString(VALUE));
     } catch (Exception e) {
