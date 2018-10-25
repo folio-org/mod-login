@@ -74,8 +74,8 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
-  private static final String CODE_USERNAME_INVALID = "username.invalid";
-  public static final String CODE_P_A_S_S_W_O_R_D_INVALID = "wordpass.invalid";
+  private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
+  public static final String CODE_PASSWORD_INCORRECT = "password.incorrect";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
@@ -339,7 +339,7 @@ public class LoginAPI implements Authn {
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(
                 PostAuthnLoginResponse.respond422WithApplicationJson(
-                  getErrors(errMsg, CODE_USERNAME_INVALID, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
+                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
             ));
 
           } else {
