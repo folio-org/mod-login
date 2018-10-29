@@ -12,13 +12,18 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.CredentialsListObject;
 import org.folio.rest.jaxrs.model.Error;
+import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.model.Password;
+import org.folio.rest.jaxrs.model.PasswordValid;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.UpdateCredentials;
 import org.folio.rest.jaxrs.resource.Authn;
+import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -50,14 +55,13 @@ import java.net.URL;
 import java.util.MissingResourceException;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.onLoginFailAttemptHandler;
 import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
 import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
-
-import org.folio.rest.jaxrs.model.Errors;
 
 /**
  *
@@ -66,11 +70,15 @@ import org.folio.rest.jaxrs.model.Errors;
 public class LoginAPI implements Authn {
 
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
+  private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   public static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   public static final String OKAPI_URL_HEADER = "x-okapi-url";
+  private static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
+  private static final String CREDENTIALS_HISTORY_USER_ID_FIELD = "'userId'";
+  private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
@@ -87,6 +95,7 @@ public class LoginAPI implements Authn {
       .getOrDefault("require.active", "true"));
   private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
       .getOrDefault("lookup.timeout", "1000"));
+  private static final int PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
@@ -420,7 +429,7 @@ public class LoginAPI implements Authn {
                             sub, tenantId, okapiURL, requestToken, vertxContext.owner());
                         CompositeFuture compositeFuture = CompositeFuture.join(fetchTokenFuture,
                             fetchRefreshTokenFuture);
-                        
+
                         compositeFuture.setHandler(fetchTokenRes -> {
                           if(fetchTokenFuture.failed()) {
                             String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
@@ -754,6 +763,66 @@ public class LoginAPI implements Authn {
     }
   }
 
+  /**
+   * This method is /authn/password/repeatable endpoint implementation
+   * which is used by programmatic rule of mod-password-validator.
+   * It takes a password as a parameter and checks if the user used this password before.
+   * If password was used before the response is 'valid' otherwise the response is 'invalid'.
+   *
+   * @param password password to be validated
+   * @param okapiHeaders request headers
+   * @param asyncResultHandler An AsyncResult<Response> Handler  {@link Handler}
+   * @param vertxContext The Vertx Context Object <code>io.vertx.core.Context</code>
+   */
+  @Override
+  public void postAuthnPasswordRepeatable(Password password, Map<String, String> okapiHeaders,
+                                          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    try {
+      vertxContext.runOnContext(v -> {
+        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
+          okapiHeaders.get(OKAPI_TENANT_HEADER));
+
+        Criteria criteria = new Criteria()
+          .addField(CREDENTIALS_HISTORY_USER_ID_FIELD)
+          .setOperation(OP_EQUAL)
+          .setValue(okapiHeaders.get(OKAPI_USER_ID_HEADER));
+
+        Criterion criterion = new Criterion(criteria)
+          //it seems like Criterion have to wrap the fieldName with "jsonb->>'fieldName'"
+          //currently Criterion does not do it
+          //if it will be fixed in the future, "jsonb->>'fieldName'" have to be removed to keep the code working
+          .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))
+          .setLimit(new Limit(PASSWORDS_HISTORY_NUMBER));
+
+        pgClient.get(TABLE_NAME_CREDENTIALS_HISTORY, CredentialsHistory.class, criterion,
+          true, getReply -> {
+            if (getReply.failed()) {
+              logger.debug("Error in PostgresClient get operation " + getReply.cause().getLocalizedMessage());
+              asyncResultHandler.handle(
+                Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+            }
+
+            boolean anyMatch = getReply.result().getResults().stream()
+              .map(history -> authUtil.calculateHash(password.getPassword(), history.getSalt()))
+              .anyMatch(hash -> getReply.result().getResults().stream()
+                .anyMatch(history -> history.getHash().equals(hash)));
+
+            if (anyMatch) {
+              asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+                respond200WithApplicationJson(new PasswordValid().withResult("invalid"))));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+                respond200WithApplicationJson(new PasswordValid().withResult("valid"))));
+            }
+          });
+      });
+    } catch(Exception e) {
+      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(
+        PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
+  }
+
   private void testForFile(String path) {
     URL u = LoginAPI.class.getClassLoader().getResource(path);
     if(u == null) {
@@ -824,45 +893,31 @@ public class LoginAPI implements Authn {
                 asyncResultHandler.handle(Future.succeededFuture(
                     PostAuthnUpdateResponse.respond401WithTextPlain("Invalid credentials")));
               } else { //Password checks out, we can proceed
-                checkValidPassword(entity.getNewPassword()).setHandler(
-                    checkPasswordResult -> {
-                  if(checkPasswordResult.failed()) {
-                    String message = checkPasswordResult.cause().getLocalizedMessage();
-                    logger.error(message);
-                    asyncResultHandler.handle(Future.succeededFuture(
+                Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
+                  entity.getNewPassword());
+                updateCredential(newCred, tenantId, vertxContext)
+                  .setHandler(updateCredResult -> {
+                    if(updateCredResult.failed()) {
+                      String message = updateCredResult.cause().getLocalizedMessage();
+                      logger.error(message);
+                      asyncResultHandler.handle(Future.succeededFuture(
                         PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                  } else if(checkPasswordResult.result() != null) { //Errors found
-                    asyncResultHandler.handle(Future.succeededFuture(
-                        PostAuthnUpdateResponse.respond422WithApplicationJson(
-                        checkPasswordResult.result())));
-                  } else { //Update the credentials with the new password
-                    Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
-                        entity.getNewPassword());
-                    updateCredential(newCred, tenantId, vertxContext)
-                        .setHandler(updateCredResult -> {
-                      if(updateCredResult.failed()) {
-                        String message = updateCredResult.cause().getLocalizedMessage();
-                        logger.error(message);
+                    } else {
+                      if(!updateCredResult.result()) { //404
                         asyncResultHandler.handle(Future.succeededFuture(
-                            PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                      } else {
-                        if(!updateCredResult.result()) { //404
-                          asyncResultHandler.handle(Future.succeededFuture(
-                            PostAuthnUpdateResponse.respond400WithTextPlain(
+                          PostAuthnUpdateResponse.respond400WithTextPlain(
                             "Unable to update credentials for that userId")));
-                        } else {
-                          // after succesfull change password skip login attempts counter
-                          PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                          getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
-                            onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+                      } else {
+                        // after succesfull change password skip login attempts counter
+                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                        getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
+                          onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
 
-                           asyncResultHandler.handle(Future.succeededFuture(
-                               PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
-                        }
+                        asyncResultHandler.handle(Future.succeededFuture(
+                          PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
                       }
-                    });
-                  }
-                });
+                    }
+                  });
               }
             });
           }
@@ -905,11 +960,6 @@ public class LoginAPI implements Authn {
       }
     });
     return validLoginFuture;
-  }
-
-  private Future<Errors> checkValidPassword(String password) {
-    //Here is where we make calls to whatever password validation we need to do
-    return Future.succeededFuture(); //Null result
   }
 
   private Credential makeCredentialObject(String id, String userId, String password) {

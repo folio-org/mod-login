@@ -47,6 +47,11 @@
           "methods": [ "POST" ],
           "pathPattern" : "/authn/update",
           "modulePermissions" : [ "users.collection.get" ]
+        },
+        {
+          "methods": [ "POST" ],
+          "pathPattern" : "/authn/password/repeatable",
+          "permissionsRequired" : [ "login.password.validate" ]
         }
       ]
     },
@@ -94,6 +99,11 @@
       "description" : "Read a login attempt entity for user"
     },
     {
+      "permissionName" : "login.password.validate",
+      "displayName" : "login password validate",
+      "description" : "Validate password for repeatability"
+    },
+    {
       "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
@@ -103,7 +113,8 @@
         "login.item.post",
         "login.item.put",
         "login.item.delete",
-        "login.attempts.item.get"
+        "login.attempts.item.get",
+        "login.password.validate"
       ]
     }
   ],
