@@ -202,8 +202,12 @@ public class LoginAPI implements Authn {
     Future<String> future = Future.future();
     HttpClient client = vertx.createHttpClient();
     HttpClientRequest request = client.postAbs(okapiURL + "/token");
-    request.putHeader(OKAPI_TOKEN_HEADER, requestToken);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant);
+
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json");
+
     request.handler(response -> {
       response.bodyHandler(buf -> {
         try {
@@ -240,9 +244,12 @@ public class LoginAPI implements Authn {
     Future<String> future = Future.future();
     HttpClient client = vertx.createHttpClient();
     HttpClientRequest request = client.postAbs(okapiURL + "/refreshtoken");
-    request.putHeader(OKAPI_TOKEN_HEADER, requestToken);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant);
-    request.handler(response -> {});
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json");
+    request.handler(response -> {
+    });
     JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
     request.handler(response -> {
       response.bodyHandler(buf -> {
