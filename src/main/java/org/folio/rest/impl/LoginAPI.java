@@ -358,8 +358,9 @@ public class LoginAPI implements Authn {
                 .cause().getLocalizedMessage();
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(
-                PostAuthnLoginResponse.respond422WithApplicationJson(
-                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
+                /*PostAuthnLoginResponse.respond422WithApplicationJson(
+                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))*/
+              PostAuthnLoginResponse.respond400WithTextPlain(getErrorResponse(errMsg))
             ));
 
           } else {
@@ -381,8 +382,10 @@ public class LoginAPI implements Authn {
                 if(!foundActive) {
                   logger.error("User could not be verified as active");
                   asyncResultHandler.handle(Future.succeededFuture(
-                    PostAuthnLoginResponse.respond422WithApplicationJson(
-                    getErrors("User must be flagged as active", CODE_USER_BLOCKED))));
+                    /*PostAuthnLoginResponse.respond422WithApplicationJson(
+                    getErrors("User must be flagged as active", CODE_USER_BLOCKED))*/
+                    PostAuthnLoginResponse.respond400WithTextPlain(getErrorResponse("User must be flagged as active"))
+                  ));
                   return;
                 }
               }

@@ -218,7 +218,8 @@ public class LogEventsTest {
   public void testRestAPIWithoutLogConfig() {
     // create mod-config
     int mockServerPort = userMockServer.port();
-    initModConfigStub(mockServerPort, new Configurations());
+    Config config = createConfig(RandomStringUtils.randomAlphabetic(10), EVENT_LOG_API_CODE_STATUS, false);
+    initModConfigStub(mockServerPort, initLoggingConfigurations(config));
     String okapiUrl = "http://localhost:" + mockServerPort;
     String id = UUID.randomUUID().toString();
 

@@ -188,16 +188,19 @@ public class LoginAttemptsHelper {
           }
         }
         if (result) {
-            asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
-              respond422WithApplicationJson(
-                LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED))));
+            asyncResultHandler.handle(Future.succeededFuture(
+              /*Authn.PostAuthnLoginResponse.respond422WithApplicationJson(
+                LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED))*/
+              Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
+            ));
         } else {
-            asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
-              respond422WithApplicationJson(
+            asyncResultHandler.handle(Future.succeededFuture(
+              /*Authn.PostAuthnLoginResponse.respond422WithApplicationJson(
                 LoginAPI.getErrors("Password does not match",
                   attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_PASSWORD_INCORRECT,
-                  new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
-              ))));
+                  new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))))*/
+              Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
+            ));
         }
         future.complete(result);
       })));
@@ -389,11 +392,12 @@ public class LoginAttemptsHelper {
             asyncResultHandler, saveAttemptHandler(asyncResultHandler));
           logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, 1);
 
-          asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse.
-            respond422WithApplicationJson(
+          asyncResultHandler.handle(Future.succeededFuture(
+            /*Authn.PostAuthnLoginResponse.respond422WithApplicationJson(
               LoginAPI.getErrors("Password does not match", LoginAPI.CODE_PASSWORD_INCORRECT,
-                new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))
-              ))));
+                new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))))*/
+            Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
+          ));
         } else {
           // check users login attempts
           LoginAttempts attempt = attempts.get(0);
