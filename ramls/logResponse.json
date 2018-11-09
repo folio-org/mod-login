@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Log event response",
+  "type": "object",
+  "properties": {
+    "message": {
+      "description": "response message",
+      "type": "string"
+    }
+  },
+  "required": [
+    "message"
+  ]
+}

@@ -1,3 +1,15 @@
+## 2018-11-09 v4.5.0
+ * Add implementation `/authn/log/events` which is accessible through OKAPI
+ * Add rest tests
+
+ API:
+
+ | METHOD |  URL                          | DESCRIPTION                                                       |
+ |--------|-------------------------------|-------------------------------------------------------------------|
+ | POST   | /authn/log/events             | Saves the event into the storage                                  |
+ | GET    | /authn/log/events/            | Get a list of events from storage                                 |
+ | DELETE | /authn/log/events/{userId}    | Delete the event by userId from storage                           |
+
 ## 2018-09-12 v4.5.0
  * Restructure RAML to make module RAML and JSON local to repo
  * Return refresh token in login response when available

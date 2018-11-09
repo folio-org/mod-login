@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "Logging event",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "id"
+    },
+    "eventCode": {
+      "type": "string",
+      "description": "event code: PASSWORD_RESET, PASSWORD_CREATE"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "timestamp"
+    },
+    "tenant": {
+      "type": "string",
+      "description": "tenant"
+    },
+    "userId": {
+      "type": "string",
+      "description": "user ID"
+    },
+    "uri": {
+      "type": "string",
+      "description": "uri"
+    },
+    "path": {
+      "type": "string",
+      "description": "path"
+    },
+    "auth_result": {
+      "type": "string",
+      "description": "auth_result"
+    },
+    "auth_error": {
+      "type": "object",
+      "description": "auth_error"
+    },
+    "module_result": {
+      "type": "string",
+      "description": "module_result"
+    },
+    "module_error": {
+      "type": "object",
+      "description": "module_error"
+    },
+    "method": {
+      "type": "string",
+      "description": "method"
+    },
+    "ip": {
+      "type": "string",
+      "description": "client IP"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "metadata",
+      "$ref": "raml-util/schemas/metadata.schema",
+      "readonly": true
+    }
+  },
+  "required": [
+    "tenant",
+    "userId",
+    "eventCode"
+  ]
+}

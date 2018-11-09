@@ -51,6 +51,25 @@
           "tOps" : "ADD"
         }
       ]
+    },
+    {
+      "tableName": "event_logs",
+      "generateId": true,
+      "fromModuleVersion" : "1.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id",
+      "uniqueIndex" : [
+        {
+          "fieldName" : "eventId",
+          "tOps" : "ADD"
+        }
+      ],
+      "index": [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
     }
   ]
 }

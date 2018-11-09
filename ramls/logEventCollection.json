@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Event List",
+  "type": "object",
+  "properties": {
+    "loggingEvent": {
+      "description":"event collection",
+      "id": "eventData",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "$ref": "logEvent.json"
+      }
+    },
+    "totalRecords": {
+      "description":"total records",
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "loggingEvent",
+    "totalRecords"
+  ]
+}

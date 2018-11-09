@@ -8,6 +8,32 @@
       "handlers" : [
         {
           "methods" : [ "POST" ],
+          "pathPattern" : "/authn/log/events",
+          "permissionsRequired" : [ "login.event.collection.post" ],
+          "modulePermissions" : [
+            "users.collection.get",
+            "configuration.entries.collection.get",
+            "configuration.entries.item.get"
+          ]
+        },
+        {
+          "methods" : [ "GET" ],
+          "pathPattern" : "/authn/log/events",
+          "permissionsRequired" : [ "login.event.collection.get" ],
+          "modulePermissions" : [
+            "configuration.entries.item.get"
+          ]
+        },
+        {
+          "methods" : [ "DELETE" ],
+          "pathPattern" : "/authn/log/events/{userId}",
+          "permissionsRequired" : [ "login.event.delete" ],
+          "modulePermissions" : [
+            "configuration.entries.item.get"
+          ]
+        },
+        {
+          "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
             "users.collection.get", "users.item.put", 
@@ -104,6 +130,21 @@
       "description" : "Validate password for repeatability"
     },
     {
+      "permissionName" : "login.event.collection.post",
+      "displayName" : "login save log event",
+      "description" : "Saves received event into the storage"
+    },
+    {
+      "permissionName" : "login.event.collection.get",
+      "displayName" : "login get a list of events",
+      "description" : "Get a list of events from storage"
+    },
+    {
+      "permissionName" : "login.event.delete",
+      "displayName" : "login delete event",
+      "description" : "Delete log event"
+    },
+    {
       "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
@@ -114,7 +155,10 @@
         "login.item.put",
         "login.item.delete",
         "login.attempts.item.get",
-        "login.password.validate"
+        "login.password.validate",
+        "login.event.collection.post",
+        "login.event.collection.get",
+        "login.event.delete"
       ]
     }
   ],
