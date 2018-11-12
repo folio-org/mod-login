@@ -16,7 +16,7 @@ import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
-import org.folio.services.StorageService;
+import org.folio.services.LogStorageService;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 import org.z3950.zing.cql.cql2pgjson.FieldException;
 
@@ -24,7 +24,7 @@ import java.util.UUID;
 
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_EVENT_LOGS;
 
-public class StorageServiceImpl implements StorageService {
+public class LogStorageServiceImpl implements LogStorageService {
 
   private static final String EVENT_CONFIG_ID = "id";
   private static final String SUCCESSFUL_MESSAGE_CREATE = "Event id: %s was successfully saved to event log";
@@ -32,16 +32,16 @@ public class StorageServiceImpl implements StorageService {
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
   private static final String EVENT_CONFIG_CRITERIA_ID = "userId==%s";
 
-  private final Logger logger = LoggerFactory.getLogger(StorageServiceImpl.class);
+  private final Logger logger = LoggerFactory.getLogger(LogStorageServiceImpl.class);
   private final Vertx vertx;
 
-  public StorageServiceImpl(Vertx vertx) {
+  public LogStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
   }
 
   @Override
-  public StorageService createEvent(String tenantId, JsonObject eventEntity,
-                                    Handler<AsyncResult<JsonObject>> asyncResultHandler) {
+  public LogStorageService createEvent(String tenantId, JsonObject eventEntity,
+                                       Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     try {
       String id = UUID.randomUUID().toString();
       eventEntity.put(EVENT_CONFIG_ID, id);
@@ -69,8 +69,8 @@ public class StorageServiceImpl implements StorageService {
   }
 
   @Override
-  public StorageService findAllEvents(String tenantId, int limit, int offset, String query,
-                                      Handler<AsyncResult<JsonObject>> asyncResultHandler) {
+  public LogStorageService findAllEvents(String tenantId, int limit, int offset, String query,
+                                         Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     try {
       CQLWrapper cql = getCQL(query, limit, offset);
       String[] fieldList = {"*"};
@@ -103,8 +103,8 @@ public class StorageServiceImpl implements StorageService {
   }
 
   @Override
-  public StorageService deleteEventByUserId(String tenantId, String userId,
-                                            Handler<AsyncResult<JsonObject>> asyncResultHandler) {
+  public LogStorageService deleteEventByUserId(String tenantId, String userId,
+                                               Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     try {
       CQLWrapper cqlFilter = getCqlWrapper(userId);
       PostgresClient.getInstance(vertx, tenantId)

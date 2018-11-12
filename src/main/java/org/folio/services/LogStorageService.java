@@ -9,16 +9,16 @@ import io.vertx.core.json.JsonObject;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LogEvents;
 import org.folio.rest.jaxrs.model.LogResponse;
-import org.folio.services.impl.StorageServiceImpl;
+import org.folio.services.impl.LogStorageServiceImpl;
 
 /**
  * The interface provides basic CRUD operations for storing and retrieving data from the storage
  */
 @ProxyGen
-public interface StorageService {
+public interface LogStorageService {
 
-  static StorageService create(Vertx vertx) {
-    return new StorageServiceImpl(vertx);
+  static LogStorageService create(Vertx vertx) {
+    return new LogStorageServiceImpl(vertx);
   }
 
   /**
@@ -26,10 +26,10 @@ public interface StorageService {
    *
    * @param vertx   vertx instance
    * @param address host address
-   * @return StorageService instance
+   * @return LogStorageService instance
    */
-  static StorageService createProxy(Vertx vertx, String address) {
-    return new StorageServiceVertxEBProxy(vertx, address);
+  static LogStorageService createProxy(Vertx vertx, String address) {
+    return new LogStorageServiceVertxEBProxy(vertx, address);
   }
 
   /**
@@ -40,7 +40,7 @@ public interface StorageService {
    * @return asyncResult with the entity {@link LogResponse}
    */
   @Fluent
-  StorageService createEvent(String tenantId, JsonObject eventEntity, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  LogStorageService createEvent(String tenantId, JsonObject eventEntity, Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Find the entity {@link LogEvents} by filter
@@ -52,7 +52,7 @@ public interface StorageService {
    * @return asyncResult with the entity {@link LogEvents}
    */
   @Fluent
-  StorageService findAllEvents(String tenantId, int limit, int offset, String query, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  LogStorageService findAllEvents(String tenantId, int limit, int offset, String query, Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Delete the entity {@link LogEvent} by userId
@@ -62,5 +62,5 @@ public interface StorageService {
    * @return asyncResult with the entity {@link LogResponse}
    */
   @Fluent
-  StorageService deleteEventByUserId(String tenantId, String userId, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  LogStorageService deleteEventByUserId(String tenantId, String userId, Handler<AsyncResult<JsonObject>> asyncResultHandler);
 }

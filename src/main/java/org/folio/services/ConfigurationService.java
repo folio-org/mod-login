@@ -24,7 +24,7 @@ public interface ConfigurationService {
    *
    * @param vertx   vertx instance
    * @param address host address
-   * @return StorageService instance
+   * @return LogStorageService instance
    */
   static ConfigurationService createProxy(Vertx vertx, String address) {
     return new ConfigurationServiceVertxEBProxy(vertx, address);

@@ -4,7 +4,7 @@ import io.vertx.core.*;
 import io.vertx.serviceproxy.ServiceBinder;
 import org.folio.rest.resource.interfaces.InitAPI;
 import org.folio.services.ConfigurationService;
-import org.folio.services.StorageService;
+import org.folio.services.LogStorageService;
 
 import java.net.URL;
 import java.util.MissingResourceException;
@@ -28,7 +28,7 @@ public class InitAPIs implements InitAPI {
     } else {
       new ServiceBinder(vertx)
         .setAddress(EVENT_CONFIG_PROXY_STORY_ADDRESS)
-        .register(StorageService.class, StorageService.create(vertx));
+        .register(LogStorageService.class, LogStorageService.create(vertx));
       new ServiceBinder(vertx)
         .setAddress(EVENT_CONFIG_PROXY_CONFIG_ADDRESS)
         .register(ConfigurationService.class, ConfigurationService.create(vertx));

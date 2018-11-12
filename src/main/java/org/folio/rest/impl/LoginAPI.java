@@ -12,7 +12,6 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.*;
@@ -28,7 +27,7 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.services.ConfigurationService;
-import org.folio.services.StorageService;
+import org.folio.services.LogStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.OkapiConnectionParams;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
@@ -89,7 +88,7 @@ public class LoginAPI implements Authn {
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
   private String vTenantId;
-  private StorageService storageService;
+  private LogStorageService logStorageService;
   private ConfigurationService configurationService;
 
   public LoginAPI(Vertx vertx, String tenantId) {
@@ -98,7 +97,7 @@ public class LoginAPI implements Authn {
   }
 
   private void initService(Vertx vertx) {
-    this.storageService = StorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
+    this.logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
     this.configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
   }
 
@@ -859,7 +858,7 @@ public class LoginAPI implements Authn {
             return;
           }
 
-          storageService.findAllEvents(vTenantId, limit, offset, query,
+          logStorageService.findAllEvents(vTenantId, limit, offset, query,
             storageHandler -> {
               if (storageHandler.failed()) {
                 String errorMessage = storageHandler.cause().getMessage();
@@ -908,7 +907,7 @@ public class LoginAPI implements Authn {
           }
 
           JsonObject loggingEventJson = JsonObject.mapFrom(logEvent);
-          storageService.createEvent(vTenantId, loggingEventJson,
+          logStorageService.createEvent(vTenantId, loggingEventJson,
             storageHandler -> {
               if (storageHandler.failed()) {
                 String errorMessage = storageHandler.cause().getMessage();
@@ -949,7 +948,7 @@ public class LoginAPI implements Authn {
             return;
           }
 
-          storageService.deleteEventByUserId(vTenantId, userId,
+          logStorageService.deleteEventByUserId(vTenantId, userId,
             storageHandler -> {
               if (storageHandler.failed()) {
                 String errorMessage = storageHandler.cause().getMessage();
