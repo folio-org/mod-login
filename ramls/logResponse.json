@@ -1,10 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
-  "description": "Log event response",
+  "description": "The log event object containing the message received from LoginAPI",
   "type": "object",
   "properties": {
     "message": {
-      "description": "response message",
+      "description": "The message containing API response information",
       "type": "string"
     }
   },

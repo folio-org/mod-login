@@ -1,65 +1,65 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
-  "description": "Logging event",
+  "description": "A logging event that describes the event code and basic information for logging events",
   "additionalProperties": true,
   "properties": {
     "id": {
       "type": "string",
-      "description": "id"
+      "description": "The system assigned unique ID of the instance record; UUID"
     },
     "eventCode": {
       "type": "string",
-      "description": "event code: PASSWORD_RESET, PASSWORD_CREATE"
+      "description": "Event code: PASSWORD_RESET, PASSWORD_CREATE"
     },
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "description": "timestamp"
+      "description": "Event registration time"
     },
     "tenant": {
       "type": "string",
-      "description": "tenant"
+      "description": "The tenant for which the event occurred"
     },
     "userId": {
       "type": "string",
-      "description": "user ID"
+      "description": "User ID for which the event is registered."
     },
     "uri": {
       "type": "string",
-      "description": "uri"
+      "description": "Unified user resource identifier"
     },
     "path": {
       "type": "string",
-      "description": "path"
+      "description": "Resource path"
     },
     "auth_result": {
       "type": "string",
-      "description": "auth_result"
+      "description": "Describes the result of user authentication."
     },
     "auth_error": {
       "type": "object",
-      "description": "auth_error"
+      "description": "Describes errors that occurred during user authentication."
     },
     "module_result": {
       "type": "string",
-      "description": "module_result"
+      "description": "Describes the result of the module response"
     },
     "module_error": {
       "type": "object",
-      "description": "module_error"
+      "description": "Describes errors that occurred during module execution"
     },
     "method": {
       "type": "string",
-      "description": "method"
+      "description": "Contains information about the http method"
     },
     "ip": {
       "type": "string",
-      "description": "client IP"
+      "description": "Client IP address of registered user Okapi"
     },
     "metadata": {
       "type": "object",
-      "description": "metadata",
+      "description": "Metadata about creation and changes to logging event, provided by the server (client should not provide)",
       "$ref": "raml-util/schemas/metadata.schema",
       "readonly": true
     }

@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "loggingEvent": {
-      "description":"event collection",
+      "description":"Event log with a list of events",
       "id": "eventData",
       "type": "array",
       "items": {
@@ -13,7 +13,7 @@
       }
     },
     "totalRecords": {
-      "description":"total records",
+      "description":"Number of entries in the event log",
       "type": "integer"
     }
   },
