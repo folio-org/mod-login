@@ -1,3 +1,15 @@
+## 2018-11-19 v4.5.0
+ * Add implementation /authn/password-reset-action which is accessible through OKAPI
+ * Add rest tests
+
+ API:
+
+ | METHOD |  URL                                    | DESCRIPTION                                                     |
+ |--------|-----------------------------------------|-----------------------------------------------------------------|
+ | POST   | /authn/reset-password                   | Saves action to storage                                         |
+ | POST   | /authn/password-reset-action            | Resets password for user in record and deletes action record    |
+ | GET    | /authn/password-reset-action/{actionId} | Retrieves action record by id                                   |
+
 ## 2018-09-12 v4.5.0
  * Restructure RAML to make module RAML and JSON local to repo
  * Return refresh token in login response when available
