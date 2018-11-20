@@ -63,12 +63,12 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIALS_HISTORY_USER_ID_FIELD = "'userId'";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
-  private static final String ERROR_PASSWORD_ENTITY_NOT_FOUND = "Password entity with ID: `%s` was not found in the db";
+  private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
-  public static final String CODE_PASSWORD_INCORRECT = "password.incorrect";
+  public static final String CODE_CREDENTIAL_PW_INCORRECT = "password.incorrect";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
@@ -848,7 +848,7 @@ public class LoginAPI implements Authn {
             }
             if (Objects.isNull(serviceHandler.result())) {
               String actionId = entity.getPasswordResetActionId();
-              String message = String.format(ERROR_PASSWORD_ENTITY_NOT_FOUND, actionId);
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
               logger.debug(message);
               asyncHandler.handle(createFutureResponse(
                 PostAuthnResetPasswordResponse.respond404WithTextPlain(message)));
@@ -910,7 +910,7 @@ public class LoginAPI implements Authn {
               return;
             }
             if (Objects.isNull(serviceHandler.result())) {
-              String message = String.format(ERROR_PASSWORD_ENTITY_NOT_FOUND, actionId);
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
               logger.debug(message);
               asyncHandler.handle(createFutureResponse(
                 GetAuthnPasswordResetActionByActionIdResponse.respond404WithTextPlain(message)));

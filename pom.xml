@@ -53,11 +53,27 @@
     <dependency>
       <groupId>com.github.tomakehurst</groupId>
       <artifactId>wiremock</artifactId>
-      <version>2.19.0</version>
+      <version>2.18.0</version>
       <exclusions>
         <exclusion>
           <groupId>net.sf.jopt-simple</groupId>
           <artifactId>jopt-simple</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.github.jknack</groupId>
+          <artifactId>handlebars</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.flipkart.zjsonpatch</groupId>
+          <artifactId>zjsonpatch</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.xmlunit</groupId>
+          <artifactId>xmlunit-legacy</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.jayway.jsonpath</groupId>
+          <artifactId>json-path</artifactId>
         </exclusion>
       </exclusions>
       <scope>test</scope>
