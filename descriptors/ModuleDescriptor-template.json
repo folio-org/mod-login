@@ -55,17 +55,17 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern" : "/authn/",
+          "pathPattern" : "/authn/password-reset-action",
           "permissionsRequired" : [ "login.password-reset-action.post" ]
         },
         {
           "methods": [ "GET" ],
-          "pathPattern" : "/authn/",
+          "pathPattern" : "/authn/password-reset-action",
           "permissionsRequired" : [ "login.password-reset-action.get" ]
         },
         {
           "methods": [ "POST" ],
-          "pathPattern" : "/authn/",
+          "pathPattern" : "/authn/reset-password",
           "permissionsRequired" : [ "login.password-reset-action.reset" ]
         }
       ]

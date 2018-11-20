@@ -4,11 +4,14 @@ import java.net.HttpURLConnection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import io.vertx.core.AsyncResult;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,6 +36,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.logintest.TestUtil.WrappedResponse;
 
+import static junit.framework.TestCase.fail;
 import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
@@ -118,7 +122,7 @@ public class RestVerticleTest {
   public static String okapiUrl;
 
   @Rule
-  public Timeout rule = Timeout.seconds(180);  // 3 minutes for loading embedded postgres
+  public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -169,6 +173,31 @@ public class RestVerticleTest {
       }
     });
 
+  }
+
+  @Before
+  public void setUp(TestContext context) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, "diku");
+    pgClient.startTx(beginTx ->
+      pgClient.delete(beginTx, "auth_attempts", new Criterion(), event -> {
+        if (event.failed()) {
+          pgClient.rollbackTx(beginTx, e -> context.fail(event.cause()));
+        } else {
+          pgClient.delete(beginTx, "auth_credentials", new Criterion(), eventAuth -> {
+            if (eventAuth.failed()) {
+              pgClient.rollbackTx(beginTx, e -> context.fail(eventAuth.cause()));
+            } else { // auth_credentials_history
+              pgClient.delete(beginTx, "auth_credentials_history", new Criterion(), eventHistory -> {
+                  if (eventHistory.failed()) {
+                    pgClient.rollbackTx(beginTx, e -> context.fail(eventHistory.cause()));
+                  } else {
+                    pgClient.endTx(beginTx, AsyncResult::succeeded);
+                  }
+                });
+            }
+          });
+        }
+      }));
   }
 
   @AfterClass
