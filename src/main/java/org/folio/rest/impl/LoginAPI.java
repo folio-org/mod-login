@@ -874,7 +874,7 @@ public class LoginAPI implements Authn {
     try {
       JsonObject passwordCreateJson = JsonObject.mapFrom(entity);
       context.runOnContext(contextHandler ->
-        passwordStorageService.savePassword(vTenantId, passwordCreateJson,
+        passwordStorageService.savePasswordAction(vTenantId, passwordCreateJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
@@ -883,7 +883,7 @@ public class LoginAPI implements Authn {
               return;
             }
 
-            PasswordCreate response = getResponseEntity(serviceHandler, PasswordCreate.class);
+            ResponseCreateAction response = getResponseEntity(serviceHandler, ResponseCreateAction.class);
             asyncHandler.handle(createFutureResponse(
               PostAuthnPasswordResetActionResponse.respond201WithApplicationJson(response)));
           }));

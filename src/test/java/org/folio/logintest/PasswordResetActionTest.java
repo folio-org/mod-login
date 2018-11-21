@@ -20,13 +20,12 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
-import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.Metadata;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -63,8 +62,6 @@ public class PasswordResetActionTest {
   private static String restPathResetPassword;
   private static String restPathGetUserCredential;
   private static Vertx vertx;
-  private String userIdSetUp;
-  private String authIdSetUp;
 
   @Rule
   public Timeout timeout = Timeout.seconds(200);
@@ -123,8 +120,25 @@ public class PasswordResetActionTest {
   }
 
   @Before
-  public void setUp(TestContext context) {
-    userIdSetUp = UUID.randomUUID().toString();
+  public void before(TestContext context) {
+    String userIdSetUp = UUID.randomUUID().toString();
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_ID);
+
+    pgClient.startTx(beginTx ->
+      pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, new Criterion(), event -> {
+        if (event.failed()) {
+          pgClient.rollbackTx(beginTx, e -> {
+            fail();
+            context.fail(event.cause());
+          });
+        }
+        deleteAuthCredentials(context, pgClient, beginTx, userIdSetUp, event);
+      }));
+  }
+
+  @After
+  public void cleanUp(TestContext context) {
+    String userIdSetUp = UUID.randomUUID().toString();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_ID);
 
     pgClient.startTx(beginTx ->
@@ -140,17 +154,38 @@ public class PasswordResetActionTest {
   }
 
   @Test
-  public void testCreateNewPasswordAction() {
+  public void testCreateNewPasswordActionUserNotFound() {
     String id = UUID.randomUUID().toString();
     String userId = UUID.randomUUID().toString();
-    JsonObject expectedJson = createPasswordAction(id, userId, new Date());
+    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+    JsonObject expectedJson = new JsonObject().put("passwordExists", false);
 
-    Response response = requestPostCreatePasswordAction(expectedJson)
+    Response response = requestPostCreatePasswordAction(passwordAction)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
       .extract()
       .response();
 
+    // if the user hasn't credential then passwordExists is false
+    JsonObject actualJson = new JsonObject(response.getBody().print());
+    assertEquals(expectedJson, actualJson);
+  }
+
+  @Test
+  public void testCreateNewPasswordActionUserIsExist() {
+    String id = UUID.randomUUID().toString();
+    JsonObject userCred = getUserCredentials();
+    String userId = userCred.getString("userId");
+    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+    JsonObject expectedJson = new JsonObject().put("passwordExists", true);
+
+    Response response = requestPostCreatePasswordAction(passwordAction)
+      .then()
+      .statusCode(HttpStatus.SC_CREATED)
+      .extract()
+      .response();
+
+    // if the user has credential then passwordExists is true
     JsonObject actualJson = new JsonObject(response.getBody().print());
     assertEquals(expectedJson, actualJson);
   }
@@ -198,7 +233,9 @@ public class PasswordResetActionTest {
   @Test
   public void testResetPasswordUserIsExist() {
     String id = UUID.randomUUID().toString();
-    String userId = userIdSetUp;
+    JsonObject userCred = getUserCredentials();
+    String userId = userCred.getString("userId");
+    String credId = userCred.getString("id");
     JsonObject passwordAction = createPasswordAction(id, userId, new Date());
 
     // create a new password action
@@ -219,7 +256,7 @@ public class PasswordResetActionTest {
       .statusCode(HttpStatus.SC_NOT_FOUND);
 
     // check new user's password
-    Response response = requestGetUserCredential(authIdSetUp)
+    Response response = requestGetUserCredential(credId)
       .then()
       .statusCode(HttpStatus.SC_OK)
       .extract()
@@ -264,30 +301,6 @@ public class PasswordResetActionTest {
           context.fail(event.cause());
         });
       }
-      generateUser(pgClient, beginTx, context, userIdSetUp);
-    });
-  }
-
-  private void generateUser(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                            TestContext context, String userId) {
-    Metadata metadata = new Metadata().withCreatedDate(new Date());
-    AuthUtil authUtil = new AuthUtil();
-    authIdSetUp = UUID.randomUUID().toString();
-
-    Credential credential = new Credential();
-    credential.setId(authIdSetUp);            // generate ID
-    credential.setUserId(userId);
-    credential.setSalt(authUtil.getSalt());
-    credential.setHash(authUtil.calculateHash(USER_PW, credential.getSalt()));
-    credential.setMetadata(metadata);
-
-    pgClient.save(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, credential.getId(), credential, event -> {
-      if (event.failed()) {
-        pgClient.rollbackTx(beginTx, e -> {
-          fail();
-          context.fail(event.cause());
-        });
-      }
       pgClient.endTx(beginTx, AsyncResult::succeeded);
     });
   }
@@ -318,6 +331,24 @@ public class PasswordResetActionTest {
     return request
       .when()
       .get(restPathGetUserCredential + id);
+  }
+
+  // Request POST: "/authn/credentials"
+  private JsonObject getUserCredentials() {
+    JsonObject userCredentials = new JsonObject()
+      .put("username", "user")
+      .put("userId", UUID.randomUUID().toString())
+      .put("password", USER_PW);
+
+    String body = request
+      .body(userCredentials.encode())
+      .when()
+      .post("/authn/credentials") //
+      .then()
+      .extract()
+      .response()
+      .getBody().prettyPrint();
+    return new JsonObject(body);
   }
 
   private JsonObject createPasswordAction(String id, String userId, Date date) {

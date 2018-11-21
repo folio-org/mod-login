@@ -8,6 +8,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import org.folio.rest.jaxrs.model.PasswordCreate;
 import org.folio.rest.jaxrs.model.PasswordReset;
+import org.folio.rest.jaxrs.model.ResponseCreateAction;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 
 /**
@@ -36,10 +37,10 @@ public interface PasswordStorageService {
    *
    * @param tenantId       tenant identifier
    * @param passwordEntity Json representation of the passwordEntity {@link PasswordCreate}
-   * @return asyncResult with the entity {@link PasswordCreate}
+   * @return asyncResult with the entity {@link ResponseCreateAction}
    */
   @Fluent
-  PasswordStorageService savePassword(String tenantId, JsonObject passwordEntity, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  PasswordStorageService savePasswordAction(String tenantId, JsonObject passwordEntity, Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Retrieves action record by id

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Response entity to reset the password",
+  "type": "object",
+  "properties": {
+    "passwordWasCreated": {
+      "description": "Check if the user has a password before resetting the password",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

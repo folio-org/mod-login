@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Response entity to create a new password change action",
+  "type": "object",
+  "properties": {
+    "passwordExists": {
+      "description": "Check if the user has an existing password or credential",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

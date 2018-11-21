@@ -19,6 +19,8 @@ types:
   passwordValid: !include passwordValid.json
   passwordReset: !include passwordResetAction.json
   passwordCreate: !include passwordCreateAction.json
+  responseCreateAction: !include responseCreateAction.json
+  responseResetAction: !include responseResetAction.json
 
 traits:
   validate: !include raml-util/traits/validation.raml
@@ -277,7 +279,7 @@ traits:
         201:
           body:
             application/json:
-              schema: passwordCreate
+              schema: responseCreateAction
         400:
           body:
             text/plain:
