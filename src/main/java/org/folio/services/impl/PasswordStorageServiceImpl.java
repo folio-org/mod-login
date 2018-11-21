@@ -8,18 +8,17 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.SQLConnection;
-import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.PasswordCreate;
-import org.folio.rest.jaxrs.model.PasswordReset;
-import org.folio.rest.jaxrs.model.ResponseCreateAction;
+import org.folio.rest.jaxrs.model.*;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 
+import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
@@ -40,7 +39,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   @Override
   public PasswordStorageService savePasswordAction(String tenantId, JsonObject passwordEntity,
-                                             Handler<AsyncResult<JsonObject>> asyncHandler) {
+                                                   Handler<AsyncResult<JsonObject>> asyncHandler) {
     try {
       String id = passwordEntity.getString(PW_ACTION_ID);
       PasswordCreate passwordCreate = passwordEntity.mapTo(PasswordCreate.class);
@@ -61,7 +60,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               return;
             }
 
-            findUserCredentials(pgClient, beginTx, passwordCreate, asyncHandler);
+            String userId = passwordCreate.getUserId();
+            Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
+            findUserCredentialsByUserId(pgClient, beginTx, criterion, asyncHandler);
           }));
     } catch (Exception ex) {
       String errorMessage = String.format(ERROR_MESSAGE_STORAGE_SERVICE,
@@ -72,41 +73,42 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     return this;
   }
 
-  private void findUserCredentials(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                                  PasswordCreate passwordCreate, Handler<AsyncResult<JsonObject>> asyncHandler) {
-    String userId = passwordCreate.getUserId();
-    Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
+  /**
+   * Find user credentials in the `auth_credentials` table by user Id
+   */
+  private void findUserCredentialsByUserId(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
+                                           final Criterion criterion, Handler<AsyncResult<JsonObject>> asyncHandler) {
     pgClient.get(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false,
       getReply -> {
         if (getReply.failed()) {
           pgClient.rollbackTx(beginTx,
             rollbackTx -> asyncHandler.handle(Future.failedFuture(getReply.cause()))
           );
-          return;
+        } else {
+          pgClient.endTx(beginTx,
+            endTx -> {
+              boolean isExist = true;
+              Integer totalRecords = getReply.result().getResultInfo().getTotalRecords();
+              if (Objects.isNull(totalRecords) || totalRecords <= 0) {
+                isExist = false;
+              }
+
+              JsonObject response = JsonObject.mapFrom(new ResponseCreateAction().withPasswordExists(isExist));
+              asyncHandler.handle(Future.succeededFuture(response));
+            });
         }
-
-        pgClient.endTx(beginTx,
-          endTx -> {
-            boolean isExist = true;
-            Integer totalRecords = getReply.result().getResultInfo().getTotalRecords();
-            if (Objects.isNull(totalRecords) || totalRecords <= 0) {
-              isExist = false;
-            }
-
-            JsonObject response = JsonObject.mapFrom(new ResponseCreateAction().withPasswordExists(isExist));
-            asyncHandler.handle(Future.succeededFuture(response));
-          });
       });
   }
 
   @Override
-  public PasswordStorageService findPasswordEntityById(String tenantId, String actionId,
+  public PasswordStorageService findPasswordActionById(String tenantId, String actionId,
                                                        Handler<AsyncResult<JsonObject>> asyncHandler) {
     try {
       Criterion criterion = getCriterionId(actionId, ID_FIELD);
       PostgresClient.getInstance(vertx, tenantId)
         .get(SNAPSHOTS_TABLE_PW, PasswordCreate.class, criterion, true, false,
-          getReply -> {
+          getReply ->
+          {
             if (getReply.failed()) {
               asyncHandler.handle(Future.succeededFuture(null));
               return;
@@ -156,7 +158,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criterion criterionId = getCriterionId(actionId, ID_FIELD);
 
     pgClient.get(beginTx, SNAPSHOTS_TABLE_PW, PasswordCreate.class, criterionId, true, false,
-      reply -> {
+      reply ->
+      {
         if (reply.failed()) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
@@ -191,15 +194,17 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               asyncHandler.handle(Future.failedFuture(rollbackTx.cause())));
           return;
         }
+
+        String newPassword = resetAction.getNewPassword();
+        String actionId = resetAction.getPasswordResetActionId();
         Optional<Credential> credentialOpt = getReply.result().getResults()
           .stream().findFirst();
         if (!credentialOpt.isPresent()) {
-          pgClient.rollbackTx(beginTx,
-            rollbackTx ->
-              asyncHandler.handle(Future.succeededFuture(null)));
+          Credential userCredential = createNewCredential(newPassword, userId);
+          saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, false);
         } else {
-          Credential userCredential = createCredential(resetAction, credentialOpt.get());
-          changeUserCredential(pgClient, beginTx, asyncHandler, resetAction, userCredential);
+          Credential userCredential = createCredential(newPassword, credentialOpt.get());
+          changeUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential);
         }
       });
   }
@@ -209,11 +214,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    */
   private void changeUserCredential(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
                                     Handler<AsyncResult<JsonObject>> asyncHandler,
-                                    PasswordReset passwordReset, Credential userCredential) {
+                                    String actionId, Credential userCredential) {
     String credId = userCredential.getId();
     Criterion criterionId = getCriterionId(credId, ID_FIELD);
     pgClient.delete(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, criterionId,
-      deleteReply -> {
+      deleteReply ->
+      {
         if (deleteReply.failed()) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
@@ -228,7 +234,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           return;
         }
 
-        saveUserCredential(pgClient, beginTx, asyncHandler, passwordReset, userCredential);
+        saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, true);
       });
   }
 
@@ -236,8 +242,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    * Save a new user's credential
    */
   private void saveUserCredential(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                                  Handler<AsyncResult<JsonObject>> asyncHandler, PasswordReset passwordReset,
-                                  Credential userCredential) {
+                                  Handler<AsyncResult<JsonObject>> asyncHandler, String actionId,
+                                  Credential userCredential, boolean passwordWasCreated) {
     String credId = userCredential.getId();
     pgClient.save(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, credId, userCredential,
       putReply -> {
@@ -248,7 +254,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           return;
         }
 
-        deletePasswordActionById(pgClient, beginTx, asyncHandler, passwordReset);
+        deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, passwordWasCreated);
       });
   }
 
@@ -257,8 +263,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    */
   private void deletePasswordActionById(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
                                         Handler<AsyncResult<JsonObject>> asyncHandler,
-                                        PasswordReset resetAction) {
-    String actionId = resetAction.getPasswordResetActionId();
+                                        String actionId, boolean passwordWasCreated) {
     pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, getCriterionId(actionId, ID_FIELD),
       deleteReply -> {
         if (deleteReply.failed()) {
@@ -277,27 +282,42 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
         pgClient.endTx(beginTx,
           endTx -> {
-            JsonObject passwordResetJson = JsonObject.mapFrom(resetAction);
-            asyncHandler.handle(Future.succeededFuture(passwordResetJson));
+            ResponseResetAction response = new ResponseResetAction()
+              .withPasswordWasCreated(passwordWasCreated);
+            asyncHandler.handle(Future.succeededFuture(JsonObject.mapFrom(response)));
           });
       });
   }
 
   /**
-   * Create a new user's credential
+   * Update user credentials
    *
-   * @param passwordReset password action with a new user's password
-   * @param cred          user's credential
-   * @return new user's credential
+   * @param password a new user's password
+   * @param cred     user's credential
+   * @return updated user's credential
    */
-  private Credential createCredential(PasswordReset passwordReset, Credential cred) {
+  private Credential createCredential(String password, Credential cred) {
     AuthUtil authUtil = new AuthUtil();
-    String password = passwordReset.getNewPassword();
     String newSalt = authUtil.getSalt();
     String newHash = authUtil.calculateHash(password, newSalt);
     return cred
       .withHash(newHash)
       .withSalt(newSalt);
+  }
+
+  /**
+   * Create new user credentials
+   *
+   * @param password a new user's password
+   * @param userId   user ID
+   * @return new user's credential
+   */
+  private Credential createNewCredential(String password, String userId) {
+    Credential credential = new Credential()
+      .withId(UUID.randomUUID().toString())
+      .withUserId(userId)
+      .withMetadata(new Metadata().withCreatedDate(new Date()));
+    return createCredential(password, credential);
   }
 
   /**

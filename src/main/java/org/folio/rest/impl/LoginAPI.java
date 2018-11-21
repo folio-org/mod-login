@@ -855,7 +855,7 @@ public class LoginAPI implements Authn {
               return;
             }
 
-            PasswordReset response = getResponseEntity(serviceHandler, PasswordReset.class);
+            ResponseResetAction response = getResponseEntity(serviceHandler, ResponseResetAction.class);
             asyncHandler.handle(createFutureResponse(
               PostAuthnResetPasswordResponse.respond201WithApplicationJson(response)));
           }));
@@ -901,7 +901,7 @@ public class LoginAPI implements Authn {
                                                     Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
       context.runOnContext(contextHandler ->
-        passwordStorageService.findPasswordEntityById(vTenantId, actionId,
+        passwordStorageService.findPasswordActionById(vTenantId, actionId,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();

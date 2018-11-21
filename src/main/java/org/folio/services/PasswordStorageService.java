@@ -9,6 +9,7 @@ import io.vertx.core.json.JsonObject;
 import org.folio.rest.jaxrs.model.PasswordCreate;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.ResponseCreateAction;
+import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 
 /**
@@ -33,32 +34,39 @@ public interface PasswordStorageService {
   }
 
   /**
-   * Saves action to storage
+   * Save the change password action in the repository.
+   * The method returns the `passwordExists` parameter of entity {@link ResponseCreateAction}
+   * that indicates the existence of user credentials in the db.
    *
    * @param tenantId       tenant identifier
    * @param passwordEntity Json representation of the passwordEntity {@link PasswordCreate}
-   * @return asyncResult with the entity {@link ResponseCreateAction}
+   * @return asyncResult with the response entity {@link ResponseCreateAction}
    */
   @Fluent
-  PasswordStorageService savePasswordAction(String tenantId, JsonObject passwordEntity, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  PasswordStorageService savePasswordAction(String tenantId, JsonObject passwordEntity,
+                                            Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Retrieves action record by id
    *
    * @param tenantId tenant identifier
-   * @param actionId action identifier
-   * @return asyncResult with the entity {@link PasswordCreate}
+   * @param actionId action identifier of entity {@link PasswordCreate}
+   * @return asyncResult with the response entity {@link PasswordCreate}
    */
   @Fluent
-  PasswordStorageService findPasswordEntityById(String tenantId, String actionId, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  PasswordStorageService findPasswordActionById(String tenantId, String actionId,
+                                                Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Resets password for user in record and deletes action record
+   * The method returns a parameter
+   * indicating whether the user previously had any credentials.
    *
-   * @param tenantId       tenant identifier
+   * @param tenantId    tenant identifier
    * @param resetAction Json representation of the entity {@link PasswordReset}
-   * @return asyncResult with the entity {@link PasswordReset}
+   * @return asyncResult with the response entity {@link ResponseResetAction}
    */
   @Fluent
-  PasswordStorageService resetPassword(String tenantId, JsonObject resetAction, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  PasswordStorageService resetPassword(String tenantId, JsonObject resetAction,
+                                       Handler<AsyncResult<JsonObject>> asyncResultHandler);
 }

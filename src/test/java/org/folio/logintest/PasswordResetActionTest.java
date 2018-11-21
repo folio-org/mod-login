@@ -25,12 +25,7 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
@@ -41,8 +36,7 @@ import java.util.Date;
 import java.util.TimeZone;
 import java.util.UUID;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.fail;
+import static junit.framework.TestCase.*;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
@@ -100,7 +94,8 @@ public class PasswordResetActionTest {
       .setConfig(new JsonObject().put(HTTP_PORT, port));
 
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
-      res -> {
+      res ->
+      {
         try {
           tenantClient.postTenant(null, handler -> async.complete());
         } catch (Exception e) {
@@ -113,7 +108,8 @@ public class PasswordResetActionTest {
   public static void tearDownClass(final TestContext context) {
     Async async = context.async();
     vertx.close(context.asyncAssertSuccess(
-      res -> {
+      res ->
+      {
         PostgresClient.stopEmbeddedPostgres();
         async.complete();
       }));
@@ -121,40 +117,23 @@ public class PasswordResetActionTest {
 
   @Before
   public void before(TestContext context) {
-    String userIdSetUp = UUID.randomUUID().toString();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_ID);
-
     pgClient.startTx(beginTx ->
-      pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, new Criterion(), event -> {
+      pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, new Criterion(), event ->
+      {
         if (event.failed()) {
-          pgClient.rollbackTx(beginTx, e -> {
+          pgClient.rollbackTx(beginTx, e ->
+          {
             fail();
             context.fail(event.cause());
           });
         }
-        deleteAuthCredentials(context, pgClient, beginTx, userIdSetUp, event);
-      }));
-  }
-
-  @After
-  public void cleanUp(TestContext context) {
-    String userIdSetUp = UUID.randomUUID().toString();
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_ID);
-
-    pgClient.startTx(beginTx ->
-      pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, new Criterion(), event -> {
-        if (event.failed()) {
-          pgClient.rollbackTx(beginTx, e -> {
-            fail();
-            context.fail(event.cause());
-          });
-        }
-        deleteAuthCredentials(context, pgClient, beginTx, userIdSetUp, event);
+        deleteAuthCredentials(context, pgClient, beginTx, event);
       }));
   }
 
   @Test
-  public void testCreateNewPasswordActionUserNotFound() {
+  public void testCreateNewPasswordActionWhenUserIsNotExist() {
     String id = UUID.randomUUID().toString();
     String userId = UUID.randomUUID().toString();
     JsonObject passwordAction = createPasswordAction(id, userId, new Date());
@@ -166,13 +145,13 @@ public class PasswordResetActionTest {
       .extract()
       .response();
 
-    // if the user hasn't credential then passwordExists is false
+    // if the user hasn't credential then `passwordExists` is false
     JsonObject actualJson = new JsonObject(response.getBody().print());
     assertEquals(expectedJson, actualJson);
   }
 
   @Test
-  public void testCreateNewPasswordActionUserIsExist() {
+  public void testCreateNewPasswordActionWhenUserIsExist() {
     String id = UUID.randomUUID().toString();
     JsonObject userCred = getUserCredentials();
     String userId = userCred.getString("userId");
@@ -185,24 +164,30 @@ public class PasswordResetActionTest {
       .extract()
       .response();
 
-    // if the user has credential then passwordExists is true
+    // if the user has credential then `passwordExists` is true
     JsonObject actualJson = new JsonObject(response.getBody().print());
     assertEquals(expectedJson, actualJson);
   }
 
   @Test
-  public void testCrudNewPasswordAction() {
+  public void testCrudNewPasswordActionWhenUserIsNotExist() {
     String id = UUID.randomUUID().toString();
     String userId = UUID.randomUUID().toString();
     JsonObject expectedJson = createPasswordAction(id, userId, new Date());
 
     // create a new password action
-    requestPostCreatePasswordAction(expectedJson)
+    Response response = requestPostCreatePasswordAction(expectedJson)
       .then()
-      .statusCode(HttpStatus.SC_CREATED);
+      .statusCode(HttpStatus.SC_CREATED)
+      .extract()
+      .response();
+
+    // if the user hasn't credential then `passwordExists` is false
+    JsonObject respActionJson = new JsonObject(response.getBody().print());
+    assertFalse(respActionJson.getBoolean("passwordExists"));
 
     // find the password action by id
-    Response response = requestGetCreatePasswordAction(id)
+    response = requestGetCreatePasswordAction(id)
       .then()
       .statusCode(HttpStatus.SC_OK)
       .extract()
@@ -221,7 +206,7 @@ public class PasswordResetActionTest {
   }
 
   @Test
-  public void testPostResetPassword() {
+  public void testPostResetPasswordWhenUserIsNotExist() {
     String id = UUID.randomUUID().toString();
     String password = UUID.randomUUID().toString();
     JsonObject passwordReset = createPasswordReset(id, password);
@@ -231,7 +216,7 @@ public class PasswordResetActionTest {
   }
 
   @Test
-  public void testResetPasswordUserIsExist() {
+  public void testResetPasswordWhenUserIsExist() {
     String id = UUID.randomUUID().toString();
     JsonObject userCred = getUserCredentials();
     String userId = userCred.getString("userId");
@@ -239,9 +224,14 @@ public class PasswordResetActionTest {
     JsonObject passwordAction = createPasswordAction(id, userId, new Date());
 
     // create a new password action
-    requestPostCreatePasswordAction(passwordAction)
+    Response response = requestPostCreatePasswordAction(passwordAction)
       .then()
-      .statusCode(HttpStatus.SC_CREATED);
+      .statusCode(HttpStatus.SC_CREATED)
+      .extract()
+      .response();
+
+    JsonObject respActionJson = new JsonObject(response.getBody().print());
+    assertTrue(respActionJson.getBoolean("passwordExists"));
 
     // reset password action
     String newPassword = UUID.randomUUID().toString();
@@ -256,7 +246,7 @@ public class PasswordResetActionTest {
       .statusCode(HttpStatus.SC_NOT_FOUND);
 
     // check new user's password
-    Response response = requestGetUserCredential(credId)
+    response = requestGetUserCredential(credId)
       .then()
       .statusCode(HttpStatus.SC_OK)
       .extract()
@@ -275,28 +265,41 @@ public class PasswordResetActionTest {
     JsonObject passwordAction = createPasswordAction(id, userId, new Date());
 
     // create a new password action
-    requestPostCreatePasswordAction(passwordAction)
+    Response response = requestPostCreatePasswordAction(passwordAction)
       .then()
-      .statusCode(HttpStatus.SC_CREATED);
+      .statusCode(HttpStatus.SC_CREATED).extract()
+      .response();
+
+    // if the user hasn't credential then `passwordExists` is false
+    JsonObject respActionJson = new JsonObject(response.getBody().print());
+    assertFalse(respActionJson.getBoolean("passwordExists"));
 
     // reset password action: user not fount
     String password = UUID.randomUUID().toString();
     JsonObject passwordReset = createPasswordReset(id, password);
-    requestPostResetPassword(passwordReset)
+    response = requestPostResetPassword(passwordReset)
       .then()
-      .statusCode(HttpStatus.SC_NOT_FOUND);
+      .statusCode(HttpStatus.SC_CREATED)
+      .extract()
+      .response();
 
-    // check by id: Action is exist
+    // if the user hasn't credential then `passwordExists` is false
+    respActionJson = new JsonObject(response.getBody().print());
+    assertFalse(respActionJson.getBoolean("passwordWasCreated"));
+
+    // check by id: Action was deleted
     requestGetCreatePasswordAction(id)
       .then()
-      .statusCode(HttpStatus.SC_OK);
+      .statusCode(HttpStatus.SC_NOT_FOUND);
   }
 
   private void deleteAuthCredentials(TestContext context, PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                                     String userIdSetUp, AsyncResult<UpdateResult> event) {
-    pgClient.delete(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, new Criterion(), eventAuth -> {
+                                     AsyncResult<UpdateResult> event) {
+    pgClient.delete(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, new Criterion(), eventAuth ->
+    {
       if (event.failed()) {
-        pgClient.rollbackTx(beginTx, e -> {
+        pgClient.rollbackTx(beginTx, e ->
+        {
           fail();
           context.fail(event.cause());
         });
