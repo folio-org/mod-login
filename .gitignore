@@ -4,5 +4,5 @@ client/
 *.swp
 *.swo
 .idea
-
+postgres-conf.json
 

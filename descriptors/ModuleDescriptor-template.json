@@ -60,13 +60,13 @@
         },
         {
           "methods": [ "GET" ],
-          "pathPattern" : "/authn/password-reset-action",
+          "pathPattern" : "/authn/password-reset-action/{actionId}",
           "permissionsRequired" : [ "login.password-reset-action.get" ]
         },
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/reset-password",
-          "permissionsRequired" : [ "login.password-reset-action.reset" ]
+          "permissionsRequired" : [ "login.password-reset-action.post" ]
         }
       ]
     },
@@ -129,11 +129,6 @@
       "description" : "Retrieves action record by id"
     },
     {
-      "permissionName" : "login.password-reset-action.reset",
-      "displayName" : "login reset the action",
-      "description" : "Resets password for user in record and deletes action record"
-    },
-    {
       "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
@@ -145,7 +140,6 @@
         "login.item.delete",
         "login.attempts.item.get",
         "login.password.validate",
-        "login.password-reset-action.reset",
         "login.password-reset-action.get",
         "login.password-reset-action.post"
       ]
