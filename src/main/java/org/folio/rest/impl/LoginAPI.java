@@ -851,7 +851,7 @@ public class LoginAPI implements Authn {
               String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
               logger.debug(message);
               asyncHandler.handle(createFutureResponse(
-                PostAuthnResetPasswordResponse.respond404WithTextPlain(message)));
+                PostAuthnResetPasswordResponse.respond400WithTextPlain(message)));
               return;
             }
 
@@ -879,7 +879,7 @@ public class LoginAPI implements Authn {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
-                PostAuthnPasswordResetActionResponse.respond500WithTextPlain(errorMessage)));
+                PostAuthnPasswordResetActionResponse.respond400WithTextPlain(errorMessage)));
               return;
             }
 
@@ -906,7 +906,7 @@ public class LoginAPI implements Authn {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
-                GetAuthnPasswordResetActionByActionIdResponse.respond500WithTextPlain(errorMessage)));
+                GetAuthnPasswordResetActionByActionIdResponse.respond400WithTextPlain(errorMessage)));
               return;
             }
             if (Objects.isNull(serviceHandler.result())) {

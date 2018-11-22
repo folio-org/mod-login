@@ -201,7 +201,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           .stream().findFirst();
         if (!credentialOpt.isPresent()) {
           Credential userCredential = createNewCredential(newPassword, userId);
-          saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, false);
+          saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, true);
         } else {
           Credential userCredential = createCredential(newPassword, credentialOpt.get());
           changeUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential);
@@ -234,7 +234,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           return;
         }
 
-        saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, true);
+        saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential, false);
       });
   }
 
@@ -243,7 +243,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    */
   private void saveUserCredential(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
                                   Handler<AsyncResult<JsonObject>> asyncHandler, String actionId,
-                                  Credential userCredential, boolean passwordWasCreated) {
+                                  Credential userCredential, boolean isNewPassword) {
     String credId = userCredential.getId();
     pgClient.save(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, credId, userCredential,
       putReply -> {
@@ -254,7 +254,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           return;
         }
 
-        deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, passwordWasCreated);
+        deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, isNewPassword);
       });
   }
 
@@ -263,7 +263,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    */
   private void deletePasswordActionById(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
                                         Handler<AsyncResult<JsonObject>> asyncHandler,
-                                        String actionId, boolean passwordWasCreated) {
+                                        String actionId, boolean isNewPassword) {
     pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, getCriterionId(actionId, ID_FIELD),
       deleteReply -> {
         if (deleteReply.failed()) {
@@ -283,7 +283,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         pgClient.endTx(beginTx,
           endTx -> {
             ResponseResetAction response = new ResponseResetAction()
-              .withPasswordWasCreated(passwordWasCreated);
+              .withIsNewPassword(isNewPassword);
             asyncHandler.handle(Future.succeededFuture(JsonObject.mapFrom(response)));
           });
       });

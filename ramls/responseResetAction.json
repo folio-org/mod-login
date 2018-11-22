@@ -3,8 +3,8 @@
   "description": "Response entity to reset the password",
   "type": "object",
   "properties": {
-    "passwordWasCreated": {
-      "description": "Check if the user has a password before resetting the password",
+    "isNewPassword": {
+      "description": "Indicates the presence of a new password for the user",
       "type": "boolean"
     }
   },

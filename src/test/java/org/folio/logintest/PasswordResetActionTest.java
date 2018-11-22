@@ -212,7 +212,7 @@ public class PasswordResetActionTest {
     JsonObject passwordReset = createPasswordReset(id, password);
     requestPostResetPassword(passwordReset)
       .then()
-      .statusCode(HttpStatus.SC_NOT_FOUND);
+      .statusCode(HttpStatus.SC_BAD_REQUEST);
   }
 
   @Test
@@ -236,9 +236,15 @@ public class PasswordResetActionTest {
     // reset password action
     String newPassword = UUID.randomUUID().toString();
     JsonObject passwordReset = createPasswordReset(id, newPassword);
-    requestPostResetPassword(passwordReset)
+    response = requestPostResetPassword(passwordReset)
       .then()
-      .statusCode(HttpStatus.SC_CREATED);
+      .statusCode(HttpStatus.SC_CREATED)
+      .extract()
+      .response();
+
+    // if the user has credential then `isNewPassword` is false
+    respActionJson = new JsonObject(response.getBody().print());
+    assertFalse(respActionJson.getBoolean("isNewPassword"));
 
     // check by id
     requestGetCreatePasswordAction(id)
@@ -283,9 +289,9 @@ public class PasswordResetActionTest {
       .extract()
       .response();
 
-    // if the user hasn't credential then `passwordExists` is false
+    // if the user hasn't credential then `isNewPassword` is true
     respActionJson = new JsonObject(response.getBody().print());
-    assertFalse(respActionJson.getBoolean("passwordWasCreated"));
+    assertTrue(respActionJson.getBoolean("isNewPassword"));
 
     // check by id: Action was deleted
     requestGetCreatePasswordAction(id)

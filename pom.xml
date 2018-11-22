@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-login</artifactId>
-  <version>4.5.1-SNAPSHOT</version>
+  <version>4.6.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -21,6 +21,15 @@
       <url>https://repository.folio.org/repository/maven-folio</url>
     </repository>
   </repositories>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
+    <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
+    <vertx.version>3.5.4</vertx.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -421,13 +430,4 @@
     <developerConnection>scm:git:git@github.com:folio-org/mod-auth.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
-    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
-    <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>3.5.4</vertx.version>
-  </properties>
 </project>

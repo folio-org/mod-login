@@ -260,10 +260,10 @@ traits:
           body:
             application/json:
               schema: responseResetAction
-        404:
+        400:
           body:
             text/plain:
-              example: "Not Found"
+              example: "Bad Request"
         500:
           description: "Internal server error"
           body:
@@ -297,6 +297,10 @@ traits:
             body:
               application/json:
                 schema: passwordCreate
+          400:
+            body:
+              text/plain:
+                example: "Bad Request"
           404:
             body:
               text/plain:
