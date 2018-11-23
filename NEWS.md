@@ -6,8 +6,8 @@
 
  | METHOD |  URL                                    | DESCRIPTION                                                     |
  |--------|-----------------------------------------|-----------------------------------------------------------------|
- | POST   | /authn/reset-password                   | Saves action to storage                                         |
- | POST   | /authn/password-reset-action            | Resets password for user in record and deletes action record    |
+ | POST   | /authn/reset-password                   | Resets password for user in record and deletes action record    |
+ | POST   | /authn/password-reset-action            | Saves action to storage                                         |
  | GET    | /authn/password-reset-action/{actionId} | Retrieves action record by id                                   |
 
 ## 2018-09-12 v4.5.0
