@@ -177,6 +177,7 @@ public class RestVerticleTest {
 
   @Before
   public void setUp(TestContext context) {
+    Async async = context.async();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, "diku");
     pgClient.startTx(beginTx ->
       pgClient.delete(beginTx, "auth_attempts", new Criterion(), event -> {
@@ -191,7 +192,10 @@ public class RestVerticleTest {
                   if (eventHistory.failed()) {
                     pgClient.rollbackTx(beginTx, e -> context.fail(eventHistory.cause()));
                   } else {
-                    pgClient.endTx(beginTx, AsyncResult::succeeded);
+                    pgClient.endTx(beginTx, ev-> {
+                      event.succeeded();
+                      async.complete();
+                    });
                   }
                 });
             }

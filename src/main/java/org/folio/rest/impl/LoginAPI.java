@@ -39,7 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingResourceException;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
@@ -846,7 +846,9 @@ public class LoginAPI implements Authn {
                 PostAuthnResetPasswordResponse.respond500WithTextPlain(errorMessage)));
               return;
             }
-            if (Objects.isNull(serviceHandler.result())) {
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
               String actionId = entity.getPasswordResetActionId();
               String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
               logger.debug(message);
@@ -909,7 +911,9 @@ public class LoginAPI implements Authn {
                 GetAuthnPasswordResetActionByActionIdResponse.respond400WithTextPlain(errorMessage)));
               return;
             }
-            if (Objects.isNull(serviceHandler.result())) {
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
               String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
               logger.debug(message);
               asyncHandler.handle(createFutureResponse(

@@ -8,7 +8,12 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.SQLConnection;
-import org.folio.rest.jaxrs.model.*;
+import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.Metadata;
+import org.folio.rest.jaxrs.model.PasswordCreate;
+import org.folio.rest.jaxrs.model.PasswordReset;
+import org.folio.rest.jaxrs.model.ResponseCreateAction;
+import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
@@ -20,8 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
-import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
+import static org.folio.util.LoginConfigUtils.*;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -110,12 +114,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           getReply ->
           {
             if (getReply.failed()) {
-              asyncHandler.handle(Future.succeededFuture(null));
+              asyncHandler.handle(Future.failedFuture(getReply.cause()));
               return;
             }
             Optional<PasswordCreate> passwordCreateOpt = getReply.result().getResults().stream().findFirst();
             if (!passwordCreateOpt.isPresent()) {
-              asyncHandler.handle(Future.succeededFuture(null));
+              asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT));
               return;
             }
 
@@ -170,7 +174,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         if (!passwordCreateOpt.isPresent()) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
-              asyncHandler.handle(Future.succeededFuture(null)));
+              asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT)));
           return;
         }
 
@@ -230,7 +234,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         if (resultCode <= 0) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
-              asyncHandler.handle(Future.succeededFuture(null)));
+              asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT)));
           return;
         }
 
@@ -276,7 +280,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         if (resultCode <= 0) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
-              asyncHandler.handle(Future.succeededFuture(null)));
+              asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT)));
           return;
         }
 

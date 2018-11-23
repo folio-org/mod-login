@@ -20,6 +20,9 @@ public class LoginConfigUtils {
   public static final String SNAPSHOTS_TABLE_PW = "auth_password_action";
   public static final String SNAPSHOTS_TABLE_CREDENTIALS = "auth_credentials";
 
+  public static final String VALUE_IS_NOT_FOUND = "isNotFound";
+  public static final JsonObject EMPTY_JSON_OBJECT = new JsonObject().put(VALUE_IS_NOT_FOUND, true);
+
   private LoginConfigUtils() {
     //not called
   }

@@ -25,7 +25,11 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
@@ -117,6 +121,7 @@ public class PasswordResetActionTest {
 
   @Before
   public void before(TestContext context) {
+    Async async = context.async();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_ID);
     pgClient.startTx(beginTx ->
       pgClient.delete(beginTx, SNAPSHOTS_TABLE_PW, new Criterion(), event ->
@@ -128,7 +133,7 @@ public class PasswordResetActionTest {
             context.fail(event.cause());
           });
         }
-        deleteAuthCredentials(context, pgClient, beginTx, event);
+        deleteAuthCredentials(context, pgClient, beginTx,async, event);
       }));
   }
 
@@ -300,7 +305,7 @@ public class PasswordResetActionTest {
   }
 
   private void deleteAuthCredentials(TestContext context, PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                                     AsyncResult<UpdateResult> event) {
+                                     Async async, AsyncResult<UpdateResult> event) {
     pgClient.delete(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, new Criterion(), eventAuth ->
     {
       if (event.failed()) {
@@ -310,7 +315,10 @@ public class PasswordResetActionTest {
           context.fail(event.cause());
         });
       }
-      pgClient.endTx(beginTx, AsyncResult::succeeded);
+      pgClient.endTx(beginTx, ev -> {
+          event.succeeded();
+          async.complete();
+        });
     });
   }
 
