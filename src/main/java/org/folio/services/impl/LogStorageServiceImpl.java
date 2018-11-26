@@ -22,6 +22,7 @@ import org.z3950.zing.cql.cql2pgjson.FieldException;
 
 import java.util.UUID;
 
+import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_EVENT_LOGS;
 
 public class LogStorageServiceImpl implements LogStorageService {
@@ -120,7 +121,7 @@ public class LogStorageServiceImpl implements LogStorageService {
 
             int resultCode = deleteReply.result().getUpdated();
             if (resultCode == 0) {
-              asyncResultHandler.handle(Future.succeededFuture(null));
+              asyncResultHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT));
               return;
             }
 

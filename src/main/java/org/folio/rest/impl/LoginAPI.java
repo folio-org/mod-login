@@ -40,7 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingResourceException;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
@@ -956,7 +956,9 @@ public class LoginAPI implements Authn {
                   DeleteAuthnLogEventsByIdResponse.respond500WithTextPlain(errorMessage)));
                 return;
               }
-              if (Objects.isNull(storageHandler.result())) {
+              JsonObject jsonObject = storageHandler.result();
+              Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+              if (isNotFound) {
                 String message = String.format(ERROR_EVENT_CONFIG_NOT_FOUND, "userId", userId);
                 logger.debug(message);
                 asyncHandler.handle(createFutureResponse(

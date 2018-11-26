@@ -110,9 +110,12 @@ public class LogEventsTest {
 
   @Before
   public void setUp(TestContext context) {
+    Async async = context.async();
     PostgresClient.getInstance(vertx, TENANT_ID).delete(SNAPSHOTS_TABLE_EVENT_LOGS, new Criterion(), event -> {
       if (event.failed()) {
         context.fail(event.cause());
+      } else {
+        async.complete();
       }
     });
   }

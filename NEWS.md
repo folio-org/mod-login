@@ -1,4 +1,4 @@
-## 2018-11-08 v4.5.0
+## 2018-11-08 v4.6.1
  * Add implementation `/authn/log/events` which is accessible through OKAPI
  * Add rest tests
 
