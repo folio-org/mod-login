@@ -431,11 +431,4 @@
     <tag>HEAD</tag>
   </scm>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
-    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
-	<ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-  </properties>
 </project>

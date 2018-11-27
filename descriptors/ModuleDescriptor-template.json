@@ -188,7 +188,7 @@
         "login.password.validate",
         "login.password-reset-action.get",
         "login.password-reset-action.post",
-        "login.password-reset.post"
+        "login.password-reset.post",
         "login.password.validate",
         "login.event.collection.post",
         "login.event.collection.get",

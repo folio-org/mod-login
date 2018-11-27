@@ -76,7 +76,6 @@ public class LoginAPI implements Authn {
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
   public static final String PARAM_USERNAME = "username";
   private static final String TYPE_ERROR = "error";
-  private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
   private static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
