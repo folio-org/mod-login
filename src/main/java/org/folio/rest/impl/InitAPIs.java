@@ -7,21 +7,14 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.serviceproxy.ServiceBinder;
 import org.folio.rest.resource.interfaces.InitAPI;
-import org.folio.services.PasswordStorageService;
-
-import io.vertx.core.*;
-import io.vertx.serviceproxy.ServiceBinder;
-import org.folio.rest.resource.interfaces.InitAPI;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
+import org.folio.services.PasswordStorageService;
 
 import java.net.URL;
 import java.util.MissingResourceException;
 
-import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
-
-import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
-import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
+import static org.folio.util.LoginConfigUtils.*;
 
 /**
  * Performs preprocessing operations before the verticle is deployed,
@@ -50,5 +43,4 @@ public class InitAPIs implements InitAPI {
       resultHandler.handle(Future.succeededFuture(true));
     }
   }
-
 }
