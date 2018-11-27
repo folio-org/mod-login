@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Response entity to reset the password",
+  "type": "object",
+  "properties": {
+    "isNewPassword": {
+      "description": "Indicates the presence of a new password for the user",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

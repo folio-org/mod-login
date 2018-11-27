@@ -4,6 +4,7 @@ import java.net.HttpURLConnection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import io.vertx.core.AsyncResult;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -35,6 +36,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.logintest.TestUtil.WrappedResponse;
 
+import static junit.framework.TestCase.fail;
 import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
@@ -120,7 +122,7 @@ public class RestVerticleTest {
   public static String okapiUrl;
 
   @Rule
-  public Timeout rule = Timeout.seconds(180);  // 3 minutes for loading embedded postgres
+  public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -187,15 +189,15 @@ public class RestVerticleTest {
               pgClient.rollbackTx(beginTx, e -> context.fail(eventAuth.cause()));
             } else { // auth_credentials_history
               pgClient.delete(beginTx, "auth_credentials_history", new Criterion(), eventHistory -> {
-                if (eventHistory.failed()) {
-                  pgClient.rollbackTx(beginTx, e -> context.fail(eventHistory.cause()));
-                } else {
-                  pgClient.endTx(beginTx, ev-> {
-                    event.succeeded();
-                    async.complete();
-                  });
-                }
-              });
+                  if (eventHistory.failed()) {
+                    pgClient.rollbackTx(beginTx, e -> context.fail(eventHistory.cause()));
+                  } else {
+                    pgClient.endTx(beginTx, ev-> {
+                      event.succeeded();
+                      async.complete();
+                    });
+                  }
+                });
             }
           });
         }

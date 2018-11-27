@@ -1,24 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "Login Attempts Schema",
-  "description": "Login Attempts",
   "type": "object",
+  "description": "An object describing a login attempt",
   "properties": {
     "id": {
-      "description": "id",
+      "description": "Unique id",
       "type": "string"
     },
     "userId": {
-      "description": "user id",
+      "description": "Unique user id",
       "type": "string"
     },
     "lastAttempt": {
-      "description": "last attempt",
+      "description": "Last attempt date",
       "type": "string",
       "format": "date-time"
     },
     "attemptCount": {
-      "description": "attempt count",
+      "description": "Number of user login attempts",
       "type": "integer"
     }
   }

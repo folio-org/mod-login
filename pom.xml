@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-login</artifactId>
-  <version>4.6.1-SNAPSHOT</version>
+  <version>4.7.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -21,6 +22,15 @@
     </repository>
   </repositories>
 
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
+    <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
+    <vertx.version>3.5.4</vertx.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -37,7 +47,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-unit</artifactId>
-      <version>3.5.4</version>
+      <version>${vertx.version}</version>
       <scope>test</scope>
       <type>jar</type>
     </dependency>
@@ -52,11 +62,27 @@
     <dependency>
       <groupId>com.github.tomakehurst</groupId>
       <artifactId>wiremock</artifactId>
-      <version>2.19.0</version>
+      <version>2.18.0</version>
       <exclusions>
         <exclusion>
           <groupId>net.sf.jopt-simple</groupId>
           <artifactId>jopt-simple</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.github.jknack</groupId>
+          <artifactId>handlebars</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.flipkart.zjsonpatch</groupId>
+          <artifactId>zjsonpatch</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.xmlunit</groupId>
+          <artifactId>xmlunit-legacy</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.jayway.jsonpath</groupId>
+          <artifactId>json-path</artifactId>
         </exclusion>
       </exclusions>
       <scope>test</scope>
@@ -321,14 +347,16 @@
             <phase>prepare-package</phase>
             <configuration>
               <target>
-                <replace token="baseUri: http://github.com/org/folio/mod-auth/login_module" value="baseUri: http://localhost:{http.port}" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml" />
+                <replace token="baseUri: http://github.com/org/folio/mod-auth/login_module"
+                         value="baseUri: http://localhost:{http.port}" dir="${basedir}/target/classes/apidocs/raml">
+                  <include name="**/*.raml"/>
                 </replace>
-                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml" />
+                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]"
+                         dir="${basedir}/target/classes/apidocs/raml">
+                  <include name="**/*.raml"/>
                 </replace>
                 <replace token="../.." value="../raml-util" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml" />
+                  <include name="**/*.raml"/>
                 </replace>
               </target>
             </configuration>
@@ -408,7 +436,6 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
-    <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>3.5.4</vertx.version>
+	<ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
   </properties>
 </project>

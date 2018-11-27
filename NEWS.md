@@ -1,4 +1,4 @@
-## 2018-11-08 v4.6.1
+## 2018-11-08 v4.7.1
  * Add implementation `/authn/log/events` which is accessible through OKAPI
  * Add rest tests
 
@@ -9,6 +9,18 @@
  | POST   | /authn/log/events             | Saves the event into the storage                                  |
  | GET    | /authn/log/events/            | Get a list of events from storage                                 |
  | DELETE | /authn/log/events/{userId}    | Delete the event by userId from storage                           |
+
+## 2018-11-19 v4.6.1
+ * Add implementation /authn/password-reset-action which is accessible through OKAPI
+ * Add rest tests
+
+ API:
+
+ | METHOD |  URL                                    | DESCRIPTION                                                     |
+ |--------|-----------------------------------------|-----------------------------------------------------------------|
+ | POST   | /authn/reset-password                   | Resets password for user in record and deletes action record    |
+ | POST   | /authn/password-reset-action            | Saves action to storage                                         |
+ | GET    | /authn/password-reset-action/{actionId} | Retrieves action record by id                                   |
 
 ## 2018-09-12 v4.5.0
  * Restructure RAML to make module RAML and JSON local to repo

@@ -17,6 +17,10 @@ types:
   credentialsHistory: !include credentialsHistory.json
   password: !include password.json
   passwordValid: !include passwordValid.json
+  passwordReset: !include passwordResetAction.json
+  passwordCreate: !include passwordCreateAction.json
+  responseCreateAction: !include responseCreateAction.json
+  responseResetAction: !include responseResetAction.json
   configurations: !include configurations.json
   configResponse: !include configResponse.json
   logEvent: !include logEvent.json
@@ -250,6 +254,67 @@ traits:
                 body:
                   text/plain:
                     example: "Internal server error"
+  /reset-password:
+    post:
+      description: Resets password for user in record and deletes action record
+      body:
+        application/json:
+          schema: passwordReset
+      responses:
+        201:
+          body:
+            application/json:
+              schema: responseResetAction
+        400:
+          body:
+            text/plain:
+              example: "Bad Request"
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
+  /password-reset-action:
+    post:
+      description: Saves action to storage
+      body:
+        application/json:
+          schema: passwordCreate
+      responses:
+        201:
+          body:
+            application/json:
+              schema: responseCreateAction
+        400:
+          body:
+            text/plain:
+              example: "Bad Request"
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
+    /{actionId}:
+      get:
+        description: Retrieves action record by id
+        responses:
+          200:
+            body:
+              application/json:
+                schema: passwordCreate
+          400:
+            body:
+              text/plain:
+                example: "Bad Request"
+          404:
+            body:
+              text/plain:
+                example: "Not Found"
+          500:
+            description: "Internal server error"
+            body:
+              text/plain:
+                example: "Internal server error"
   /log:
     /events:
       get:

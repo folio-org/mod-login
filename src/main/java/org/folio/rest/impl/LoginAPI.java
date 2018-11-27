@@ -26,6 +26,7 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
+import org.folio.services.PasswordStorageService;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.util.AuthUtil;
@@ -63,11 +64,13 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String CREDENTIALS_HISTORY_USER_ID_FIELD = "'userId'";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
+  private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
+  private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
-  public static final String CODE_PASSWORD_INCORRECT = "password.incorrect";
+  public static final String CODE_CREDENTIAL_PW_INCORRECT = "password.incorrect";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
@@ -90,6 +93,7 @@ public class LoginAPI implements Authn {
   private String vTenantId;
   private LogStorageService logStorageService;
   private ConfigurationService configurationService;
+  private PasswordStorageService passwordStorageService;
 
   public LoginAPI(Vertx vertx, String tenantId) {
     this.vTenantId = tenantId;
@@ -97,12 +101,13 @@ public class LoginAPI implements Authn {
   }
 
   private void initService(Vertx vertx) {
+    this.passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
     this.logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
     this.configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
   }
 
   private String getErrorResponse(String response) {
-    if(suppressErrorResponse) {
+    if (suppressErrorResponse) {
       return "Internal Server Error: Please contact Admin";
     }
     return response;
@@ -834,6 +839,108 @@ public class LoginAPI implements Authn {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(
         PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
+  }
+
+  @Override
+  public void postAuthnResetPassword(PasswordReset entity, Map<String, String> okapiHeaders,
+                                     Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject passwordResetJson = JsonObject.mapFrom(entity);
+      context.runOnContext(contextHandler ->
+        passwordStorageService.resetPassword(vTenantId, passwordResetJson,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnResetPasswordResponse.respond500WithTextPlain(errorMessage)));
+              return;
+            }
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
+              String actionId = entity.getPasswordResetActionId();
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
+              logger.debug(message);
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnResetPasswordResponse.respond400WithTextPlain(message)));
+              return;
+            }
+
+            ResponseResetAction response = getResponseEntity(serviceHandler, ResponseResetAction.class);
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnResetPasswordResponse.respond201WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "postAuthnResetPassword", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        PostAuthnResetPasswordResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void postAuthnPasswordResetAction(PasswordCreate entity, Map<String, String> okapiHeaders,
+                                           Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject passwordCreateJson = JsonObject.mapFrom(entity);
+      context.runOnContext(contextHandler ->
+        passwordStorageService.savePasswordAction(vTenantId, passwordCreateJson,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnPasswordResetActionResponse.respond400WithTextPlain(errorMessage)));
+              return;
+            }
+
+            ResponseCreateAction response = getResponseEntity(serviceHandler, ResponseCreateAction.class);
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnPasswordResetActionResponse.respond201WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "postAuthnPasswordResetAction", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        PostAuthnPasswordResetActionResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void getAuthnPasswordResetActionByActionId(String actionId, Map<String, String> okapiHeaders,
+                                                    Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      context.runOnContext(contextHandler ->
+        passwordStorageService.findPasswordActionById(vTenantId, actionId,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                GetAuthnPasswordResetActionByActionIdResponse.respond400WithTextPlain(errorMessage)));
+              return;
+            }
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
+              logger.debug(message);
+              asyncHandler.handle(createFutureResponse(
+                GetAuthnPasswordResetActionByActionIdResponse.respond404WithTextPlain(message)));
+              return;
+            }
+
+            PasswordCreate response = getResponseEntity(serviceHandler, PasswordCreate.class);
+            asyncHandler.handle(createFutureResponse(
+              GetAuthnPasswordResetActionByActionIdResponse.respond200WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "getAuthnPasswordResetActionByActionId", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        GetAuthnPasswordResetActionByActionIdResponse.respond500WithTextPlain(errorMessage)));
     }
   }
 
