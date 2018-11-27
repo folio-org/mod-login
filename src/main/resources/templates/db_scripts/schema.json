@@ -51,6 +51,19 @@
           "tOps" : "ADD"
         }
       ]
+    },
+    {
+      "tableName": "auth_password_action",
+      "generateId": false,
+      "fromModuleVersion" : "1.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id",
+      "index": [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
     }
   ]
 }

@@ -1,43 +1,5 @@
 package org.folio.rest.impl;
 
-import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import javax.ws.rs.core.Response;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.CredentialsHistory;
-import org.folio.rest.jaxrs.model.CredentialsListObject;
-import org.folio.rest.jaxrs.model.Error;
-import org.folio.rest.jaxrs.model.Errors;
-import org.folio.rest.jaxrs.model.LoginAttempts;
-import org.folio.rest.jaxrs.model.LoginCredentials;
-import org.folio.rest.jaxrs.model.Password;
-import org.folio.rest.jaxrs.model.PasswordValid;
-import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.UpdateCredentials;
-import org.folio.rest.jaxrs.resource.Authn;
-import org.folio.rest.persist.Criteria.Order;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.tools.utils.TenantTool;
-import org.folio.rest.tools.utils.ValidationHelper;
-import org.folio.util.AuthUtil;
-import org.folio.util.OkapiConnectionParams;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-
-import java.util.UUID;
-
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -50,21 +12,42 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import java.net.URL;
+import org.apache.commons.lang3.tuple.Pair;
+import org.folio.rest.RestVerticle;
+import org.folio.rest.jaxrs.model.*;
+import org.folio.rest.jaxrs.model.Error;
+import org.folio.rest.jaxrs.resource.Authn;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.Criteria.Order;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
+import org.folio.services.PasswordStorageService;
+import org.folio.util.AuthUtil;
+import org.folio.util.OkapiConnectionParams;
+import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
+import javax.ws.rs.core.Response;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.MissingResourceException;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
-import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
-import static org.folio.util.LoginAttemptsHelper.onLoginFailAttemptHandler;
-import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
-import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
-import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
+import static org.folio.util.LoginAttemptsHelper.*;
+import static org.folio.util.LoginConfigUtils.*;
 
 /**
- *
  * @author kurt
  */
 public class LoginAPI implements Authn {
@@ -79,11 +62,13 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String CREDENTIALS_HISTORY_USER_ID_FIELD = "'userId'";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
+  private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
+  private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient ";
   public static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
-  public static final String CODE_PASSWORD_INCORRECT = "password.incorrect";
+  public static final String CODE_CREDENTIAL_PW_INCORRECT = "password.incorrect";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
@@ -99,12 +84,25 @@ public class LoginAPI implements Authn {
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
+  private String vTenantId;
+  private PasswordStorageService passwordStorageService;
+
+  public LoginAPI(Vertx vertx, String tenantId) {
+    this.vTenantId = tenantId;
+    initService(vertx);
+  }
+
+  private void initService(Vertx vertx) {
+    this.passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
+  }
+
   private String getErrorResponse(String response) {
-    if(suppressErrorResponse) {
+    if (suppressErrorResponse) {
       return "Internal Server Error: Please contact Admin";
     }
     return response;
   }
+
   private CQLWrapper getCQL(String query, int limit, int offset)
       throws org.z3950.zing.cql.cql2pgjson.FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
@@ -114,7 +112,7 @@ public class LoginAPI implements Authn {
 
   private String getTenant(Map<String, String> headers) {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
-  };
+  }
 
   /*
     Query the mod-users module to determine whether or not the username is
@@ -238,7 +236,7 @@ public class LoginAPI implements Authn {
     request.end(new JsonObject().put("payload", payload).encode());
     return future;
   }
-  
+
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
       String okapiURL, String requestToken, Vertx vertx) {
     Future<String> future = Future.future();
@@ -418,9 +416,9 @@ public class LoginAPI implements Authn {
                       if(userCred.getHash().equals(testHash)) {
                         JsonObject payload = new JsonObject();
                         if(userObject.containsKey("username")) {
-                          sub = userObject.getString("username");                          
+                          sub = userObject.getString("username");
                         } else {
-                          sub = userObject.getString("id"); 
+                          sub = userObject.getString("id");
                         }
                         payload.put("sub", sub);
                         if(!userObject.isEmpty()) {
@@ -688,6 +686,7 @@ public class LoginAPI implements Authn {
       asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
+
   @Override
   public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler,
@@ -830,6 +829,108 @@ public class LoginAPI implements Authn {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(
         PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
+  }
+
+  @Override
+  public void postAuthnResetPassword(PasswordReset entity, Map<String, String> okapiHeaders,
+                                     Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject passwordResetJson = JsonObject.mapFrom(entity);
+      context.runOnContext(contextHandler ->
+        passwordStorageService.resetPassword(vTenantId, passwordResetJson,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnResetPasswordResponse.respond500WithTextPlain(errorMessage)));
+              return;
+            }
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
+              String actionId = entity.getPasswordResetActionId();
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
+              logger.debug(message);
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnResetPasswordResponse.respond400WithTextPlain(message)));
+              return;
+            }
+
+            ResponseResetAction response = getResponseEntity(serviceHandler, ResponseResetAction.class);
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnResetPasswordResponse.respond201WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "postAuthnResetPassword", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        PostAuthnResetPasswordResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void postAuthnPasswordResetAction(PasswordCreate entity, Map<String, String> okapiHeaders,
+                                           Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject passwordCreateJson = JsonObject.mapFrom(entity);
+      context.runOnContext(contextHandler ->
+        passwordStorageService.savePasswordAction(vTenantId, passwordCreateJson,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnPasswordResetActionResponse.respond400WithTextPlain(errorMessage)));
+              return;
+            }
+
+            ResponseCreateAction response = getResponseEntity(serviceHandler, ResponseCreateAction.class);
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnPasswordResetActionResponse.respond201WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "postAuthnPasswordResetAction", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        PostAuthnPasswordResetActionResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void getAuthnPasswordResetActionByActionId(String actionId, Map<String, String> okapiHeaders,
+                                                    Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      context.runOnContext(contextHandler ->
+        passwordStorageService.findPasswordActionById(vTenantId, actionId,
+          serviceHandler -> {
+            if (serviceHandler.failed()) {
+              String errorMessage = serviceHandler.cause().getMessage();
+              asyncHandler.handle(createFutureResponse(
+                GetAuthnPasswordResetActionByActionIdResponse.respond400WithTextPlain(errorMessage)));
+              return;
+            }
+            JsonObject jsonObject = serviceHandler.result();
+            Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+            if (isNotFound) {
+              String message = String.format(ERROR_PW_ACTION_ENTITY_NOT_FOUND, actionId);
+              logger.debug(message);
+              asyncHandler.handle(createFutureResponse(
+                GetAuthnPasswordResetActionByActionIdResponse.respond404WithTextPlain(message)));
+              return;
+            }
+
+            PasswordCreate response = getResponseEntity(serviceHandler, PasswordCreate.class);
+            asyncHandler.handle(createFutureResponse(
+              GetAuthnPasswordResetActionByActionIdResponse.respond200WithApplicationJson(response)));
+          }));
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "getAuthnPasswordResetActionByActionId", message);
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(
+        GetAuthnPasswordResetActionByActionIdResponse.respond500WithTextPlain(errorMessage)));
     }
   }
 
