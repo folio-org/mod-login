@@ -21,11 +21,14 @@ import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.folio.util.LoginConfigUtils.*;
+import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
+import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
+import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -33,6 +36,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String USER_ID_FIELD = "'userId'";
   private static final String PW_ACTION_ID = "id";
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
+  private static final String CREDENTIAL_USERID_FIELD = "'userId'";
+  private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
 
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
@@ -336,5 +341,62 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       .setOperation(Criteria.OP_EQUAL)
       .setValue(actionId);
     return new Criterion(criteria);
+  }
+
+  @Override
+  public PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
+                                                 Handler<AsyncResult<Boolean>> asyncResultHandler) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+    Credential cred = credJson.mapTo(Credential.class);
+
+    if (cred.getUserId() == null) {
+      asyncResultHandler.handle(Future.failedFuture("Need a userId defined"));
+      return this;
+    }
+
+    getCredentialByUserId(cred.getUserId(), tenantId).setHandler(credResult -> {
+      if (credResult.failed()) {
+        asyncResultHandler.handle(Future.failedFuture(credResult.cause()));
+        return;
+      }
+      cred.setId(credResult.result().getId());
+      pgClient.update(TABLE_NAME_CREDENTIALS, cred, cred.getId(), updateReply -> {
+        if (updateReply.failed()) {
+          asyncResultHandler.handle(Future.failedFuture(updateReply.cause()));
+          return;
+        }
+        if (updateReply.result().getUpdated() == 0) {
+          asyncResultHandler.handle(Future.succeededFuture(Boolean.FALSE));
+        } else {
+          asyncResultHandler.handle(Future.succeededFuture(Boolean.TRUE));
+        }
+      });
+    });
+
+    return this;
+  }
+
+  private Future<Credential> getCredentialByUserId(String userId, String tenantId) {
+    Future<Credential> future = Future.future();
+    Criteria userIdCrit = new Criteria()
+      .addField(CREDENTIAL_USERID_FIELD)
+      .setOperation(Criteria.OP_EQUAL)
+      .setValue(userId);
+    PostgresClient pgClient = PostgresClient.getInstance(vertx,
+      tenantId);
+    pgClient.get("auth_credentials", Credential.class, new Criterion(userIdCrit),
+      true, getReply -> {
+        if(getReply.failed()) {
+          future.fail(getReply.cause());
+        } else {
+          List<Credential> credList = getReply.result().getResults();
+          if(credList.isEmpty()) {
+            future.fail("No credential found with that userId");
+          } else {
+            future.complete(credList.get(0));
+          }
+        }
+      });
+    return future;
   }
 }

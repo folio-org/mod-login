@@ -14,8 +14,21 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.jaxrs.model.*;
+import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.CredentialsHistory;
+import org.folio.rest.jaxrs.model.CredentialsListObject;
 import org.folio.rest.jaxrs.model.Error;
+import org.folio.rest.jaxrs.model.Errors;
+import org.folio.rest.jaxrs.model.LoginAttempts;
+import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.Password;
+import org.folio.rest.jaxrs.model.PasswordCreate;
+import org.folio.rest.jaxrs.model.PasswordReset;
+import org.folio.rest.jaxrs.model.PasswordValid;
+import org.folio.rest.jaxrs.model.ResponseCreateAction;
+import org.folio.rest.jaxrs.model.ResponseResetAction;
+import org.folio.rest.jaxrs.model.UpdateCredentials;
 import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -1006,29 +1019,29 @@ public class LoginAPI implements Authn {
               } else { //Password checks out, we can proceed
                 Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                   entity.getNewPassword());
-                updateCredential(newCred, tenantId, vertxContext)
-                  .setHandler(updateCredResult -> {
-                    if(updateCredResult.failed()) {
-                      String message = updateCredResult.cause().getLocalizedMessage();
-                      logger.error(message);
-                      asyncResultHandler.handle(Future.succeededFuture(
-                        PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                    } else {
-                      if(!updateCredResult.result()) { //404
-                        asyncResultHandler.handle(Future.succeededFuture(
-                          PostAuthnUpdateResponse.respond400WithTextPlain(
-                            "Unable to update credentials for that userId")));
-                      } else {
-                        // after succesfull change password skip login attempts counter
-                        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                        getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
-                          onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
 
-                        asyncResultHandler.handle(Future.succeededFuture(
-                          PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
-                      }
+                passwordStorageService.updateCredential(tenantId, JsonObject.mapFrom(newCred), updateCredResult -> {
+                  if(updateCredResult.failed()) {
+                    String message = updateCredResult.cause().getLocalizedMessage();
+                    logger.error(message);
+                    asyncResultHandler.handle(Future.succeededFuture(
+                      PostAuthnUpdateResponse.respond500WithTextPlain(message)));
+                  } else {
+                    if(!updateCredResult.result()) { //404
+                      asyncResultHandler.handle(Future.succeededFuture(
+                        PostAuthnUpdateResponse.respond400WithTextPlain(
+                          "Unable to update credentials for that userId")));
+                    } else {
+                      // after succesfull change password skip login attempts counter
+                      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                      getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
+                        onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+
+                      asyncResultHandler.handle(Future.succeededFuture(
+                        PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
                     }
-                  });
+                  }
+                });
               }
             });
           }
@@ -1082,64 +1095,6 @@ public class LoginAPI implements Authn {
     cred.setSalt(salt);
     cred.setHash(hash);
     return cred;
-  }
-
-  private Future<Boolean> updateCredential(Credential cred, String tenantId,
-      Context vertxContext) {
-    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-        tenantId);
-    Future<Boolean> future = Future.future();
-    if(cred.getId() == null && cred.getUserId() == null) {
-      return Future.failedFuture("Need a userId or a credential id defined");
-    }
-    Future<Credential> credentialFuture;
-    if(cred.getId() != null) {
-      credentialFuture = Future.succeededFuture(cred);
-    } else {
-      credentialFuture = getCredentialByUserId(cred.getUserId(), tenantId,
-          vertxContext);
-    }
-    credentialFuture.setHandler(credResult -> {
-      if(credResult.failed()) { future.fail(credResult.cause()); return; }
-      cred.setId(credResult.result().getId());
-      pgClient.update(TABLE_NAME_CREDENTIALS, cred, cred.getId(), updateReply -> {
-        if(updateReply.failed()) {
-          future.fail(updateReply.cause());
-          return;
-        }
-        if(updateReply.result().getUpdated() == 0) {
-          future.complete(Boolean.FALSE);
-        } else {
-          future.complete(Boolean.TRUE);
-        }
-      });
-    });
-    return future;
-  }
-
-  private Future<Credential> getCredentialByUserId(String userId, String tenantId,
-      Context vertxContext) {
-    Future<Credential> future = Future.future();
-    Criteria userIdCrit = new Criteria()
-        .addField(CREDENTIAL_USERID_FIELD)
-        .setOperation(Criteria.OP_EQUAL)
-        .setValue(userId);
-    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-        tenantId);
-    pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(userIdCrit),
-        true, getReply -> {
-      if(getReply.failed()) {
-        future.fail(getReply.cause());
-      } else {
-        List<Credential> credList = getReply.result().getResults();
-        if(credList.isEmpty()) {
-          future.fail("No credential found with that userId");
-        } else {
-          future.complete(credList.get(0));
-        }
-      }
-    });
-    return future;
   }
 
   public static Errors getErrors(String errorMessage, String errorCode, Pair... pairs) {

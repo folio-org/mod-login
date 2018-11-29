@@ -69,4 +69,16 @@ public interface PasswordStorageService {
   @Fluent
   PasswordStorageService resetPassword(String tenantId, JsonObject resetAction,
                                        Handler<AsyncResult<JsonObject>> asyncResultHandler);
+
+  /**
+   * Updates user credential.
+   *
+   * @param tenantId tenant id
+   * @param credJson  Json representation of the {@link org.folio.rest.jaxrs.model.Credential} entity
+   * @param asyncResultHandler update response handler with {@code Boolean.TRUE} if update is successful
+   * @return {@link PasswordStorageService} instance
+   */
+  @Fluent
+  PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
+                                          Handler<AsyncResult<Boolean>> asyncResultHandler);
 }
