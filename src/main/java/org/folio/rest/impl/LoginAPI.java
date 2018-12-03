@@ -93,7 +93,7 @@ public class LoginAPI implements Authn {
       .getOrDefault("require.active", "true"));
   private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
       .getOrDefault("lookup.timeout", "1000"));
-  private static final int PASSWORDS_HISTORY_NUMBER = 10;
+  public static final int PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
@@ -1027,19 +1027,13 @@ public class LoginAPI implements Authn {
                     asyncResultHandler.handle(Future.succeededFuture(
                       PostAuthnUpdateResponse.respond500WithTextPlain(message)));
                   } else {
-                    if(!updateCredResult.result()) { //404
-                      asyncResultHandler.handle(Future.succeededFuture(
-                        PostAuthnUpdateResponse.respond400WithTextPlain(
-                          "Unable to update credentials for that userId")));
-                    } else {
-                      // after succesfull change password skip login attempts counter
-                      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                      getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
-                        onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+                    // after succesfull change password skip login attempts counter
+                    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                    getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
+                      onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
 
-                      asyncResultHandler.handle(Future.succeededFuture(
-                        PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
-                    }
+                    asyncResultHandler.handle(Future.succeededFuture(
+                      PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
                   }
                 });
               }

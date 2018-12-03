@@ -9,6 +9,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.SQLConnection;
 import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Metadata;
 import org.folio.rest.jaxrs.model.PasswordCreate;
 import org.folio.rest.jaxrs.model.PasswordReset;
@@ -17,8 +18,11 @@ import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
+import org.z3950.zing.cql.cql2pgjson.FieldException;
 
 import java.util.Date;
 import java.util.List;
@@ -26,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.folio.rest.impl.LoginAPI.PASSWORDS_HISTORY_NUMBER;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
@@ -38,6 +43,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
+  private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
 
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
@@ -345,7 +351,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   @Override
   public PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
-                                                 Handler<AsyncResult<Boolean>> asyncResultHandler) {
+                                                 Handler<AsyncResult<Void>> asyncResultHandler) {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
     Credential cred = credJson.mapTo(Credential.class);
 
@@ -354,49 +360,137 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       return this;
     }
 
-    getCredentialByUserId(cred.getUserId(), tenantId).setHandler(credResult -> {
-      if (credResult.failed()) {
-        asyncResultHandler.handle(Future.failedFuture(credResult.cause()));
-        return;
-      }
-      cred.setId(credResult.result().getId());
-      pgClient.update(TABLE_NAME_CREDENTIALS, cred, cred.getId(), updateReply -> {
-        if (updateReply.failed()) {
-          asyncResultHandler.handle(Future.failedFuture(updateReply.cause()));
-          return;
-        }
-        if (updateReply.result().getUpdated() == 0) {
-          asyncResultHandler.handle(Future.succeededFuture(Boolean.FALSE));
+    pgClient.startTx(conn -> getCredByUserId(conn, tenantId, cred.getUserId())
+      .compose(credential -> updateCred(conn, tenantId, cred.withId(credential.getId()), credential))
+      .compose(credential -> updateCredHistory(conn, tenantId, credential))
+      .setHandler(res -> {
+        if (res.failed()) {
+          conn.result().rollback(v -> {
+            if (v.failed()) {
+              asyncResultHandler.handle(Future.failedFuture(v.cause()));
+            } else {
+              asyncResultHandler.handle(Future.failedFuture(res.cause()));
+            }
+          });
         } else {
-          asyncResultHandler.handle(Future.succeededFuture(Boolean.TRUE));
+          conn.result().commit(v -> {
+            if (v.failed()) {
+              asyncResultHandler.handle(Future.failedFuture(v.cause()));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture());
+            }
+          });
         }
-      });
-    });
+      }));
 
     return this;
   }
 
-  private Future<Credential> getCredentialByUserId(String userId, String tenantId) {
+  private Future<Credential> getCredByUserId(AsyncResult<SQLConnection> conn, String tenantId, String userId) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+
     Future<Credential> future = Future.future();
-    Criteria userIdCrit = new Criteria()
+    Criteria criteria = new Criteria()
       .addField(CREDENTIAL_USERID_FIELD)
       .setOperation(Criteria.OP_EQUAL)
       .setValue(userId);
-    PostgresClient pgClient = PostgresClient.getInstance(vertx,
-      tenantId);
-    pgClient.get("auth_credentials", Credential.class, new Criterion(userIdCrit),
-      true, getReply -> {
-        if(getReply.failed()) {
-          future.fail(getReply.cause());
+
+    pgClient.get(conn, TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
+      if (get.failed()) {
+        future.fail(get.cause());
+      } else {
+        List<Credential> credList = get.result().getResults();
+        if(credList.isEmpty()) {
+          future.fail("No credential found with that userId");
         } else {
-          List<Credential> credList = getReply.result().getResults();
-          if(credList.isEmpty()) {
-            future.fail("No credential found with that userId");
-          } else {
-            future.complete(credList.get(0));
-          }
+          future.complete(credList.get(0));
         }
+      }
+    });
+    return future;
+  }
+
+  private Future<Credential> updateCred(AsyncResult<SQLConnection> conn, String tenantId,
+                                        Credential newCred, Credential oldCred) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+    Future<Credential> future = Future.future();
+    CQL2PgJSON field = null;
+    try {
+      field = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
+    } catch (FieldException e) {
+      future.fail(e);
+    }
+    CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + newCred.getId());
+
+    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, update -> {
+      if (update.failed()) {
+        future.fail(update.cause());
+      } else {
+        future.complete(oldCred);
+      }
+    });
+
+    return future;
+  }
+
+  private Future<Void> updateCredHistory(AsyncResult<SQLConnection> conn, String tenantId, Credential cred) {
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+
+    return getCredHistoryCountByUserId(tenantId, cred.getUserId())
+      .compose(count -> deleteOldCredHistoryRecords(conn, tenantId, cred.getUserId(), count))
+      .compose(v -> {
+        Future<Void> future = Future.future();
+        CredentialsHistory credHistory = new CredentialsHistory();
+        credHistory.setUserId(cred.getUserId());
+        credHistory.setSalt(cred.getSalt());
+        credHistory.setHash(cred.getHash());
+        credHistory.setDate(new Date());
+
+        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), credHistory, save -> {
+          if (save.failed()) {
+            future.fail(save.cause());
+          } else {
+            future.complete();
+          }
+        });
+
+        return future;
       });
+  }
+
+  private Future<Integer> getCredHistoryCountByUserId(String tenantId, String userId) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+    String tableName = String.format(
+      "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
+    Future<Integer> future = Future.future();
+
+    String query = String.format("SELECT count(_id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
+    pgClient.select(query, count -> {
+      if (count.failed()) {
+        future.fail(count.cause());
+      } else {
+        future.complete(count.result().getResults().get(0).getInteger(0));
+      }
+    });
+    return future;
+  }
+
+  private Future<Void> deleteOldCredHistoryRecords(AsyncResult<SQLConnection> conn, String tenantId,
+                                                   String userId, Integer count) {
+    if (count < PASSWORDS_HISTORY_NUMBER) {
+      return Future.succeededFuture();
+    }
+
+    Future<Void> future = Future.future();
+    String tableName = String.format(
+      "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
+
+    String query = String.format("DELETE FROM %s WHERE _id IN " +
+        "(SELECT _id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
+      tableName, tableName, userId, count - PASSWORDS_HISTORY_NUMBER + 1);
+    conn.result().execute(query, future.completer());
+
     return future;
   }
 }

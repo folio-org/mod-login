@@ -80,5 +80,5 @@ public interface PasswordStorageService {
    */
   @Fluent
   PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
-                                          Handler<AsyncResult<Boolean>> asyncResultHandler);
+                                          Handler<AsyncResult<Void>> asyncResultHandler);
 }
