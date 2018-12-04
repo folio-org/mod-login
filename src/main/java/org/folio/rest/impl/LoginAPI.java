@@ -1014,8 +1014,7 @@ public class LoginAPI implements Authn {
                     getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
                       onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
 
-                    asyncResultHandler.handle(Future.succeededFuture(
-                      PostAuthnUpdateResponse.respond204WithTextPlain(tenantId)));
+                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));
                   }
                 });
               }
