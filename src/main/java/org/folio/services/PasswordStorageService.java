@@ -81,4 +81,18 @@ public interface PasswordStorageService {
   @Fluent
   PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
                                           Handler<AsyncResult<Void>> asyncResultHandler);
+
+  /**
+   * Checks if given password is previously used.
+   *
+   * @param tenantId tenant id
+   * @param passwordEntity Json representation of the {@link org.folio.rest.jaxrs.model.Password} entity
+   * @param userId user id
+   * @param asyncResultHandler response handler with {@code Boolean.TRUE} if password is previously used,
+   * {@code Boolean.FALSE} otherwise
+   * @return {@link PasswordStorageService} instance
+   */
+  @Fluent
+  PasswordStorageService isPasswordPreviouslyUsed(String tenantId, JsonObject passwordEntity,
+                                                  String userId, Handler<AsyncResult<Boolean>> asyncResultHandler);
 }

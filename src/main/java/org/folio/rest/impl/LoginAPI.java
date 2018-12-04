@@ -15,7 +15,6 @@ import io.vertx.core.logging.LoggerFactory;
 import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.CredentialsListObject;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
@@ -34,7 +33,6 @@ import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
@@ -56,9 +54,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
-import static org.folio.util.LoginAttemptsHelper.*;
-import static org.folio.util.LoginConfigUtils.*;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
+import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
+import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
+import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
+import static org.folio.util.LoginAttemptsHelper.onLoginFailAttemptHandler;
+import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
+import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
+import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
+import static org.folio.util.LoginConfigUtils.createFutureResponse;
+import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
 /**
  * @author kurt
@@ -73,8 +78,6 @@ public class LoginAPI implements Authn {
   private static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
-  private static final String CREDENTIALS_HISTORY_USER_ID_FIELD = "'userId'";
-  private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
@@ -93,7 +96,6 @@ public class LoginAPI implements Authn {
       .getOrDefault("require.active", "true"));
   private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
       .getOrDefault("lookup.timeout", "1000"));
-  public static final int PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
@@ -801,39 +803,19 @@ public class LoginAPI implements Authn {
                                           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       vertxContext.runOnContext(v -> {
-        PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          okapiHeaders.get(OKAPI_TENANT_HEADER));
-
-        Criteria criteria = new Criteria()
-          .addField(CREDENTIALS_HISTORY_USER_ID_FIELD)
-          .setOperation(OP_EQUAL)
-          .setValue(okapiHeaders.get(OKAPI_USER_ID_HEADER));
-
-        Criterion criterion = new Criterion(criteria)
-          //it seems like Criterion have to wrap the fieldName with "jsonb->>'fieldName'"
-          //currently Criterion does not do it
-          //if it will be fixed in the future, "jsonb->>'fieldName'" have to be removed to keep the code working
-          .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))
-          .setLimit(new Limit(PASSWORDS_HISTORY_NUMBER));
-
-        pgClient.get(TABLE_NAME_CREDENTIALS_HISTORY, CredentialsHistory.class, criterion,
-          true, getReply -> {
-            if (getReply.failed()) {
-              logger.debug("Error in PostgresClient get operation " + getReply.cause().getLocalizedMessage());
+        passwordStorageService.isPasswordPreviouslyUsed(okapiHeaders.get(OKAPI_TENANT_HEADER),
+          JsonObject.mapFrom(password), okapiHeaders.get(OKAPI_USER_ID_HEADER), used -> {
+            if (used.failed()) {
               asyncResultHandler.handle(
                 Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+              return;
             }
 
-            boolean anyMatch = getReply.result().getResults().stream()
-              .map(history -> authUtil.calculateHash(password.getPassword(), history.getSalt()))
-              .anyMatch(hash -> getReply.result().getResults().stream()
-                .anyMatch(history -> history.getHash().equals(hash)));
-
-            if (anyMatch) {
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+            if (used.result()) {
+              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnPasswordRepeatableResponse.
                 respond200WithApplicationJson(new PasswordValid().withResult("invalid"))));
             } else {
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnPasswordRepeatableResponse.
                 respond200WithApplicationJson(new PasswordValid().withResult("valid"))));
             }
           });

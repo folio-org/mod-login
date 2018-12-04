@@ -11,12 +11,15 @@ import io.vertx.ext.sql.SQLConnection;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Metadata;
+import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.ResponseCreateAction;
 import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.services.PasswordStorageService;
@@ -30,7 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.folio.rest.impl.LoginAPI.PASSWORDS_HISTORY_NUMBER;
+import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
@@ -41,12 +44,15 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String USER_ID_FIELD = "'userId'";
   private static final String PW_ACTION_ID = "id";
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
-  private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
+  private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
+
+  private static final int PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
+  private AuthUtil authUtil = new AuthUtil();
 
   public PasswordStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
@@ -360,7 +366,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       return this;
     }
 
-    pgClient.startTx(conn -> getCredByUserId(conn, tenantId, cred.getUserId())
+    pgClient.startTx(conn -> getCredByUserId(tenantId, cred.getUserId())
       .compose(credential -> updateCred(conn, tenantId, cred.withId(credential.getId()), credential))
       .compose(credential -> updateCredHistory(conn, tenantId, credential))
       .setHandler(res -> {
@@ -386,16 +392,42 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     return this;
   }
 
-  private Future<Credential> getCredByUserId(AsyncResult<SQLConnection> conn, String tenantId, String userId) {
+  @Override
+  public PasswordStorageService isPasswordPreviouslyUsed(String tenantId, JsonObject passwordEntity, String userId,
+                                                         Handler<AsyncResult<Boolean>> asyncResultHandler) {
+
+    Password password = passwordEntity.mapTo(Password.class);
+
+    getCredByUserId(tenantId, userId)
+      .map(credential ->
+        credential.getHash().equals(authUtil.calculateHash(password.getPassword(), credential.getSalt())))
+      .compose(used -> {
+        if (used) {
+          return Future.succeededFuture(Boolean.TRUE);
+        } else {
+          return isPresentInCredHistory(tenantId, userId, password);
+        }
+      }).setHandler(used -> {
+      if (used.failed()) {
+        asyncResultHandler.handle(Future.failedFuture(used.cause()));
+        return;
+      }
+      asyncResultHandler.handle(Future.succeededFuture(used.result()));
+    });
+
+    return this;
+  }
+
+  private Future<Credential> getCredByUserId(String tenantId, String userId) {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
 
     Future<Credential> future = Future.future();
     Criteria criteria = new Criteria()
-      .addField(CREDENTIAL_USERID_FIELD)
+      .addField(USER_ID_FIELD)
       .setOperation(Criteria.OP_EQUAL)
       .setValue(userId);
 
-    pgClient.get(conn, TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
+    pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
       if (get.failed()) {
         future.fail(get.cause());
       } else {
@@ -490,6 +522,36 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         "(SELECT _id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
       tableName, tableName, userId, count - PASSWORDS_HISTORY_NUMBER + 1);
     conn.result().execute(query, future.completer());
+
+    return future;
+  }
+
+  private Future<Boolean> isPresentInCredHistory(String tenantId, String userId, Password password) {
+    Future<Boolean> future = Future.future();
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+
+    Criteria criteria = new Criteria()
+      .addField(USER_ID_FIELD)
+      .setOperation(OP_EQUAL)
+      .setValue(userId);
+
+    Criterion criterion = new Criterion(criteria)
+      .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))
+      .setLimit(new Limit(PASSWORDS_HISTORY_NUMBER - 1));
+
+    pgClient.get(TABLE_NAME_CREDENTIALS_HISTORY, CredentialsHistory.class, criterion, true, get -> {
+      if (get.failed()) {
+        future.fail(get.cause());
+        return;
+      }
+
+      boolean anyMatch = get.result().getResults().stream()
+        .map(history -> authUtil.calculateHash(password.getPassword(), history.getSalt()))
+        .anyMatch(hash -> get.result().getResults().stream()
+          .anyMatch(history -> history.getHash().equals(hash)));
+
+      future.complete(anyMatch);
+    });
 
     return future;
   }
