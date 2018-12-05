@@ -46,12 +46,13 @@
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/update",
-          "modulePermissions" : [ "users.collection.get" ]
+          "modulePermissions" : [ "users.collection.get", "configuration.entries.collection.get" ]
         },
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/password/repeatable",
-          "permissionsRequired" : [ "login.password.validate" ]
+          "permissionsRequired" : [ "login.password.validate" ],
+          "modulePermissions" : [ "configuration.entries.collection.get" ]
         },
         {
           "methods": [ "POST" ],
