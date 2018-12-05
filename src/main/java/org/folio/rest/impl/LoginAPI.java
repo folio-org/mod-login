@@ -801,23 +801,22 @@ public class LoginAPI implements Authn {
   public void postAuthnPasswordRepeatable(Password password, Map<String, String> okapiHeaders,
                                           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      vertxContext.runOnContext(v -> {
+      vertxContext.runOnContext(v ->
         passwordStorageService.isPasswordPreviouslyUsed(JsonObject.mapFrom(password), okapiHeaders, used -> {
-            if (used.failed()) {
-              asyncResultHandler.handle(
-                Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-              return;
-            }
+          if (used.failed()) {
+            asyncResultHandler.handle(
+              Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+            return;
+          }
 
-            if (used.result()) {
-              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnPasswordRepeatableResponse.
-                respond200WithApplicationJson(new PasswordValid().withResult("invalid"))));
-            } else {
-              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnPasswordRepeatableResponse.
-                respond200WithApplicationJson(new PasswordValid().withResult("valid"))));
-            }
-          });
-      });
+          if (used.result()) {
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+              respond200WithApplicationJson(new PasswordValid().withResult("invalid"))));
+          } else {
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnPasswordRepeatableResponse.
+              respond200WithApplicationJson(new PasswordValid().withResult("valid"))));
+          }
+        }));
     } catch(Exception e) {
       logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(

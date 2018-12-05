@@ -58,7 +58,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String PW_HISTORY_NUMBER_CONF_PATH =
-    "/configurations/entries?query=configName==password.history.number";
+    "/configurations/entries?query=configName==password.history.number";//NOSONAR
 
   private static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
 
@@ -330,7 +330,6 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
    * @return updated user's credential
    */
   private Credential createCredential(String password, Credential cred) {
-    AuthUtil authUtil = new AuthUtil();
     String newSalt = authUtil.getSalt();
     String newHash = authUtil.calculateHash(password, newSalt);
     return cred
@@ -570,9 +569,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
       .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
-      .exceptionHandler(throwable -> {
-        future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
-      })
+      .exceptionHandler(throwable -> future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER))
       .handler(resp -> resp.bodyHandler(body -> {
         if (resp.statusCode() != HttpStatus.SC_OK) {
           future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
