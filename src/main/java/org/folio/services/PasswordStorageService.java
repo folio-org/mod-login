@@ -12,6 +12,8 @@ import org.folio.rest.jaxrs.model.ResponseCreateAction;
 import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 
+import java.util.Map;
+
 /**
  * The interface provides basic CRUD operations for storing and retrieving data from the storage
  */
@@ -73,26 +75,25 @@ public interface PasswordStorageService {
   /**
    * Updates user credential.
    *
-   * @param tenantId tenant id
    * @param credJson  Json representation of the {@link org.folio.rest.jaxrs.model.Credential} entity
+   * @param okapiHeaders okapi headers
    * @param asyncResultHandler update response handler with {@code Boolean.TRUE} if update is successful
    * @return {@link PasswordStorageService} instance
    */
   @Fluent
-  PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
+  PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> okapiHeaders,
                                           Handler<AsyncResult<Void>> asyncResultHandler);
 
   /**
    * Checks if given password is previously used.
    *
-   * @param tenantId tenant id
    * @param passwordEntity Json representation of the {@link org.folio.rest.jaxrs.model.Password} entity
-   * @param userId user id
+   * @param okapiHeaders okapi headers
    * @param asyncResultHandler response handler with {@code Boolean.TRUE} if password is previously used,
    * {@code Boolean.FALSE} otherwise
    * @return {@link PasswordStorageService} instance
    */
   @Fluent
-  PasswordStorageService isPasswordPreviouslyUsed(String tenantId, JsonObject passwordEntity,
-                                                  String userId, Handler<AsyncResult<Boolean>> asyncResultHandler);
+  PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
+                                                  Handler<AsyncResult<Boolean>> asyncResultHandler);
 }

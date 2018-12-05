@@ -71,11 +71,10 @@ import static org.folio.util.LoginConfigUtils.getResponseEntity;
 public class LoginAPI implements Authn {
 
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
-  private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   public static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   public static final String OKAPI_URL_HEADER = "x-okapi-url";
-  private static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
+  public static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
@@ -803,8 +802,7 @@ public class LoginAPI implements Authn {
                                           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       vertxContext.runOnContext(v -> {
-        passwordStorageService.isPasswordPreviouslyUsed(okapiHeaders.get(OKAPI_TENANT_HEADER),
-          JsonObject.mapFrom(password), okapiHeaders.get(OKAPI_USER_ID_HEADER), used -> {
+        passwordStorageService.isPasswordPreviouslyUsed(JsonObject.mapFrom(password), okapiHeaders, used -> {
             if (used.failed()) {
               asyncResultHandler.handle(
                 Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
@@ -1002,7 +1000,7 @@ public class LoginAPI implements Authn {
                 Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                   entity.getNewPassword());
 
-                passwordStorageService.updateCredential(tenantId, JsonObject.mapFrom(newCred), updateCredResult -> {
+                passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), okapiHeaders, updateCredResult -> {
                   if(updateCredResult.failed()) {
                     String message = updateCredResult.cause().getLocalizedMessage();
                     logger.error(message);

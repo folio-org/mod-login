@@ -14,6 +14,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -56,11 +57,13 @@ public class PasswordRepeatabilityValidationTest {
   private static final String VALID = "valid";
   private static final String INVALID = "invalid";
 
+  private static int port;
+
   @BeforeClass
   public static void setup(final TestContext context) {
     Async async = context.async();
     vertx = Vertx.vertx();
-    int port = NetworkUtils.nextFreePort();
+    port = NetworkUtils.nextFreePort();
 
     try {
       PostgresClient.setIsEmbedded(true);
@@ -90,6 +93,9 @@ public class PasswordRepeatabilityValidationTest {
       .setContentType(ContentType.JSON)
       .setBaseUri("http://localhost:" + port)
       .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
+      .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken")
+      .addHeader(LoginAPI.OKAPI_USER_ID_HEADER, USER_ID)
+      .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + port)
       .build();
   }
 
@@ -113,7 +119,6 @@ public class PasswordRepeatabilityValidationTest {
   public void testNewPassword() {
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, USER_ID)
       .body(new JsonObject().put(PASSWORD_JSON_PATH, NEW_PASSWORD).encode())
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
@@ -126,7 +131,6 @@ public class PasswordRepeatabilityValidationTest {
   public void testRecentPassword() {
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, USER_ID)
       .body(new JsonObject().put(PASSWORD_JSON_PATH, PASSWORD_TEMPLATE + 1).encode())
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
@@ -139,7 +143,6 @@ public class PasswordRepeatabilityValidationTest {
   public void testOldPassword() {
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, USER_ID)
       .body(new JsonObject().put(PASSWORD_JSON_PATH, OLD_PASSWORD).encode())
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)

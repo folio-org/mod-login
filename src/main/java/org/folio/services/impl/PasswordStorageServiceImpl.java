@@ -4,10 +4,17 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
+import io.vertx.ext.sql.UpdateResult;
+import org.apache.http.HttpStatus;
+import org.folio.rest.RestVerticle;
+import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Metadata;
@@ -27,8 +34,11 @@ import org.folio.util.AuthUtil;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 import org.z3950.zing.cql.cql2pgjson.FieldException;
 
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MediaType;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,8 +57,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
+  private static final String PW_HISTORY_NUMBER_CONF_PATH =
+    "/configurations/entries?query=configName==password.history.number";
 
-  private static final int PASSWORDS_HISTORY_NUMBER = 10;
+  private static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
@@ -356,9 +368,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService updateCredential(String tenantId, JsonObject credJson,
+  public PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> okapiHeaders,
                                                  Handler<AsyncResult<Void>> asyncResultHandler) {
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     Credential cred = credJson.mapTo(Credential.class);
 
     if (cred.getUserId() == null) {
@@ -366,9 +382,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       return this;
     }
 
-    pgClient.startTx(conn -> getCredByUserId(tenantId, cred.getUserId())
-      .compose(credential -> updateCred(conn, tenantId, cred.withId(credential.getId()), credential))
-      .compose(credential -> updateCredHistory(conn, tenantId, credential))
+    pgClient.startTx(conn -> getCredByUserId(tenant, cred.getUserId())
+      .compose(credential -> updateCred(conn, tenant, cred.withId(credential.getId()), credential))
+      .compose(credential -> updateCredHistory(conn, credential, okapiUrl, token, tenant))
       .setHandler(res -> {
         if (res.failed()) {
           conn.result().rollback(v -> {
@@ -393,19 +409,24 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService isPasswordPreviouslyUsed(String tenantId, JsonObject passwordEntity, String userId,
+  public PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
                                                          Handler<AsyncResult<Boolean>> asyncResultHandler) {
 
     Password password = passwordEntity.mapTo(Password.class);
+    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String userId = okapiHeaders.get(LoginAPI.OKAPI_USER_ID_HEADER);
+    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
-    getCredByUserId(tenantId, userId)
+    getCredByUserId(tenant, userId)
       .map(credential ->
         credential.getHash().equals(authUtil.calculateHash(password.getPassword(), credential.getSalt())))
       .compose(used -> {
         if (used) {
           return Future.succeededFuture(Boolean.TRUE);
         } else {
-          return isPresentInCredHistory(tenantId, userId, password);
+          return getPasswordHistoryNumber(okapiUrl, token, tenant)
+            .compose(number -> isPresentInCredHistory(tenant, userId, password, number));
         }
       }).setHandler(used -> {
       if (used.failed()) {
@@ -445,7 +466,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Future<Credential> updateCred(AsyncResult<SQLConnection> conn, String tenantId,
                                         Credential newCred, Credential oldCred) {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Future<Credential> future = Future.future();
+    Future<UpdateResult> future = Future.future();
     CQL2PgJSON field = null;
     try {
       field = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
@@ -453,41 +474,31 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       future.fail(e);
     }
     CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + newCred.getId());
+    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, future.completer());
 
-    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, update -> {
-      if (update.failed()) {
-        future.fail(update.cause());
-      } else {
-        future.complete(oldCred);
-      }
-    });
-
-    return future;
+    return future.map(updateResult -> oldCred);
   }
 
-  private Future<Void> updateCredHistory(AsyncResult<SQLConnection> conn, String tenantId, Credential cred) {
+  private Future<Void> updateCredHistory(AsyncResult<SQLConnection> conn, Credential cred,
+                                         String okapiUrl, String token, String tenant) {
 
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-
-    return getCredHistoryCountByUserId(tenantId, cred.getUserId())
-      .compose(count -> deleteOldCredHistoryRecords(conn, tenantId, cred.getUserId(), count))
+    return getCredHistoryCountByUserId(tenant, cred.getUserId())
+      .compose(count -> getPasswordHistoryNumber(okapiUrl, token, tenant)
+        .map(number -> count - number))
+      .compose(count -> deleteOldCredHistoryRecords(conn, tenant, cred.getUserId(), count))
       .compose(v -> {
-        Future<Void> future = Future.future();
+        Future<String> future = Future.future();
         CredentialsHistory credHistory = new CredentialsHistory();
         credHistory.setUserId(cred.getUserId());
         credHistory.setSalt(cred.getSalt());
         credHistory.setHash(cred.getHash());
         credHistory.setDate(new Date());
 
-        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), credHistory, save -> {
-          if (save.failed()) {
-            future.fail(save.cause());
-          } else {
-            future.complete();
-          }
-        });
+        PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
+        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(),
+          credHistory, future.completer());
 
-        return future;
+        return future.map(s -> null);
       });
   }
 
@@ -495,22 +506,16 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
-    Future<Integer> future = Future.future();
-
+    Future<ResultSet> future = Future.future();
     String query = String.format("SELECT count(_id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
-    pgClient.select(query, count -> {
-      if (count.failed()) {
-        future.fail(count.cause());
-      } else {
-        future.complete(count.result().getResults().get(0).getInteger(0));
-      }
-    });
-    return future;
+    pgClient.select(query, future.completer());
+
+    return future.map(resultSet -> resultSet.getResults().get(0).getInteger(0));
   }
 
   private Future<Void> deleteOldCredHistoryRecords(AsyncResult<SQLConnection> conn, String tenantId,
                                                    String userId, Integer count) {
-    if (count < PASSWORDS_HISTORY_NUMBER) {
+    if (count < 1) {
       return Future.succeededFuture();
     }
 
@@ -520,13 +525,14 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
     String query = String.format("DELETE FROM %s WHERE _id IN " +
         "(SELECT _id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
-      tableName, tableName, userId, count - PASSWORDS_HISTORY_NUMBER + 1);
+      tableName, tableName, userId, count);
     conn.result().execute(query, future.completer());
 
     return future;
   }
 
-  private Future<Boolean> isPresentInCredHistory(String tenantId, String userId, Password password) {
+  private Future<Boolean> isPresentInCredHistory(String tenantId, String userId,
+                                                 Password password, int pwdHistoryNumber) {
     Future<Boolean> future = Future.future();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
 
@@ -537,7 +543,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
     Criterion criterion = new Criterion(criteria)
       .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))
-      .setLimit(new Limit(PASSWORDS_HISTORY_NUMBER - 1));
+      .setLimit(new Limit(pwdHistoryNumber - 1));
 
     pgClient.get(TABLE_NAME_CREDENTIALS_HISTORY, CredentialsHistory.class, criterion, true, get -> {
       if (get.failed()) {
@@ -552,6 +558,33 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
       future.complete(anyMatch);
     });
+
+    return future;
+  }
+
+  private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
+    Future<Integer> future = Future.future();
+    HttpClient httpClient = vertx.createHttpClient();
+
+    httpClient.getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
+      .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
+      .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
+      .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
+      .exceptionHandler(throwable -> {
+        future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
+      })
+      .handler(resp -> resp.bodyHandler(body -> {
+        if (resp.statusCode() != HttpStatus.SC_OK) {
+          future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
+        } else {
+          Configurations conf = body.toJsonObject().mapTo(Configurations.class);
+          if (conf.getConfigs().isEmpty()) {
+            future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
+            return;
+          }
+          future.complete(Integer.valueOf(conf.getConfigs().get(0).getValue()));
+        }
+      })).end();
 
     return future;
   }
