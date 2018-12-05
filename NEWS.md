@@ -1,3 +1,7 @@
+## 2018-11-19 v4.6.2
+ * Update Credentials history when Credentials are updated
+ * Get password history number from mod-configuration
+ 
 ## 2018-11-19 v4.5.0
  * Add implementation /authn/password-reset-action which is accessible through OKAPI
  * Add rest tests
