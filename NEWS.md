@@ -1,15 +1,3 @@
-## 2018-11-08 v4.7.1
- * Add implementation `/authn/log/events` which is accessible through OKAPI
- * Add rest tests
-
- API:
-
- | METHOD |  URL                          | DESCRIPTION                                                       |
- |--------|-------------------------------|-------------------------------------------------------------------|
- | POST   | /authn/log/events             | Saves the event into the storage                                  |
- | GET    | /authn/log/events/            | Get a list of events from storage                                 |
- | DELETE | /authn/log/events/{userId}    | Delete the event by userId from storage                           |
-
 ## 2018-12-03 v4.6.0
  * Set Content-Type and Accept headers for outgoing requests (MODLOGIN-92)
  * Update to RAML 1.0 (MODLOGIN-80)
