@@ -10,7 +10,11 @@
  | GET    | /authn/log/events/            | Get a list of events from storage                                 |
  | DELETE | /authn/log/events/{userId}    | Delete the event by userId from storage                           |
 
-## 2018-11-19 v4.6.1
+## 2018-12-03 v4.6.0
+ * Set Content-Type and Accept headers for outgoing requests (MODLOGIN-92)
+ * Update to RAML 1.0 (MODLOGIN-80)
+
+## 2018-11-19 v4.6.0
  * Add implementation /authn/password-reset-action which is accessible through OKAPI
  * Add rest tests
 
