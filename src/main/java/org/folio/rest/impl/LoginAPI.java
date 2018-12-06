@@ -830,7 +830,7 @@ public class LoginAPI implements Authn {
     try {
       JsonObject passwordResetJson = JsonObject.mapFrom(entity);
       context.runOnContext(contextHandler ->
-        passwordStorageService.resetPassword(vTenantId, passwordResetJson,
+        passwordStorageService.resetPassword(okapiHeaders, passwordResetJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();

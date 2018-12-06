@@ -64,12 +64,12 @@ public interface PasswordStorageService {
    * The method returns a parameter
    * indicating whether the user previously had any credentials.
    *
-   * @param tenantId    tenant identifier
+   * @param okapiHeaders okapi headers
    * @param resetAction Json representation of the entity {@link PasswordReset}
    * @return asyncResult with the response entity {@link ResponseResetAction}
    */
   @Fluent
-  PasswordStorageService resetPassword(String tenantId, JsonObject resetAction,
+  PasswordStorageService resetPassword(Map<String, String> okapiHeaders, JsonObject resetAction,
                                        Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
