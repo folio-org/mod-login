@@ -219,7 +219,7 @@ public class LoginAttemptsHelper {
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
         .getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
-      return Integer.parseInt(res.result().getString(VALUE));
+      return res.result().getInteger(VALUE);
     } catch (Exception e) {
       logger.error(e);
     }

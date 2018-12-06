@@ -10,7 +10,7 @@
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
-            "users.collection.get", "users.item.put", 
+            "users.collection.get", "users.item.put", "users.item.get",
             "configuration.entries.collection.get" ]
         },
         {

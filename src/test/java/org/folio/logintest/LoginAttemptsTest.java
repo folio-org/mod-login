@@ -15,25 +15,22 @@ import org.folio.rest.client.TenantClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
-import org.folio.util.AuthUtil;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.UUID;
+import java.io.UnsupportedEncodingException;
 
 import static org.hamcrest.Matchers.is;
 
 
 @RunWith(VertxUnitRunner.class)
-public class LoginAttemtsTest {
+public class LoginAttemptsTest {
 
   private static Vertx vertx;
   private static RequestSpecification spec;
-  private static String userId = UUID.randomUUID().toString();
-  private static AuthUtil authUtil = new AuthUtil();
 
   private static final String TENANT = "diku";
   private static final String TABLE_NAME_ATTEMPTS = "auth_attempts";
@@ -179,7 +176,7 @@ public class LoginAttemtsTest {
   }
 
   @Test
-  public void testNewPassword(final TestContext context) throws InterruptedException {
+  public void testAttempts(final TestContext context) throws UnsupportedEncodingException {
     RestAssured.given()
       .spec(spec)
       .body(credsObject7.encode())
@@ -297,5 +294,13 @@ public class LoginAttemtsTest {
       .statusCode(200)
       .body("attemptCount", is(0));
 
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Login.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(400).body(is("User must be flagged as active"));
   }
 }
