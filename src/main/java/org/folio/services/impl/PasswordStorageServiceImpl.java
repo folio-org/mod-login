@@ -60,7 +60,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String PW_HISTORY_NUMBER_CONF_PATH =
     "/configurations/entries?query=configName==password.history.number";//NOSONAR
 
-  private static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
+  public static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
 
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
@@ -465,11 +465,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
     return getCredHistoryCountByUserId(tenant, cred.getUserId())
       .compose(count -> getPasswordHistoryNumber(okapiUrl, token, tenant)
-        .map(number -> count - number))
+        .map(number -> count - number + 1))
       .compose(count -> deleteOldCredHistoryRecords(conn, tenant, cred.getUserId(), count))
       .compose(v -> {
         Future<String> future = Future.future();
         CredentialsHistory credHistory = new CredentialsHistory();
+        credHistory.setId(UUID.randomUUID().toString());
         credHistory.setUserId(cred.getUserId());
         credHistory.setSalt(cred.getSalt());
         credHistory.setHash(cred.getHash());
