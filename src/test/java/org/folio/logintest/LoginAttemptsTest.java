@@ -193,7 +193,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400);
+      .statusCode(400)
+      .body(is("Password does not match"));
 
     RestAssured.given()
       .spec(spec)
@@ -229,7 +230,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400);
+      .statusCode(400)
+      .body(is("Password does not match"));
 
     RestAssured.given()
       .spec(spec)
@@ -265,7 +267,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400);
+      .statusCode(400)
+      .body(is("Password does not match"));
 
     RestAssured.given()
       .spec(spec)
@@ -283,7 +286,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400);
+      .statusCode(400)
+      .body(is("Password does not match"));
 
     RestAssured.given()
       .spec(spec)
@@ -301,6 +305,7 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400).body(is("User must be flagged as active"));
+      .statusCode(400)
+      .body(is("User must be flagged as active"));
   }
 }

@@ -20,7 +20,7 @@ public class UserMock extends AbstractVerticle {
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
-  public static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
