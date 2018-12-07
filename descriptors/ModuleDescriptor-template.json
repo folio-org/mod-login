@@ -4,13 +4,13 @@
   "provides": [
     {
       "id": "login",
-      "version": "4.4",
+      "version": "4.5",
       "handlers" : [
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
-            "users.collection.get", "users.item.put", 
+            "users.collection.get", "users.item.put", "users.item.get",
             "configuration.entries.collection.get" ]
         },
         {
