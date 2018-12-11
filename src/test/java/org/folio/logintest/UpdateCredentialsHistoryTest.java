@@ -208,7 +208,7 @@ public class UpdateCredentialsHistoryTest {
 
   private Future<Void> fillInCredentialsHistory() {
 
-    return CompositeFuture.all(IntStream.range(0, DEFAULT_PASSWORDS_HISTORY_NUMBER - 1)
+    return CompositeFuture.all(IntStream.range(0, DEFAULT_PASSWORDS_HISTORY_NUMBER - 2)
       .mapToObj(UpdateCredentialsHistoryTest::buildCredentialsHistoryObject)
       .map(UpdateCredentialsHistoryTest::saveCredentialsHistoryObject)
       .collect(Collectors.toList()))

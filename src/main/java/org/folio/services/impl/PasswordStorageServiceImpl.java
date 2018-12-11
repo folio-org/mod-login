@@ -465,7 +465,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
     return getCredHistoryCountByUserId(tenant, cred.getUserId())
       .compose(count -> getPasswordHistoryNumber(okapiUrl, token, tenant)
-        .map(number -> count - number + 1))
+        .map(number -> count - number + 2))
       .compose(count -> deleteOldCredHistoryRecords(conn, tenant, cred.getUserId(), count))
       .compose(v -> {
         Future<String> future = Future.future();
