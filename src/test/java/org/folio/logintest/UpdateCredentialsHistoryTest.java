@@ -8,6 +8,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.sql.UpdateResult;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -105,15 +106,12 @@ public class UpdateCredentialsHistoryTest {
 
   @After
   public void cleanUp(TestContext context) {
-    Async async = context.async();
 
-    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), del -> {
-      if (del.failed()) {
-        context.fail(del.cause());
-      } else {
-        async.complete();
-      }
-    });
+    Future.succeededFuture()
+      .compose(v -> clearCredentialsHistoryTable())
+      .compose(v -> clearCredentialsTable())
+      .compose(v -> persistCredentials())
+      .setHandler(context.asyncAssertSuccess());
   }
 
   @Test
@@ -268,6 +266,18 @@ public class UpdateCredentialsHistoryTest {
     Future<String> future = Future.future();
     pgClient.save(TABLE_NAME_CRED_HIST, UUID.randomUUID().toString(), object, future.completer());
 
+    return future.map(v -> null);
+  }
+
+  private Future<Void> clearCredentialsHistoryTable() {
+    Future<UpdateResult> future = Future.future();
+    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), future.completer());
+    return future.map(v -> null);
+  }
+
+  private Future<Void> clearCredentialsTable() {
+    Future<UpdateResult> future = Future.future();
+    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), future.completer());
     return future.map(v -> null);
   }
 
