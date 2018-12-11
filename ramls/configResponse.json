@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Event configuration response",
+  "type": "object",
+  "properties": {
+    "code": {
+      "description":"module name",
+      "type": "string"
+    },
+    "enabled": {
+      "description":"configuration availability",
+      "type": "boolean"
+    },
+    "configs": {
+      "description":"configurations",
+      "id": "configurationData",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

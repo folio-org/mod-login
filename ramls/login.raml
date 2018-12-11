@@ -22,6 +22,10 @@ types:
   responseCreateAction: !include responseCreateAction.json
   responseResetAction: !include responseResetAction.json
   configurations: !include configurations.json
+  configResponse: !include configResponse.json
+  logEvent: !include logEvent.json
+  logEvents: !include logEventCollection.json
+  logResponse: !include logResponse.json
 
 traits:
   validate: !include raml-util/traits/validation.raml
@@ -309,3 +313,71 @@ traits:
             body:
               text/plain:
                 example: "Internal server error"
+  /log:
+    /events:
+      get:
+        description: Returns a list of events retrieved from storage
+        is: [
+          pageable,
+          queryable
+        ]
+        responses:
+          200:
+            body:
+              application/json:
+                schema: logEvents
+          204:
+            body:
+              text/plain:
+                example: "No Content"
+          404:
+            description: "Event not found"
+            body:
+              text/plain:
+                example: "Event not found"
+          500:
+            description: "Internal server error"
+            body:
+              text/plain:
+                example: "Internal server error"
+      post:
+        description: Saves received event into the storage
+        body:
+          application/json:
+            schema: logEvent
+        responses:
+          201:
+            body:
+              application/json:
+                schema: logResponse
+          204:
+            body:
+              text/plain:
+                example: "No Content"
+          500:
+            description: "Internal server error"
+            body:
+              text/plain:
+                example: "Internal server error"
+      /{id}:
+        delete:
+          description: Removes events by filter
+          responses:
+            200:
+              body:
+                application/json:
+                  schema: logResponse
+            204:
+              body:
+                text/plain:
+                  example: "No Content"
+            404:
+              description: "Event not found"
+              body:
+                text/plain:
+                  example: "Event not found"
+            500:
+              description: "Internal server error"
+              body:
+                text/plain:
+                  example: "Internal server error"

@@ -11,13 +11,12 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
 import org.apache.commons.lang.time.DateFormatUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.interfaces.Results;
 
 import javax.ws.rs.core.Response;
 import java.net.URLEncoder;
@@ -29,7 +28,6 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.INTERNAL_ERROR;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
-import org.folio.rest.persist.interfaces.Results;
 
 /**
  * Helper class that contains static methods which helps with processing Login Attempts business logic
@@ -164,47 +162,32 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params, JsonObject userObject, Handler<AsyncResult<Response>> asyncResultHandler) {
+  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
     Future<Boolean> future = Future.future();
     try {
       getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res ->
         getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
           getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
-        boolean result = false;
+            boolean result = false;
 
-        int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
-        int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
-        int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+            int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+            int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
+            int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
 
-        if (loginFailConfigValue != 0) {
-          // get time diff between current date and last login attempt
-          long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
-          // calc date diff in minutes
-          long diffMinutes = diff / (60 * 1000) % 60;
-          if (diffMinutes > loginTimeoutConfigValue) {
-            attempts.setAttemptCount(0);
-          } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
-            result = true;
-          }
-        }
-        if (result) {
-            asyncResultHandler.handle(Future.succeededFuture(
-              /*Authn.PostAuthnLoginResponse.respond422WithApplicationJson(
-                LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED))*/
-              Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
-            ));
-        } else {
-            asyncResultHandler.handle(Future.succeededFuture(
-              /*Authn.PostAuthnLoginResponse.respond422WithApplicationJson(
-                LoginAPI.getErrors("Password does not match",
-                  attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_PASSWORD_INCORRECT,
-                  new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))))*/
-              Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
-            ));
-        }
-        future.complete(result);
-      })));
-    } catch (Exception e){
+            if (loginFailConfigValue != 0) {
+              // get time diff between current date and last login attempt
+              long diff = new Date().getTime() - attempts.getLastAttempt().getTime();
+              // calc date diff in minutes
+              long diffMinutes = diff / (60 * 1000) % 60;
+              if (diffMinutes > loginTimeoutConfigValue) {
+                attempts.setAttemptCount(0);
+              } else if (attempts.getAttemptCount() >= loginFailConfigValue && diffMinutes < loginTimeoutConfigValue) {
+                result = true;
+              }
+            }
+            future.complete(result);
+          })));
+    } catch (Exception e) {
       logger.error(e);
       future.complete(false);
     }
@@ -219,7 +202,7 @@ public class LoginAttemptsHelper {
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
         .getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
-      return Integer.parseInt(res.result().getString(VALUE));
+      return res.result().getInteger(VALUE);
     } catch (Exception e) {
       logger.error(e);
     }
@@ -336,7 +319,7 @@ public class LoginAttemptsHelper {
               "' :" + buf.toString();
             future.fail(message);
           });
-        }else {
+        } else {
           future.complete();
         }
       });
@@ -374,9 +357,9 @@ public class LoginAttemptsHelper {
    * @param asyncResultHandler - request async handler
    */
   public static Handler<AsyncResult<Results<LoginAttempts>>> onLoginFailAttemptHandler(JsonObject userObject,
-                                                                        OkapiConnectionParams params,
-                                                                        PostgresClient pgClient,
-                                                                        Handler<AsyncResult<Response>> asyncResultHandler) {
+                                                                                       OkapiConnectionParams params,
+                                                                                       PostgresClient pgClient,
+                                                                                       Handler<AsyncResult<Response>> asyncResultHandler) {
     return getAttemptReply -> {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
@@ -403,29 +386,35 @@ public class LoginAttemptsHelper {
           LoginAttempts attempt = attempts.get(0);
           attempt.setAttemptCount(attempt.getAttemptCount() + 1);
           attempt.setLastAttempt(new Date());
-          needToUserBlock(attempt, params, userObject, asyncResultHandler).setHandler(needBlockHandler -> {
-            if (needBlockHandler.result()) {
-              // lock user account
-              JsonObject user = userObject.copy();
-              user.put("active", false);
-              updateUser(user, params).setHandler(onUpdate -> {
-                if (onUpdate.failed()) {
-                  String errMsg = "Error on user update: " + onUpdate.cause().getLocalizedMessage();
-                  logger.error(errMsg);
-                  asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
-                    .respond500WithTextPlain(errMsg)));
-                }
-                attempt.setAttemptCount(0);
-                attempt.setLastAttempt(new Date());
+          needToUserBlock(attempt, params)
+            .setHandler(needBlockHandler -> {
+              if (needBlockHandler.result()) {
+                // lock user account
+                JsonObject user = userObject.copy();
+                user.put("active", false);
+                updateUser(user, params)
+                  .setHandler(onUpdate -> {
+                    if (onUpdate.failed()) {
+                      String errMsg = "Error on user update: " + onUpdate.cause().getLocalizedMessage();
+                      logger.error(errMsg);
+                      asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+                        .respond500WithTextPlain(errMsg)));
+                    } else {
+                      attempt.setAttemptCount(0);
+                      attempt.setLastAttempt(new Date());
+                      updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
+                      logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
+                    }
+                  });
+              } else {
+                Integer attemptCount = attempt.getAttemptCount();
                 updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
-                logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
-              });
-            } else {
-              Integer attemptCount = attempt.getAttemptCount();
-              updateAttempt(pgClient, attempt, asyncResultHandler, updateAttemptHandler(asyncResultHandler));
-              logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
-            }
-          });
+                logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
+              }
+              asyncResultHandler.handle(Future.succeededFuture(
+                Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")
+              ));
+            });
         }
       }
     };
@@ -439,8 +428,8 @@ public class LoginAttemptsHelper {
    * @param asyncResultHandler - request async handler
    */
   public static Handler<AsyncResult<Results<LoginAttempts>>> onLoginSuccessAttemptHandler(JsonObject userObject,
-                                                                           PostgresClient pgClient,
-                                                                           Handler<AsyncResult<Response>> asyncResultHandler) {
+                                                                                          PostgresClient pgClient,
+                                                                                          Handler<AsyncResult<Response>> asyncResultHandler) {
     return getAttemptReply -> {
       if (getAttemptReply.failed()) {
         logger.debug("Error in PostgresClient get operation " + getAttemptReply.cause().getLocalizedMessage());
@@ -469,8 +458,9 @@ public class LoginAttemptsHelper {
   /**
    * Log login events by default logger
    * TODO - refactor loggin after creating tech design MODLOGIN-36
-   * @param event - login event
-   * @param userId - user id of logged user
+   *
+   * @param event    - login event
+   * @param userId   - user id of logged user
    * @param attempts - failed login attempts number
    */
   private static void logLoginAttempt(LoginEvent event, String userId, Integer attempts) {
