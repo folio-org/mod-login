@@ -2,7 +2,7 @@
  * Set Content-Type and Accept headers for outgoing requests (MODLOGIN-92)
  * Update to RAML 1.0 (MODLOGIN-80)
 
-## 2018-11-19 v4.5.0
+## 2018-11-19 v4.6.0
  * Add implementation /authn/password-reset-action which is accessible through OKAPI
  * Add rest tests
 

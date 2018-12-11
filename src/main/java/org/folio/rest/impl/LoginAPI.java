@@ -27,6 +27,8 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.services.PasswordStorageService;
+import org.folio.services.ConfigurationService;
+import org.folio.services.LogStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.OkapiConnectionParams;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
@@ -74,6 +76,9 @@ public class LoginAPI implements Authn {
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
   public static final String PARAM_USERNAME = "username";
   private static final String TYPE_ERROR = "error";
+  private static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
+  private static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
+  private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -85,6 +90,8 @@ public class LoginAPI implements Authn {
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
   private String vTenantId;
+  private LogStorageService logStorageService;
+  private ConfigurationService configurationService;
   private PasswordStorageService passwordStorageService;
 
   public LoginAPI(Vertx vertx, String tenantId) {
@@ -94,6 +101,8 @@ public class LoginAPI implements Authn {
 
   private void initService(Vertx vertx) {
     this.passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
+    this.logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
+    this.configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
   }
 
   private String getErrorResponse(String response) {
@@ -931,6 +940,148 @@ public class LoginAPI implements Authn {
       logger.error(errorMessage, ex);
       asyncHandler.handle(createFutureResponse(
         GetAuthnPasswordResetActionByActionIdResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void getAuthnLogEvents(int limit, int offset, String query,
+                                Map<String, String> requestHeaders,
+                                Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject headers = JsonObject.mapFrom(requestHeaders);
+      context.runOnContext(contextHandler ->
+        configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+          if (serviceHandler.failed()) {
+            String errorMessage = serviceHandler.cause().getMessage();
+            asyncHandler.handle(createFutureResponse(
+              GetAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+            return;
+          }
+          ConfigResponse responseEntity = getResponseEntity(serviceHandler, ConfigResponse.class);
+          if (!responseEntity.getEnabled()) {
+            asyncHandler.handle(createFutureResponse(
+              GetAuthnLogEventsResponse.respond204WithTextPlain(MESSAGE_LOG_CONFIGURATION_IS_DISABLED)));
+            return;
+          }
+
+          logStorageService.findAllEvents(vTenantId, limit, offset, query,
+            storageHandler -> {
+              if (storageHandler.failed()) {
+                String errorMessage = storageHandler.cause().getMessage();
+                asyncHandler.handle(createFutureResponse(
+                  GetAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+                return;
+              }
+              LogEvents response = getResponseEntity(storageHandler, LogEvents.class);
+              asyncHandler.handle(createFutureResponse(
+                GetAuthnLogEventsResponse.respond200WithApplicationJson(response)));
+            });
+        })
+      );
+    } catch (Exception ex) {
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "getAuthnLogEvents", ex.getMessage());
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(GetAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void postAuthnLogEvents(LogEvent logEvent, Map<String, String> requestHeaders,
+                                 Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject headers = JsonObject.mapFrom(requestHeaders);
+      context.runOnContext(contextHandler ->
+        configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+          if (serviceHandler.failed()) {
+            String errorMessage = serviceHandler.cause().getMessage();
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+            return;
+          }
+          ConfigResponse responseEntity = getResponseEntity(serviceHandler, ConfigResponse.class);
+          if (!responseEntity.getEnabled()) {
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnLogEventsResponse.respond204WithTextPlain(MESSAGE_LOG_CONFIGURATION_IS_DISABLED)));
+            return;
+          }
+          List<String> enableConfigCodes = responseEntity.getConfigs();
+          String eventCode = logEvent.getEventCode();
+          if (!enableConfigCodes.contains(eventCode)) {
+            asyncHandler.handle(createFutureResponse(
+              PostAuthnLogEventsResponse.respond204WithTextPlain(String.format(MESSAGE_LOG_EVENT_IS_DISABLED, eventCode))));
+            return;
+          }
+
+          JsonObject loggingEventJson = JsonObject.mapFrom(logEvent);
+          logStorageService.createEvent(vTenantId, loggingEventJson,
+            storageHandler -> {
+              if (storageHandler.failed()) {
+                String errorMessage = storageHandler.cause().getMessage();
+                asyncHandler.handle(createFutureResponse(
+                  PostAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+                return;
+              }
+              LogResponse response = getResponseEntity(storageHandler, LogResponse.class);
+              asyncHandler.handle(createFutureResponse(
+                PostAuthnLogEventsResponse.respond201WithApplicationJson(response)));
+            });
+        })
+      );
+    } catch (Exception ex) {
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "postAuthnLogEvents", ex.getMessage());
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(PostAuthnLogEventsResponse.respond500WithTextPlain(errorMessage)));
+    }
+  }
+
+  @Override
+  public void deleteAuthnLogEventsById(String userId, Map<String, String> requestHeaders,
+                                       Handler<AsyncResult<Response>> asyncHandler, Context context) {
+    try {
+      JsonObject headers = JsonObject.mapFrom(requestHeaders);
+      context.runOnContext(contextHandler ->
+        configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+          if (serviceHandler.failed()) {
+            String errorMessage = serviceHandler.cause().getMessage();
+            asyncHandler.handle(createFutureResponse(
+              DeleteAuthnLogEventsByIdResponse.respond500WithTextPlain(errorMessage)));
+            return;
+          }
+          ConfigResponse responseEntity = getResponseEntity(serviceHandler, ConfigResponse.class);
+          if (!responseEntity.getEnabled()) {
+            asyncHandler.handle(createFutureResponse(
+              DeleteAuthnLogEventsByIdResponse.respond204WithTextPlain(MESSAGE_LOG_CONFIGURATION_IS_DISABLED)));
+            return;
+          }
+
+          logStorageService.deleteEventByUserId(vTenantId, userId,
+            storageHandler -> {
+              if (storageHandler.failed()) {
+                String errorMessage = storageHandler.cause().getMessage();
+                asyncHandler.handle(createFutureResponse(
+                  DeleteAuthnLogEventsByIdResponse.respond500WithTextPlain(errorMessage)));
+                return;
+              }
+              JsonObject jsonObject = storageHandler.result();
+              Boolean isNotFound = Optional.ofNullable(jsonObject.getBoolean(VALUE_IS_NOT_FOUND)).orElse(false);
+              if (isNotFound) {
+                String message = String.format(ERROR_EVENT_CONFIG_NOT_FOUND, "userId", userId);
+                logger.debug(message);
+                asyncHandler.handle(createFutureResponse(
+                  DeleteAuthnLogEventsByIdResponse.respond404WithTextPlain(message)));
+                return;
+              }
+
+              LogResponse response = getResponseEntity(storageHandler, LogResponse.class);
+              asyncHandler.handle(createFutureResponse(
+                DeleteAuthnLogEventsByIdResponse.respond200WithApplicationJson(response)));
+            });
+        })
+      );
+    } catch (Exception ex) {
+      String errorMessage = String.format(ERROR_RUNNING_VERTICLE, "deleteAuthnLogEventsById", ex.getMessage());
+      logger.error(errorMessage, ex);
+      asyncHandler.handle(createFutureResponse(DeleteAuthnLogEventsByIdResponse.respond500WithTextPlain(errorMessage)));
     }
   }
 

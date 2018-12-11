@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "A logging event that describes the event code and basic information for logging events",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The system assigned unique ID of the instance record; UUID"
+    },
+    "eventCode": {
+      "type": "string",
+      "description": "Event code: PASSWORD_RESET, PASSWORD_CREATE"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event registration time"
+    },
+    "tenant": {
+      "type": "string",
+      "description": "The tenant for which the event occurred"
+    },
+    "userId": {
+      "type": "string",
+      "description": "User ID for which the event is registered."
+    },
+    "uri": {
+      "type": "string",
+      "description": "Unified user resource identifier"
+    },
+    "path": {
+      "type": "string",
+      "description": "Resource path"
+    },
+    "auth_result": {
+      "type": "string",
+      "description": "Describes the result of user authentication."
+    },
+    "auth_error": {
+      "type": "object",
+      "description": "Describes errors that occurred during user authentication."
+    },
+    "module_result": {
+      "type": "string",
+      "description": "Describes the result of the module response"
+    },
+    "module_error": {
+      "type": "object",
+      "description": "Describes errors that occurred during module execution"
+    },
+    "method": {
+      "type": "string",
+      "description": "Contains information about the http method"
+    },
+    "ip": {
+      "type": "string",
+      "description": "Client IP address of registered user Okapi"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadata about creation and changes to logging event, provided by the server (client should not provide)",
+      "$ref": "raml-util/schemas/metadata.schema",
+      "readonly": true
+    }
+  },
+  "required": [
+    "tenant",
+    "userId",
+    "eventCode"
+  ]
+}
