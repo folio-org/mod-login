@@ -12,6 +12,8 @@ import org.folio.rest.jaxrs.model.ResponseCreateAction;
 import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 
+import java.util.Map;
+
 /**
  * The interface provides basic CRUD operations for storing and retrieving data from the storage
  */
@@ -62,11 +64,36 @@ public interface PasswordStorageService {
    * The method returns a parameter
    * indicating whether the user previously had any credentials.
    *
-   * @param tenantId    tenant identifier
+   * @param okapiHeaders okapi headers
    * @param resetAction Json representation of the entity {@link PasswordReset}
    * @return asyncResult with the response entity {@link ResponseResetAction}
    */
   @Fluent
-  PasswordStorageService resetPassword(String tenantId, JsonObject resetAction,
+  PasswordStorageService resetPassword(Map<String, String> okapiHeaders, JsonObject resetAction,
                                        Handler<AsyncResult<JsonObject>> asyncResultHandler);
+
+  /**
+   * Updates user credential.
+   *
+   * @param credJson  Json representation of the {@link org.folio.rest.jaxrs.model.Credential} entity
+   * @param okapiHeaders okapi headers
+   * @param asyncResultHandler update response handler with {@code Boolean.TRUE} if update is successful
+   * @return {@link PasswordStorageService} instance
+   */
+  @Fluent
+  PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> okapiHeaders,
+                                          Handler<AsyncResult<Void>> asyncResultHandler);
+
+  /**
+   * Checks if given password is previously used.
+   *
+   * @param passwordEntity Json representation of the {@link org.folio.rest.jaxrs.model.Password} entity
+   * @param okapiHeaders okapi headers
+   * @param asyncResultHandler response handler with {@code Boolean.TRUE} if password is previously used,
+   * {@code Boolean.FALSE} otherwise
+   * @return {@link PasswordStorageService} instance
+   */
+  @Fluent
+  PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
+                                                  Handler<AsyncResult<Boolean>> asyncResultHandler);
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
-  "description": "Event log configuration",
+  "description": "Configuration",
   "type": "object",
   "properties": {
     "id": {

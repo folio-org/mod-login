@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "login",
-      "version": "4.5",
+      "version": "4.6",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -72,12 +72,13 @@
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/update",
-          "modulePermissions" : [ "users.collection.get" ]
+          "modulePermissions" : [ "users.collection.get", "configuration.entries.collection.get" ]
         },
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/password/repeatable",
-          "permissionsRequired" : [ "login.password.validate" ]
+          "permissionsRequired" : [ "login.password.validate" ],
+          "modulePermissions" : [ "configuration.entries.collection.get" ]
         },
         {
           "methods": [ "POST" ],
