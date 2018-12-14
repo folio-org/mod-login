@@ -361,6 +361,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       .setHandler(res -> {
         if (res.failed()) {
           conn.result().rollback(v -> {
+            conn.result().close();
             if (v.failed()) {
               asyncResultHandler.handle(Future.failedFuture(v.cause()));
             } else {
@@ -369,6 +370,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           });
         } else {
           conn.result().commit(v -> {
+            conn.result().close();
             if (v.failed()) {
               asyncResultHandler.handle(Future.failedFuture(v.cause()));
             } else {
