@@ -149,41 +149,34 @@ public class UpdateCredentialsHistoryTest {
     Async async = context.async();
 
     UpdateCredentials entity = new UpdateCredentials()
-      .withUserId(gollumId)
-      .withPassword(INITIAL_PASSWORD)
-      .withNewPassword(NEW_PASSWORD);
+      .withUserId(gollumId);
+    String password = INITIAL_PASSWORD;
+    String newPassword;
 
-    RestAssured.given()
-      .spec(spec)
-      .body(JsonObject.mapFrom(entity).toString())
-      .when()
-      .post("/authn/update")
-      .then()
-      .statusCode(HttpStatus.SC_NO_CONTENT);
+    for (int i = 0; i < DEFAULT_PASSWORDS_HISTORY_NUMBER; i++) {
+      newPassword = PASSWORD_TEMPLATE + i;
 
-    //add more records to make cred history full
-    fillInCredentialsHistory()
-      .setHandler(v -> {
-        RestAssured.given()
-          .spec(spec)
-          .body(JsonObject.mapFrom(entity
-            .withPassword(NEW_PASSWORD)
-            .withNewPassword(PASSWORD_TEMPLATE + (DEFAULT_PASSWORDS_HISTORY_NUMBER - 1))).toString())
-          .when()
-          .post("/authn/update")
-          .then()
-          .statusCode(HttpStatus.SC_NO_CONTENT);
+      RestAssured.given()
+        .spec(spec)
+        .body(JsonObject.mapFrom(entity
+          .withPassword(password)
+          .withNewPassword(newPassword)).toString())
+        .when()
+        .post("/authn/update")
+        .then()
+        .statusCode(HttpStatus.SC_NO_CONTENT);
 
-        isInitialPasswordRemovedFromHistory().setHandler(any -> {
-          if (any.failed()) {
-            context.fail(any.cause());
-          } else {
-            context.assertFalse(any.result());
-            async.complete();
-          }
-        });
-      });
+      password = newPassword;
+    }
 
+    isInitialPasswordRemovedFromHistory().setHandler(any -> {
+      if (any.failed()) {
+        context.fail(any.cause());
+      } else {
+        context.assertFalse(any.result());
+        async.complete();
+      }
+    });
   }
 
   private Future<Boolean> isInitialPasswordRemovedFromHistory() {
