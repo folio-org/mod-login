@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "login",
-      "version": "4.6",
+      "version": "4.7",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -94,6 +94,11 @@
           "methods": [ "POST" ],
           "pathPattern" : "/authn/reset-password",
           "permissionsRequired" : [ "login.password-reset.post" ]
+        },
+        {
+          "methods": [ "GET" ],
+          "pathPattern" : "/authn/credentials-existence",
+          "permissionsRequired" : [ "login.credentials-existence.get" ]
         }
       ]
     },
@@ -176,6 +181,11 @@
       "description" : "Delete log event"
     },
     {
+      "permissionName" : "login.credentials-existence.get",
+      "displayName" : "Credentials existence get",
+      "description" : "Get credentials existence"
+    },
+    {
       "permissionName" : "login.all",
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
@@ -193,7 +203,8 @@
         "login.password.validate",
         "login.event.collection.post",
         "login.event.collection.get",
-        "login.event.delete"
+        "login.event.delete",
+        "login.credentials-existence.get"
       ]
     }
   ],
