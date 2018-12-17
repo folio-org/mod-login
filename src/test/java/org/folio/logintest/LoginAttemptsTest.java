@@ -40,11 +40,6 @@ public class LoginAttemptsTest {
   private static final String UPDATE_PATH = "/authn/update";
   public static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
-  private JsonObject credsObject7 = new JsonObject()
-    .put("username", "admin")
-    .put("password", "admin1")
-    .put("userId", adminId);
-
   private JsonObject credsObject8 = new JsonObject()
     .put("username", "admin")
     .put("password", "admin1")
@@ -70,31 +65,28 @@ public class LoginAttemptsTest {
   public static void setup(final TestContext context) throws Exception {
     Async async = context.async();
     vertx = Vertx.vertx();
+
     int port = NetworkUtils.nextFreePort();
     int mockPort = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
-    try {
-      PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku", false);
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
         .put("http.port", port)
     );
+
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
         .put("port", mockPort)).setWorker(true);
+
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
     } catch (Exception e) {
-      e.printStackTrace();
       context.fail(e);
       return;
     }
+
     vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
       if (mockRes.failed()) {
         mockRes.cause().printStackTrace();
@@ -179,7 +171,7 @@ public class LoginAttemptsTest {
   public void testAttempts(final TestContext context) throws UnsupportedEncodingException {
     RestAssured.given()
       .spec(spec)
-      .body(credsObject7.encode())
+      .body(credsObject8.encode())
       .when()
       .post(CRED_PATH)
       .then()
