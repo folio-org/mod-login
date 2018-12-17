@@ -41,10 +41,11 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
-import org.folio.services.PasswordStorageService;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
+import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.OkapiConnectionParams;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
@@ -482,23 +483,41 @@ public class LoginAPI implements Authn {
                             }
                             PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesfull login skip login attempts counter
-                            getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
-                                onLoginSuccessAttemptHandler(userObject, pgClient, asyncResultHandler));
-                            //Append token as header to result
-                            String authToken = fetchTokenFuture.result();
-                            asyncResultHandler.handle(Future.succeededFuture(
-                              PostAuthnLoginResponse.respond201WithApplicationJson(entity,
-                                PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken)
-                                  .withRefreshtoken(refreshToken))));
+                            String finalRefreshToken = refreshToken;
+                            getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
+                              .compose(attempts -> onLoginSuccessAttemptHandler(userObject, pgClient, attempts))
+                              .setHandler(reply -> {
+                                if (reply.failed()) {
+                                  asyncResultHandler.handle(Future.succeededFuture(
+                                    PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+                                } else {
+                                  //Append token as header to result
+                                  String authToken = fetchTokenFuture.result();
+                                  asyncResultHandler.handle(Future.succeededFuture(
+                                    PostAuthnLoginResponse.respond201WithApplicationJson(entity,
+                                      PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken)
+                                        .withRefreshtoken(finalRefreshToken))));
+                                }
+                              });
+
                           }
                         });
                       } else {
                         PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                         OkapiConnectionParams params = new OkapiConnectionParams(okapiURL, tenantId, requestToken, vertxContext.owner(), null);
 
-                        getLoginAttemptsByUserId(userObject.getString("id"), pgClient, asyncResultHandler,
-                          onLoginFailAttemptHandler(userObject, params, pgClient, asyncResultHandler));
-                        logger.error("Password does not match for userid " + userCred.getUserId());
+                        getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
+                          .compose(attempts -> onLoginFailAttemptHandler(userObject, params, pgClient, attempts))
+                          .setHandler(reply -> {
+                            if (reply.failed()) {
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                Authn.PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+                            } else {
+                              logger.error("Password does not match for userid " + userCred.getUserId());
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")));
+                            }
+                          });
                       }
                     }
                   } catch(Exception e) {
@@ -1165,10 +1184,18 @@ public class LoginAPI implements Authn {
                   } else {
                     // after succesfull change password skip login attempts counter
                     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                    getLoginAttemptsByUserId(userEntity.getString("id"), pgClient, asyncResultHandler,
-                      onLoginSuccessAttemptHandler(userEntity, pgClient, asyncResultHandler));
+                    getLoginAttemptsByUserId(userEntity.getString("id"), pgClient)
+                      .compose(attempts ->
+                        LoginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, pgClient, attempts))
+                      .setHandler(event -> {
+                        if (event.failed()) {
+                          asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+                            .respond500WithTextPlain(INTERNAL_ERROR)));
+                        } else {
+                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));
+                        }
+                      });
 
-                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));
                   }
                 });
               }
