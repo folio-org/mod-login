@@ -16,6 +16,7 @@ import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
+import org.folio.rest.jaxrs.model.CredentialsExistence;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Metadata;
 import org.folio.rest.jaxrs.model.Password;
@@ -29,6 +30,7 @@ import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
@@ -103,6 +105,19 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       logger.error(errorMessage);
       asyncHandler.handle(Future.failedFuture(errorMessage));
     }
+    return this;
+  }
+
+  @Override
+  public PasswordStorageService getPasswordExistence(String userId, String tenantId, Handler<AsyncResult<JsonObject>> asyncHandler) {
+    Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
+    Future<Results<Credential>> future = Future.future();
+    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false, future.completer());
+    future.map(credentialResults -> {
+      boolean credentialFound = credentialResults.getResultInfo().getTotalRecords() == 1;
+      return JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(credentialFound));
+    }).setHandler(asyncHandler);
     return this;
   }
 

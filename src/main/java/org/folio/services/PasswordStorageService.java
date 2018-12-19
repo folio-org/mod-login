@@ -96,4 +96,15 @@ public interface PasswordStorageService {
   @Fluent
   PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
                                                   Handler<AsyncResult<Boolean>> asyncResultHandler);
+
+  /**
+   * Checks credentials existence for specified user id
+   *
+   * @param userId       user id to find credentials
+   * @param tenantId     tenant id
+   * @param asyncHandler result handler
+   * @return json object with true in 'credentialsExist' property if credentials were found for user; false otherwise
+   */
+  @Fluent
+  PasswordStorageService getPasswordExistence(String userId, String tenantId, Handler<AsyncResult<JsonObject>> asyncHandler);
 }

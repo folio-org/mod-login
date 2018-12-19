@@ -49,6 +49,7 @@ import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.OkapiConnectionParams;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -1100,6 +1101,33 @@ public class LoginAPI implements Authn {
       logger.error(errorMessage, ex);
       asyncHandler.handle(createFutureResponse(DeleteAuthnLogEventsByIdResponse.respond500WithTextPlain(errorMessage)));
     }
+  }
+
+  @Override
+  public void getAuthnCredentialsExistence(String userId, Map<String, String> okapiHeaders,
+                                           Handler<AsyncResult<Response>> asyncResultHandler,
+                                           Context vertxContext) {
+    vertxContext.runOnContext(v -> {
+      try {
+        Future<JsonObject> passwordExistenceFuture = Future.future();
+        passwordStorageService.getPasswordExistence(userId, vTenantId, passwordExistenceFuture.completer());
+        passwordExistenceFuture
+          .map(JsonObject::encode)
+          .map(Response::ok)
+          .map(responseBuilder -> responseBuilder.type(MediaType.APPLICATION_JSON_TYPE))
+          .map(Response.ResponseBuilder::build)
+          .otherwise(throwable -> {
+            logger.error(throwable.getMessage(), throwable);
+            return Response.serverError().entity(INTERNAL_ERROR).build();
+          })
+          .setHandler(asyncResultHandler);
+      } catch (Exception e) {
+        String message = e.getLocalizedMessage();
+        logger.error(message, e);
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse
+          .respond500WithTextPlain(message)));
+      }
+    });
   }
 
   private void testForFile(String path) {
