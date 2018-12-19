@@ -22,6 +22,7 @@ import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
+import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -52,8 +53,6 @@ public class LogEventsTest {
   private static final String OKAPI_TOKEN_VAL = "test_token";
   private static final String OKAPI_URL = "x-okapi-url";
   private static final String HTTP_PORT = "http.port";
-
-  private static final String EVENT_LOG_API_CODE_RESET_PASSWORD = "RESET_PASSWORD";
 
   private static RequestSpecification request;
   private static String restPath;
@@ -128,7 +127,7 @@ public class LogEventsTest {
     initModConfigStub(mockServerPort, initLoggingConfigurations(config));
     String okapiUrl = "http://localhost:" + mockServerPort;
 
-    JsonObject logEven = getLogEven("tenant", UUID.randomUUID().toString(), RandomStringUtils.randomAlphabetic(10));
+    JsonObject logEven = getLogEven("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -151,7 +150,7 @@ public class LogEventsTest {
     String okapiUrl = "http://localhost:" + mockServerPort;
 
     String userId = UUID.randomUUID().toString();
-    JsonObject logEven = getLogEven("tenant", userId, RandomStringUtils.randomAlphabetic(10));
+    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -170,12 +169,12 @@ public class LogEventsTest {
     // create mod-config
     int mockServerPort = userMockServer.port();
     Config configGlobal = createConfig(EVENT_LOG_API_MODULE, EVENT_LOG_API_CODE_STATUS, true);
-    Config configReset = createConfig(EVENT_LOG_API_MODULE, EVENT_LOG_API_CODE_RESET_PASSWORD, true);
+    Config configReset = createConfig(EVENT_LOG_API_MODULE, LogEvent.EventType.PASSWORD_RESET.toString(), true);
     initModConfigStub(mockServerPort, initLoggingConfigurations(configGlobal, configReset));
     String okapiUrl = "http://localhost:" + mockServerPort;
     String userId = UUID.randomUUID().toString();
 
-    JsonObject logEven = getLogEven("tenant", userId, EVENT_LOG_API_CODE_RESET_PASSWORD);
+    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     Response response = requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -196,12 +195,12 @@ public class LogEventsTest {
     // create mod-config
     int mockServerPort = userMockServer.port();
     Config configGlobal = createConfig(EVENT_LOG_API_MODULE, EVENT_LOG_API_CODE_STATUS, true);
-    Config configReset = createConfig(EVENT_LOG_API_MODULE, EVENT_LOG_API_CODE_RESET_PASSWORD, true);
+    Config configReset = createConfig(EVENT_LOG_API_MODULE, LogEvent.EventType.PASSWORD_RESET.toString(), true);
     initModConfigStub(mockServerPort, initLoggingConfigurations(configGlobal, configReset));
     String okapiUrl = "http://localhost:" + mockServerPort;
     String userId = UUID.randomUUID().toString();
 
-    JsonObject logEven = getLogEven("tenant", userId, EVENT_LOG_API_CODE_RESET_PASSWORD);
+    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     Response response = requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -227,7 +226,7 @@ public class LogEventsTest {
     String id = UUID.randomUUID().toString();
 
     // test post
-    JsonObject logEven = getLogEven(TENANT_ID, id, RandomStringUtils.randomAlphabetic(10));
+    JsonObject logEven = getLogEven(TENANT_ID, id, LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -279,7 +278,7 @@ public class LogEventsTest {
     return new JsonObject()
       .put("tenant", tenant)
       .put("userId", userId)
-      .put("eventCode", eventCode);
+      .put("eventType", eventCode);
   }
 
   private Configurations initLoggingConfigurations(Config... configs) {

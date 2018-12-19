@@ -63,7 +63,7 @@ public class LogStorageServiceImpl implements LogStorageService {
         return;
       }
       List<String> enableConfigCodes = responseEntity.getConfigs();
-      String eventCode = logEvent.getEventCode();
+      String eventCode = logEvent.getEventType().toString();
       if (!enableConfigCodes.contains(eventCode)) {
         logger.info(String.format(MESSAGE_LOG_EVENT_IS_DISABLED, eventCode));
         return;

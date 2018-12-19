@@ -1023,7 +1023,7 @@ public class LoginAPI implements Authn {
             return;
           }
           List<String> enableConfigCodes = responseEntity.getConfigs();
-          String eventCode = logEvent.getEventCode();
+          String eventCode = logEvent.getEventType().toString();
           if (!enableConfigCodes.contains(eventCode)) {
             asyncHandler.handle(createFutureResponse(
               PostAuthnLogEventsResponse.respond204WithTextPlain(String.format(MESSAGE_LOG_EVENT_IS_DISABLED, eventCode))));
