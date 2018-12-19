@@ -384,7 +384,7 @@ traits:
                   example: "Internal server error"
   /credentials-existence:
     get:
-      description: Returns single property 'credentialsExist' with true, if user has loacal password
+      description: Returns single property 'credentialsExist' with true, if user has local password
       queryParameters:
         userId:
           description: "User id"
@@ -395,3 +395,8 @@ traits:
           body:
             application/json:
               schema: credentialsExistence
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"

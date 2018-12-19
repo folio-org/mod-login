@@ -32,7 +32,7 @@ import java.util.UUID;
 public class CredentialExistenceTest {
 
 
-  public static final String USER_ID_PARAM = "userId";
+  private static final String USER_ID_PARAM = "userId";
   private static Vertx vertx;
   private static RequestSpecification spec;
   private static AuthUtil authUtil = new AuthUtil();
@@ -44,13 +44,12 @@ public class CredentialExistenceTest {
   private static final String CREDENTIALS_EXISTENCE_PATH = "/authn/credentials-existence";
   private static final String CREDENTIALS_EXIST = "credentialsExist";
 
-  private static int port;
-
   @BeforeClass
   public static void setup(final TestContext context) {
     Async async = context.async();
     vertx = Vertx.vertx();
-    port = NetworkUtils.nextFreePort();
+    int port = NetworkUtils.nextFreePort();
+    String okapiUrl = "http://localhost:" + port;
 
     try {
       PostgresClient.setIsEmbedded(true);
@@ -59,7 +58,7 @@ public class CredentialExistenceTest {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT, "token");
+    TenantClient tenantClient = new TenantClient(okapiUrl, TENANT, "token");
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
@@ -77,17 +76,15 @@ public class CredentialExistenceTest {
 
     spec = new RequestSpecBuilder()
       .setContentType(ContentType.JSON)
-      .setBaseUri("http://localhost:" + port)
+      .setBaseUri(okapiUrl)
       .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken")
-      .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + port)
+      .addHeader(LoginAPI.OKAPI_URL_HEADER, okapiUrl)
       .build();
   }
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-
     PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_CREDENTIALS, new Criterion(), event -> {
       if (event.failed()) {
         context.fail(event.cause());
@@ -96,7 +93,6 @@ public class CredentialExistenceTest {
 
     vertx.close(context.asyncAssertSuccess(res -> {
       PostgresClient.stopEmbeddedPostgres();
-      async.complete();
     }));
   }
 
