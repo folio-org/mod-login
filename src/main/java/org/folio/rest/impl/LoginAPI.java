@@ -65,9 +65,6 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
-import static org.folio.util.LoginAttemptsHelper.getLoginAttemptsByUserId;
-import static org.folio.util.LoginAttemptsHelper.onLoginFailAttemptHandler;
-import static org.folio.util.LoginAttemptsHelper.onLoginSuccessAttemptHandler;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
@@ -115,6 +112,7 @@ public class LoginAPI implements Authn {
   private LogStorageService logStorageService;
   private ConfigurationService configurationService;
   private PasswordStorageService passwordStorageService;
+  private LoginAttemptsHelper loginAttemptsHelper;
 
   public LoginAPI(Vertx vertx, String tenantId) {
     this.vTenantId = tenantId;
@@ -125,6 +123,7 @@ public class LoginAPI implements Authn {
     this.passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
     this.logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
     this.configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
+    loginAttemptsHelper = new LoginAttemptsHelper();
   }
 
   private String getErrorResponse(String response) {
@@ -485,8 +484,8 @@ public class LoginAPI implements Authn {
                             PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesfull login skip login attempts counter
                             String finalRefreshToken = refreshToken;
-                            getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
-                              .compose(attempts -> onLoginSuccessAttemptHandler(userObject, pgClient, attempts))
+                            loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
+                              .compose(attempts -> loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, pgClient, attempts))
                               .setHandler(reply -> {
                                 if (reply.failed()) {
                                   asyncResultHandler.handle(Future.succeededFuture(
@@ -507,8 +506,9 @@ public class LoginAPI implements Authn {
                         PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                         OkapiConnectionParams params = new OkapiConnectionParams(okapiURL, tenantId, requestToken, vertxContext.owner(), null);
 
-                        getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
-                          .compose(attempts -> onLoginFailAttemptHandler(userObject, params, pgClient, attempts))
+                        loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
+                          .compose(attempts ->
+                            loginAttemptsHelper.onLoginFailAttemptHandler(userObject, params, pgClient, attempts))
                           .setHandler(reply -> {
                             if (reply.failed()) {
                               asyncResultHandler.handle(Future.succeededFuture(
@@ -1212,9 +1212,9 @@ public class LoginAPI implements Authn {
                   } else {
                     // after succesfull change password skip login attempts counter
                     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                    getLoginAttemptsByUserId(userEntity.getString("id"), pgClient)
+                    loginAttemptsHelper.getLoginAttemptsByUserId(userEntity.getString("id"), pgClient)
                       .compose(attempts ->
-                        LoginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, pgClient, attempts))
+                        loginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, pgClient, attempts))
                       .setHandler(event -> {
                         if (event.failed()) {
                           asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse

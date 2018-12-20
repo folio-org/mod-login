@@ -33,7 +33,7 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
-  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
+  private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
@@ -61,7 +61,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity
    */
-  private static Future<String> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+  private Future<String> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Future<String> future = Future.future();
 
     try {
@@ -80,7 +80,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity for update
    */
-  private static Future<UpdateResult> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+  private Future<UpdateResult> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Future<UpdateResult> future = Future.future();
 
     try {
@@ -101,7 +101,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - postgres client
    * @return             - login attempts list
    */
-  public static Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
+  public Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
     Future<Results<LoginAttempts>> future = Future.future();
 
     try {
@@ -120,7 +120,7 @@ public class LoginAttemptsHelper {
    * @param count  - initial count of failed login
    * @return - new Login Attempt object
    */
-  private static LoginAttempts buildLoginAttemptsObject(String userId, Integer count) {
+  private LoginAttempts buildLoginAttemptsObject(String userId, Integer count) {
     LoginAttempts loginAttempt = new LoginAttempts();
     loginAttempt.setId(UUID.randomUUID().toString());
     loginAttempt.setAttemptCount(count);
@@ -134,7 +134,7 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
+  private Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
     Future<Boolean> future = Future.future();
     try {
       getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res ->
@@ -168,7 +168,7 @@ public class LoginAttemptsHelper {
 
   }
 
-  private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+  private int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
     if (res.failed()) {
       logger.warn(res.cause());
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
@@ -188,7 +188,7 @@ public class LoginAttemptsHelper {
    * @param params     - okapi configuration params
    * @return - json object with configs
    */
-  private static Future<JsonObject> getLoginConfig(String configCode, OkapiConnectionParams params) {
+  private Future<JsonObject> getLoginConfig(String configCode, OkapiConnectionParams params) {
     Future<JsonObject> future = Future.future();
     HttpClient client = getHttpClient(params);
     String requestURL;
@@ -257,7 +257,7 @@ public class LoginAttemptsHelper {
    * @param params - Okapi connection params
    * @return - Vertx Http Client
    */
-  private static HttpClient getHttpClient(OkapiConnectionParams params) {
+  private HttpClient getHttpClient(OkapiConnectionParams params) {
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(params.getTimeout());
     options.setIdleTimeout(params.getTimeout());
@@ -270,7 +270,7 @@ public class LoginAttemptsHelper {
    * @param user   - Json user object to be updated
    * @param params - object with connection params
    */
-  private static Future<Void> updateUser(JsonObject user, OkapiConnectionParams params) {
+  private Future<Void> updateUser(JsonObject user, OkapiConnectionParams params) {
     Future<Void> future = Future.future();
     HttpClient client = getHttpClient(params);
     String requestURL;
@@ -328,7 +328,7 @@ public class LoginAttemptsHelper {
    * @param pgClient           - postgres client
    * @param attempts           - login attempts list for given user
    */
-  public static Future<Void> onLoginFailAttemptHandler(JsonObject userObject, OkapiConnectionParams params,
+  public Future<Void> onLoginFailAttemptHandler(JsonObject userObject, OkapiConnectionParams params,
                                                        PostgresClient pgClient, List<LoginAttempts> attempts) {
 
      String userId = userObject.getString("id");
@@ -356,7 +356,7 @@ public class LoginAttemptsHelper {
     }
   }
 
-  private static Future<Void> blockUser(JsonObject userObject, OkapiConnectionParams params, LoginAttempts attempt,
+  private Future<Void> blockUser(JsonObject userObject, OkapiConnectionParams params, LoginAttempts attempt,
                                         String userId, PostgresClient pgClient) {
 
     JsonObject user = userObject.copy();
@@ -378,7 +378,7 @@ public class LoginAttemptsHelper {
    * @param pgClient           - postgres client
    * @param attempts           - login attempts list for given user
    */
-  public static Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, PostgresClient pgClient,
+  public Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, PostgresClient pgClient,
                                                           List<LoginAttempts> attempts) {
 
     String userId = userObject.getString("id");
@@ -407,7 +407,7 @@ public class LoginAttemptsHelper {
    * @param userId   - user id of logged user
    * @param attempts - failed login attempts number
    */
-  private static void logLoginAttempt(LoginEvent event, String userId, Integer attempts) {
+  private void logLoginAttempt(LoginEvent event, String userId, Integer attempts) {
     logger.info(event.getCaption() + "UserID: " + userId + "  Date: " + DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss") + " Failed login attempts: " + attempts);
   }
 
