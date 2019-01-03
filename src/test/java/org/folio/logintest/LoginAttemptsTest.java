@@ -23,6 +23,7 @@ import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 
@@ -38,7 +39,7 @@ public class LoginAttemptsTest {
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
   private static final String LOGIN_PATH = "/authn/login";
   private static final String UPDATE_PATH = "/authn/update";
-  public static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   private JsonObject credsObject8 = new JsonObject()
     .put("username", "admin")
@@ -185,8 +186,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -222,8 +223,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -259,8 +260,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -278,8 +279,18 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("fifth.failed.attempt.blocked"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Login.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("user.blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -289,15 +300,5 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(200)
       .body("attemptCount", is(0));
-
-    RestAssured.given()
-      .spec(spec)
-      .body(credsObject8Login.encode())
-      .when()
-      .post(LOGIN_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body(is("User must be flagged as active"));
   }
 }

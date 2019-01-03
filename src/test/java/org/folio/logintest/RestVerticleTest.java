@@ -490,7 +490,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-Token", "dummytoken");
     headers.add("X-Okapi-Url", okapiUrl);
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      400, "Fail login with inactive credentials");
+      422, "Fail login with inactive credentials");
   }
 
   private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
@@ -498,7 +498,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-Token", "dummytoken");
     headers.add("X-Okapi-Url", okapiUrl);
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      400, "Fail login with bad credentials");
+      422, "Fail login with bad credentials");
   }
 
   private Future<WrappedResponse> doUpdatePassword(TestContext context,

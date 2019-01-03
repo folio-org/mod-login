@@ -12,6 +12,7 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
@@ -383,9 +384,8 @@ public class LoginAPI implements Authn {
                 .cause().getLocalizedMessage();
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(
-                /*PostAuthnLoginResponse.respond422WithApplicationJson(
-                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))*/
-              PostAuthnLoginResponse.respond400WithTextPlain(getErrorResponse(errMsg))
+                PostAuthnLoginResponse.respond422WithApplicationJson(
+                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
             ));
 
           } else {
@@ -407,9 +407,8 @@ public class LoginAPI implements Authn {
                 if(!foundActive) {
                   logger.error("User could not be verified as active");
                   asyncResultHandler.handle(Future.succeededFuture(
-                    /*PostAuthnLoginResponse.respond422WithApplicationJson(
-                    getErrors("User must be flagged as active", CODE_USER_BLOCKED))*/
-                    PostAuthnLoginResponse.respond400WithTextPlain(getErrorResponse("User must be flagged as active"))
+                    PostAuthnLoginResponse.respond422WithApplicationJson(
+                    getErrors("User must be flagged as active", CODE_USER_BLOCKED))
                   ));
                   return;
                 }
@@ -509,14 +508,14 @@ public class LoginAPI implements Authn {
 
                         getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                           .compose(attempts -> onLoginFailAttemptHandler(userObject, params, pgClient, attempts))
-                          .setHandler(reply -> {
-                            if (reply.failed()) {
+                          .setHandler(errors -> {
+                            if (errors.failed()) {
                               asyncResultHandler.handle(Future.succeededFuture(
                                 Authn.PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                             } else {
                               logger.error("Password does not match for userid " + userCred.getUserId());
                               asyncResultHandler.handle(Future.succeededFuture(
-                                Authn.PostAuthnLoginResponse.respond400WithTextPlain("Password does not match")));
+                                Authn.PostAuthnLoginResponse.respond422WithApplicationJson(errors.result())));
                             }
                           });
                       }
