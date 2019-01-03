@@ -280,7 +280,7 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("fifth.failed.attempt.blocked"));
+      .body("errors[0].code", equalTo("password.incorrect.block.user"));
 
     RestAssured.given()
       .spec(spec)

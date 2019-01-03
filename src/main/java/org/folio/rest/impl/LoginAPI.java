@@ -99,9 +99,11 @@ public class LoginAPI implements Authn {
   private static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
   public static final String CODE_CREDENTIAL_PW_INCORRECT = "password.incorrect";
-  public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
+  /* show warning message user has 5 (current value) failed attempts and block user */
+  public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "password.incorrect.block.user";
   private static final String CODE_USER_BLOCKED = "user.blocked";
-  public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
+  /* show warning message user has 3 (current value) failed attempts */
+  public static final String CODE_THIRD_FAILED_ATTEMPT = "password.incorrect.warn.user";
   public static final String USERNAME = "username";
   private static final String TYPE_ERROR = "error";
   private static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
