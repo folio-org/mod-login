@@ -33,7 +33,7 @@ public class LoginAttemptsTest {
   private static Vertx vertx;
   private static RequestSpecification spec;
 
-  private static final String TENANT = "diku";
+  private static final String TENANT_DIKU = "diku";
   private static final String TABLE_NAME_ATTEMPTS = "auth_attempts";
   private static final String CRED_PATH = "/authn/credentials";
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
@@ -69,7 +69,7 @@ public class LoginAttemptsTest {
 
     int port = NetworkUtils.nextFreePort();
     int mockPort = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku", false);
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, TENANT_DIKU, "diku", false);
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -109,7 +109,7 @@ public class LoginAttemptsTest {
       .setContentType(ContentType.JSON)
       .setBaseUri("http://localhost:" + port)
       .addHeader("x-okapi-url", "http://localhost:" + mockPort)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
+      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT_DIKU)
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummy.token")
       .build();
   }
@@ -117,7 +117,7 @@ public class LoginAttemptsTest {
   @Before
   public void setUp(TestContext context) {
     Async async = context.async();
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, "diku");
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_DIKU);
     pgClient.startTx(beginTx ->
       pgClient.delete(beginTx, "auth_attempts", new Criterion(), event -> {
         if (event.failed()) {
@@ -147,12 +147,12 @@ public class LoginAttemptsTest {
   public static void teardown(TestContext context) {
     Async async = context.async();
 
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
+    PostgresClient.getInstance(vertx, TENANT_DIKU).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
       if (event.failed()) {
         context.fail(event.cause());
       } else {
         try {
-          PostgresClient.getInstance(vertx, TENANT).delete("auth_credentials", new Criterion(), r -> {
+          PostgresClient.getInstance(vertx, TENANT_DIKU).delete("auth_credentials", new Criterion(), r -> {
             if (r.failed()) {
               context.fail(r.cause());
             }

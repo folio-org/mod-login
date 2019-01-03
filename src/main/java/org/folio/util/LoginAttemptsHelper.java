@@ -2,7 +2,6 @@ package org.folio.util;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
@@ -39,7 +38,7 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
-  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
+  private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
@@ -148,7 +147,6 @@ public class LoginAttemptsHelper {
         getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
           getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
             boolean result = false;
-            Errors errors;
             int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
             int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
             int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
@@ -164,14 +162,7 @@ public class LoginAttemptsHelper {
                 result = true;
               }
             }
-            if (result) {
-              errors = LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
-            } else {
-              errors = LoginAPI.getErrors("Password does not match",
-                attempts.getAttemptCount().equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-                new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username")));
-            }
-            future.complete(errors);
+            future.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
           })));
     } catch (Exception e) {
       logger.error(e);
@@ -180,6 +171,16 @@ public class LoginAttemptsHelper {
 
     return future;
 
+  }
+
+  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
+    if (result) {
+      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+    } else {
+      return LoginAPI.getErrors("Password does not match",
+        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+        new ImmutablePair<>(LoginAPI.USERNAME, username));
+    }
   }
 
   private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
@@ -354,7 +355,7 @@ public class LoginAttemptsHelper {
         .map(s -> null);
       future.complete(LoginAPI.getErrors("Password does not match",
         LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-        new ImmutablePair<>(LoginAPI.PARAM_USERNAME, userObject.getString("username"))));
+        new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
       return future;
     } else {
       // check users login attempts

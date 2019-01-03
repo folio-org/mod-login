@@ -82,6 +82,8 @@ import static org.folio.util.LoginConfigUtils.getResponseEntity;
 public class LoginAPI implements Authn {
 
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
+  private static final String CONTENT_TYPE_HEADER = "Content-Type";
+  private static final String ACCEPT_HEADER = "Accept";
   public static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   public static final String OKAPI_URL_HEADER = "x-okapi-url";
@@ -91,14 +93,16 @@ public class LoginAPI implements Authn {
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
-  private static final String POSTGRES_ERROR = "Error from PostgresClient ";
-  public static final String INTERNAL_ERROR = "Internal Server error";
+  private static final String APPLICATION_JSON_CONTENT_TYPE = "application/json";
+  private static final String POSTGRES_ERROR = "Error from PostgresClient: ";
+  private static final String VERTX_CONTEXT_ERROR = "Error running on vertx context: ";
+  private static final String INTERNAL_ERROR = "Internal Server error";
   private static final String CODE_USERNAME_INCORRECT = "username.incorrect";
   public static final String CODE_CREDENTIAL_PW_INCORRECT = "password.incorrect";
   public static final String CODE_FIFTH_FAILED_ATTEMPT_BLOCKED = "fifth.failed.attempt.blocked";
   private static final String CODE_USER_BLOCKED = "user.blocked";
   public static final String CODE_THIRD_FAILED_ATTEMPT = "third.failed.attempt";
-  public static final String PARAM_USERNAME = "username";
+  public static final String USERNAME = "username";
   private static final String TYPE_ERROR = "error";
   private static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
   private static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
@@ -182,8 +186,8 @@ public class LoginAPI implements Authn {
       HttpClientRequest request = client.getAbs(finalRequestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
               .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-              .putHeader("Content-type", "application/json")
-              .putHeader("Accept", "application/json");
+              .putHeader(CONTENT_TYPE_HEADER, APPLICATION_JSON_CONTENT_TYPE)
+              .putHeader(ACCEPT_HEADER, APPLICATION_JSON_CONTENT_TYPE);
       request.handler(res -> {
         if(res.statusCode() != 200) {
           res.bodyHandler(buf -> {
@@ -235,8 +239,8 @@ public class LoginAPI implements Authn {
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", "application/json")
-      .putHeader("Accept", "application/json");
+      .putHeader(CONTENT_TYPE_HEADER, APPLICATION_JSON_CONTENT_TYPE)
+      .putHeader(ACCEPT_HEADER, APPLICATION_JSON_CONTENT_TYPE);
 
     request.handler(response -> {
       response.bodyHandler(buf -> {
@@ -276,8 +280,8 @@ public class LoginAPI implements Authn {
     HttpClientRequest request = client.postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", "application/json")
-      .putHeader("Accept", "application/json");
+      .putHeader(CONTENT_TYPE_HEADER, APPLICATION_JSON_CONTENT_TYPE)
+      .putHeader(ACCEPT_HEADER, APPLICATION_JSON_CONTENT_TYPE);
     request.handler(response -> {
     });
     JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
@@ -367,7 +371,7 @@ public class LoginAPI implements Authn {
           logger.debug("No need to look up user id");
           userVerified = Future.succeededFuture(new JsonObject()
               .put("id", entity.getUserId()).put("active", true)
-              .put("username", "__undefined__"));
+              .put(USERNAME, "__undefined__"));
         } else {
           logger.debug("Need to look up user id");
           if(entity.getUserId() != null) {
@@ -385,7 +389,7 @@ public class LoginAPI implements Authn {
             logger.error(errMsg);
             asyncResultHandler.handle(Future.succeededFuture(
                 PostAuthnLoginResponse.respond422WithApplicationJson(
-                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(PARAM_USERNAME, entity.getUsername())))
+                  getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(USERNAME, entity.getUsername())))
             ));
 
           } else {
@@ -429,7 +433,7 @@ public class LoginAPI implements Authn {
                 } else {
                   try {
                     List<Credential> credList = getReply.result().getResults();
-                    if(credList.size() < 1) {
+                    if(credList.isEmpty()) {
                       logger.error("No matching credentials found for userid " + userObject.getString("id"));
                       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("No credentials match that login")));
                     } else {
@@ -445,8 +449,8 @@ public class LoginAPI implements Authn {
                       String sub;
                       if(userCred.getHash().equals(testHash)) {
                         JsonObject payload = new JsonObject();
-                        if(userObject.containsKey("username")) {
-                          sub = userObject.getString("username");
+                        if(userObject.containsKey(USERNAME)) {
+                          sub = userObject.getString(USERNAME);
                         } else {
                           sub = userObject.getString("id");
                         }
@@ -456,8 +460,8 @@ public class LoginAPI implements Authn {
                         }
                         Future<String> fetchTokenFuture;
                         Future<String> fetchRefreshTokenFuture;
-                        Object fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
-                        if(fetchTokenFlag != null && ((String)fetchTokenFlag).equals("no")) {
+                        String fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
+                        if(fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
                           fetchTokenFuture = Future.succeededFuture("dummytoken");
                         } else {
                           logger.debug("Fetching token from authz with payload " + payload.encode());
@@ -571,7 +575,7 @@ public class LoginAPI implements Authn {
          }
        });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       if(e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
         asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond400WithTextPlain("CQL Parsing Error for '" + query + "': " +
                 e.getLocalizedMessage())));
@@ -623,7 +627,7 @@ public class LoginAPI implements Authn {
                           PostAuthnCredentialsResponse.respond500WithTextPlain(message)));
                     } else {
                       List<Credential> credList = getCredReply.result().getResults();
-                      if (credList.size() > 0) {
+                      if (!credList.isEmpty()) {
                         String message = "There already exists credentials for user id '"
                             + userOb.getString("id") + "'";
                         logger.error(message);
@@ -676,7 +680,7 @@ public class LoginAPI implements Authn {
         });
       });
     } catch(Exception e) {
-      logger.error("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.error(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -730,7 +734,7 @@ public class LoginAPI implements Authn {
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -767,7 +771,7 @@ public class LoginAPI implements Authn {
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -803,7 +807,7 @@ public class LoginAPI implements Authn {
                     }
                    });
                 } catch(Exception e) {
-                  logger.debug("Error from PostgresClient: " + e.getLocalizedMessage());
+                  logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
                   asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                 }
               }
@@ -815,7 +819,7 @@ public class LoginAPI implements Authn {
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -852,7 +856,7 @@ public class LoginAPI implements Authn {
           }
         }));
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
+      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(
         PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
@@ -1167,7 +1171,7 @@ public class LoginAPI implements Authn {
           logger.debug("No need to look up user id");
           userVerifiedFuture = Future.succeededFuture(new JsonObject()
               .put("id", entity.getUserId()).put("active", true)
-              .put("username", "__undefined__"));
+              .put(USERNAME, "__undefined__"));
         } else {
           logger.debug("Need to look up user id");
         if(entity.getUserId() != null) {
