@@ -13,7 +13,8 @@
         "PASSWORD_RESET",
         "PASSWORD_CREATE",
         "PASSWORD_CHANGE",
-        "USER_LOGIN_ATTEMPT",
+        "SUCCESSFUL_LOGIN_ATTEMPT",
+        "FAILED_LOGIN_ATTEMPT",
         "USER_BLOCK"
       ],
       "description": "Event type"
@@ -32,7 +33,7 @@
     },
     "browserInformation": {
       "type": "string",
-      "description": "Client's browser information"
+      "description": "Client's browser information obtained from User-Agent http header"
     },
     "timestamp": {
       "type": "string",

@@ -82,6 +82,9 @@ traits:
   /login:
     post:
       description: Get a new login token
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           type: loginCredentials
@@ -111,6 +114,9 @@ traits:
   /update:
     post:
       description: Self-update existing credentials
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           type: updateCredentials
@@ -256,6 +262,9 @@ traits:
   /reset-password:
     post:
       description: Resets password for user in record and deletes action record
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           schema: passwordReset

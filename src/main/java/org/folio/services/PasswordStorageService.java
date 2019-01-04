@@ -64,24 +64,24 @@ public interface PasswordStorageService {
    * The method returns a parameter
    * indicating whether the user previously had any credentials.
    *
-   * @param okapiHeaders okapi headers
+   * @param requestHeaders request headers
    * @param resetAction Json representation of the entity {@link PasswordReset}
    * @return asyncResult with the response entity {@link ResponseResetAction}
    */
   @Fluent
-  PasswordStorageService resetPassword(Map<String, String> okapiHeaders, JsonObject resetAction,
+  PasswordStorageService resetPassword(Map<String, String> requestHeaders, JsonObject resetAction,
                                        Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
    * Updates user credential.
    *
    * @param credJson  Json representation of the {@link org.folio.rest.jaxrs.model.Credential} entity
-   * @param okapiHeaders okapi headers
+   * @param requestHeaders request headers
    * @param asyncResultHandler update response handler with {@code Boolean.TRUE} if update is successful
    * @return {@link PasswordStorageService} instance
    */
   @Fluent
-  PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> okapiHeaders,
+  PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> requestHeaders,
                                           Handler<AsyncResult<Void>> asyncResultHandler);
 
   /**

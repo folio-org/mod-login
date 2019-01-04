@@ -46,15 +46,16 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
-import org.folio.util.OkapiConnectionParams;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingResourceException;
@@ -82,6 +83,8 @@ public class LoginAPI implements Authn {
   public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   public static final String OKAPI_URL_HEADER = "x-okapi-url";
   public static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
+  public static final String OKAPI_REQUEST_TIMESTAMP_HEADER = "x-okapi-request-timestamp";
+  public static final String X_FORWARDED_FOR_HEADER = "X-Forwarded-For";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
@@ -120,10 +123,10 @@ public class LoginAPI implements Authn {
   }
 
   private void initService(Vertx vertx) {
-    this.passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
-    this.logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-    this.configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
-    loginAttemptsHelper = new LoginAttemptsHelper();
+    passwordStorageService = PasswordStorageService.createProxy(vertx, PW_CONFIG_PROXY_STORY_ADDRESS);
+    logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
+    configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
+    loginAttemptsHelper = new LoginAttemptsHelper(vertx);
   }
 
   private String getErrorResponse(String response) {
@@ -334,8 +337,9 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnLogin(LoginCredentials entity, Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+  public void postAuthnLogin(String userAgent, String xForwardedFor,
+                             LoginCredentials entity, Map<String, String> okapiHeaders,
+                             Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       testForFile(CREDENTIAL_SCHEMA_PATH);
       vertxContext.runOnContext(v -> {
@@ -484,8 +488,12 @@ public class LoginAPI implements Authn {
                             PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesfull login skip login attempts counter
                             String finalRefreshToken = refreshToken;
+                            Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
+                            requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
+                            requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
                             loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
-                              .compose(attempts -> loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, pgClient, attempts))
+                              .compose(attempts ->
+                                loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, requestHeaders, attempts))
                               .setHandler(reply -> {
                                 if (reply.failed()) {
                                   asyncResultHandler.handle(Future.succeededFuture(
@@ -504,11 +512,12 @@ public class LoginAPI implements Authn {
                         });
                       } else {
                         PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                        OkapiConnectionParams params = new OkapiConnectionParams(okapiURL, tenantId, requestToken, vertxContext.owner(), null);
-
+                        Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
+                        requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
+                        requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
                         loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                           .compose(attempts ->
-                            loginAttemptsHelper.onLoginFailAttemptHandler(userObject, params, pgClient, attempts))
+                            loginAttemptsHelper.onLoginFailAttemptHandler(userObject, requestHeaders, attempts))
                           .setHandler(reply -> {
                             if (reply.failed()) {
                               asyncResultHandler.handle(Future.succeededFuture(
@@ -860,12 +869,16 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnResetPassword(PasswordReset entity, Map<String, String> okapiHeaders,
+  public void postAuthnResetPassword(String userAgent, String xForwardedFor,
+                                     PasswordReset entity, Map<String, String> okapiHeaders,
                                      Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
       JsonObject passwordResetJson = JsonObject.mapFrom(entity);
+      Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
+      requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
+      requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
       context.runOnContext(contextHandler ->
-        passwordStorageService.resetPassword(okapiHeaders, passwordResetJson,
+        passwordStorageService.resetPassword(requestHeaders, passwordResetJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
@@ -1138,9 +1151,9 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnUpdate(UpdateCredentials entity,
-      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
+  public void postAuthnUpdate(String userAgent, String xForwardedFor, UpdateCredentials entity,
+                              Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+                              Context vertxContext) {
     vertxContext.runOnContext(v -> {
       try {
         Future<JsonObject> userVerifiedFuture;
@@ -1203,29 +1216,34 @@ public class LoginAPI implements Authn {
                 Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                   entity.getNewPassword());
 
-                passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), okapiHeaders, updateCredResult -> {
-                  if(updateCredResult.failed()) {
-                    String message = updateCredResult.cause().getLocalizedMessage();
-                    logger.error(message);
-                    asyncResultHandler.handle(Future.succeededFuture(
-                      PostAuthnUpdateResponse.respond500WithTextPlain(message)));
-                  } else {
-                    // after succesfull change password skip login attempts counter
-                    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                    loginAttemptsHelper.getLoginAttemptsByUserId(userEntity.getString("id"), pgClient)
-                      .compose(attempts ->
-                        loginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, pgClient, attempts))
-                      .setHandler(event -> {
-                        if (event.failed()) {
-                          asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
-                            .respond500WithTextPlain(INTERNAL_ERROR)));
-                        } else {
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));
-                        }
-                      });
+                Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
+                requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
+                requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
 
-                  }
-                });
+                passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), requestHeaders,
+                  updateCredResult -> {
+                    if (updateCredResult.failed()) {
+                      String message = updateCredResult.cause().getLocalizedMessage();
+                      logger.error(message);
+                      asyncResultHandler.handle(Future.succeededFuture(
+                        PostAuthnUpdateResponse.respond500WithTextPlain(message)));
+                    } else {
+                      // after succesfull change password skip login attempts counter
+                      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                      loginAttemptsHelper.getLoginAttemptsByUserId(userEntity.getString("id"), pgClient)
+                        .compose(attempts ->
+                          loginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, requestHeaders, attempts))
+                        .setHandler(event -> {
+                          if (event.failed()) {
+                            asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+                              .respond500WithTextPlain(INTERNAL_ERROR)));
+                          } else {
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));
+                          }
+                        });
+
+                    }
+                  });
               }
             });
           }
