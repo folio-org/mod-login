@@ -47,7 +47,7 @@ import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
 import static org.folio.util.LoginConfigUtils.*;
 
 @RunWith(VertxUnitRunner.class)
-public class LogEventsTest {
+public class LogEventsApiTest {
 
   private static final String TENANT_ID = "diku";
   private static final String OKAPI_TOKEN_VAL = "test_token";

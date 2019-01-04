@@ -20,6 +20,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
@@ -77,7 +78,8 @@ public class PasswordResetActionTest {
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
       new Header(OKAPI_HEADER_TENANT, TENANT_ID),
-      new Header(OKAPI_HEADER_TOKEN, OKAPI_TOKEN_VAL));
+      new Header(OKAPI_HEADER_TOKEN, OKAPI_TOKEN_VAL),
+      new Header(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime())));
     restPathPasswordAction = System.getProperty("org.folio.password.action.path", "/authn/password-reset-action");
     restPathResetPassword = System.getProperty("org.folio.password.reset.path", "/authn/reset-password");
     restPathGetUserCredential = System.getProperty("org.folio.password.get.credential", "/authn/credentials/");
