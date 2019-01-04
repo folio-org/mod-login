@@ -337,7 +337,7 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnLogin(String userAgent, String xForwardedFor,
+  public void postAuthnLogin(String userAgent, String xForwardedFor,//NOSONAR
                              LoginCredentials entity, Map<String, String> okapiHeaders,
                              Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
@@ -1151,7 +1151,7 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnUpdate(String userAgent, String xForwardedFor, UpdateCredentials entity,
+  public void postAuthnUpdate(String userAgent, String xForwardedFor, UpdateCredentials entity,//NOSONAR
                               Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
                               Context vertxContext) {
     vertxContext.runOnContext(v -> {
