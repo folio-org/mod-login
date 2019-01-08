@@ -203,8 +203,6 @@ public class PasswordRepeatabilityValidationTest {
     return future.map(s -> null);
   }
 
-
-
   private static Future saveCredentialsHistoryObject(CredentialsHistory obj) {
     Future future = Future.future();
 

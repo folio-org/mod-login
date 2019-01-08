@@ -10,6 +10,10 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
 import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Error;
+import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -22,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 
@@ -33,7 +38,7 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
-  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
+  private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
@@ -134,14 +139,14 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private static Future<Boolean> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params) {
-    Future<Boolean> future = Future.future();
+  private static Future<Errors> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params, JsonObject userObject) {
+    Future<Errors> future = Future.future();
+
     try {
       getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res ->
         getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
           getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
             boolean result = false;
-
             int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
             int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
             int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
@@ -157,15 +162,25 @@ public class LoginAttemptsHelper {
                 result = true;
               }
             }
-            future.complete(result);
+            future.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
           })));
     } catch (Exception e) {
       logger.error(e);
-      future.complete(false);
+      future.complete(null);
     }
 
     return future;
 
+  }
+
+  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
+    if (result) {
+      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+    } else {
+      return LoginAPI.getErrors("Password does not match",
+        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+        new ImmutablePair<>(LoginAPI.USERNAME, username));
+    }
   }
 
   private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
@@ -328,32 +343,49 @@ public class LoginAttemptsHelper {
    * @param pgClient           - postgres client
    * @param attempts           - login attempts list for given user
    */
-  public static Future<Void> onLoginFailAttemptHandler(JsonObject userObject, OkapiConnectionParams params,
+  public static Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, OkapiConnectionParams params,
                                                        PostgresClient pgClient, List<LoginAttempts> attempts) {
 
-     String userId = userObject.getString("id");
+    Future<Errors> future = Future.future();
+    String userId = userObject.getString("id");
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
+      saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
         .map(s -> null);
+      future.complete(LoginAPI.getErrors("Password does not match",
+        LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+        new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
+      return future;
     } else {
       // check users login attempts
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(attempt.getAttemptCount() + 1);
       attempt.setLastAttempt(new Date());
-      return needToUserBlock(attempt, params)
-        .compose(needBlock -> {
-          if (needBlock) {
-            return blockUser(userObject, params, attempt, userId, pgClient);
+      return needToUserBlock(attempt, params, userObject)
+        .compose(errors -> {
+          if (needBlock(errors)) {
+            blockUser(userObject, params, attempt, userId, pgClient);
           } else {
             Integer attemptCount = attempt.getAttemptCount();
             logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
-            return updateAttempt(pgClient, attempt)
+            updateAttempt(pgClient, attempt)
               .map(updateResult -> null);
           }
+          future.complete(errors);
+          return future;
         });
     }
+  }
+
+  private static boolean needBlock(Errors errors) {
+    if (errors != null) {
+      List<Error> errorsList = errors.getErrors();
+      if (!errorsList.isEmpty() && errorsList.size() == 1) {
+        return errorsList.get(0).getCode().equalsIgnoreCase(CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+      }
+    }
+    return false;
   }
 
   private static Future<Void> blockUser(JsonObject userObject, OkapiConnectionParams params, LoginAttempts attempt,
