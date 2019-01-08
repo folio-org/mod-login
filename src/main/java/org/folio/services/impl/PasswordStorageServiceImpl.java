@@ -274,13 +274,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
             .setHandler(v -> {
               deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, false);
 
-              LogEvent logEvent = new LogEvent();
-              logEvent.setEventType(LogEvent.EventType.PASSWORD_RESET);
-              logEvent.setTenant(tenant);
-              logEvent.setUserId(userId);
-              logEvent.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-              logEvent.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-              logEvent.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_RESET, tenant, userId,
+                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
               logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
             });
         }
@@ -304,13 +301,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               asyncHandler.handle(Future.failedFuture(rollbackTx.cause())));
           return;
         }
-        LogEvent logEvent = new LogEvent();
-        logEvent.setEventType(LogEvent.EventType.PASSWORD_CREATE);
-        logEvent.setTenant(tenant);
-        logEvent.setUserId(userCredential.getUserId());
-        logEvent.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-        logEvent.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-        logEvent.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+        LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CREATE, tenant, userCredential.getUserId(),
+          requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+          new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
         logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
 
         deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, true);
@@ -419,13 +413,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
             if (v.failed()) {
               asyncResultHandler.handle(Future.failedFuture(v.cause()));
             } else {
-              LogEvent logEvent = new LogEvent();
-              logEvent.setEventType(LogEvent.EventType.PASSWORD_CHANGE);
-              logEvent.setTenant(tenant);
-              logEvent.setUserId(cred.getUserId());
-              logEvent.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-              logEvent.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-              logEvent.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CHANGE, tenant, cred.getUserId(),
+                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
               logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
 
               asyncResultHandler.handle(Future.succeededFuture());
@@ -623,5 +614,17 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       })).end();
 
     return future;
+  }
+
+  private LogEvent createLogEventObject(LogEvent.EventType eventType, String tenant, String userId,
+                                        String browserInfo, String ip, Date timestamp) {
+    LogEvent logEvent = new LogEvent();
+    logEvent.setEventType(eventType);
+    logEvent.setTenant(tenant);
+    logEvent.setUserId(userId);
+    logEvent.setBrowserInformation(browserInfo);
+    logEvent.setIp(ip);
+    logEvent.setTimestamp(timestamp);
+    return logEvent;
   }
 }
