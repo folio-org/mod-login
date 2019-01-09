@@ -144,7 +144,7 @@ public class EventsLoggingTests {
       .when()
       .post("/authn/login")
       .then()
-      .statusCode(400);
+      .statusCode(422);
 
     Awaitility
       .await()
@@ -167,7 +167,7 @@ public class EventsLoggingTests {
         .when()
         .post("/authn/login")
         .then()
-        .statusCode(400));
+        .statusCode(422));
 
     Awaitility
       .await()

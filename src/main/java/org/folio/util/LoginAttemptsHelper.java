@@ -9,13 +9,12 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
-import org.folio.rest.jaxrs.model.LogEvent;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
+import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -31,8 +30,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
+import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
@@ -349,8 +348,6 @@ public class LoginAttemptsHelper {
   public Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
                                                   List<LoginAttempts> attempts) {
 
-    Future<Errors> future = Future.future();
-
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
 
@@ -367,17 +364,16 @@ public class LoginAttemptsHelper {
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
+      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
         .map(s -> LoginAPI.getErrors("Password does not match",
           LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-          new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))))
-      return future;
+          new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
     } else {
       // check users login attempts
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(attempt.getAttemptCount() + 1);
       attempt.setLastAttempt(new Date());
-      return needToUserBlock(attempt, requestHeaders)
+      return needToUserBlock(attempt, requestHeaders, userObject)
         .compose(errors -> {
           if (needBlock(errors)) {
             return blockUser(userObject, requestHeaders, attempt, userId, pgClient)

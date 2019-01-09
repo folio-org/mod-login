@@ -63,6 +63,8 @@ import java.util.MissingResourceException;
 import java.util.Optional;
 import java.util.UUID;
 
+import static javax.ws.rs.core.HttpHeaders.ACCEPT;
+import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
@@ -73,8 +75,6 @@ import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 
 /**
  * @author kurt
@@ -108,8 +108,8 @@ public class LoginAPI implements Authn {
   public static final String USERNAME = "username";
   private static final String TYPE_ERROR = "error";
   private static final String ACTIVE = "active";
-  private static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
-  private static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
+  public static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
+  public static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   private AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
