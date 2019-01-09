@@ -12,6 +12,10 @@ import io.vertx.ext.sql.UpdateResult;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.LogEvent;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Error;
+import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -28,6 +32,7 @@ import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
+import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
@@ -152,14 +157,13 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private Future<Boolean> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders) {
-    Future<Boolean> future = Future.future();
+  private Future<Errors> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders, JsonObject userObject) {
+    Future<Errors> future = Future.future();
     try {
       getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders).setHandler(res ->
         getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders).setHandler(handle ->
           getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders).setHandler(res1 -> {
             boolean result = false;
-
             int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
             int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
             int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
@@ -175,11 +179,11 @@ public class LoginAttemptsHelper {
                 result = true;
               }
             }
-            future.complete(result);
+            future.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
           })));
     } catch (Exception e) {
       logger.error(e);
-      future.complete(false);
+      future.complete(null);
     }
 
     return future;
@@ -197,6 +201,16 @@ public class LoginAttemptsHelper {
       logger.error(e);
     }
     return defaultValue;
+  }
+
+  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
+    if (result) {
+      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+    } else {
+      return LoginAPI.getErrors("Password does not match",
+        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+        new ImmutablePair<>(LoginAPI.USERNAME, username));
+    }
   }
 
   /**
@@ -332,8 +346,10 @@ public class LoginAttemptsHelper {
    * @param requestHeaders     - request headers
    * @param attempts           - login attempts list for given user
    */
-  public Future<Void> onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
-                                                List<LoginAttempts> attempts) {
+  public Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
+                                                  List<LoginAttempts> attempts) {
+
+    Future<Errors> future = Future.future();
 
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
@@ -351,23 +367,37 @@ public class LoginAttemptsHelper {
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
-        .map(s -> null);
+      saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
+        .map(s -> LoginAPI.getErrors("Password does not match",
+          LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+          new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))))
+      return future;
     } else {
       // check users login attempts
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(attempt.getAttemptCount() + 1);
       attempt.setLastAttempt(new Date());
       return needToUserBlock(attempt, requestHeaders)
-        .compose(needBlock -> {
-          if (needBlock) {
-            return blockUser(userObject, requestHeaders, attempt, userId, pgClient);
+        .compose(errors -> {
+          if (needBlock(errors)) {
+            return blockUser(userObject, requestHeaders, attempt, userId, pgClient)
+              .map(v -> errors);
           } else {
             return updateAttempt(pgClient, attempt)
-              .map(updateResult -> null);
+              .map(updateResult -> errors);
           }
         });
     }
+  }
+
+  private static boolean needBlock(Errors errors) {
+    if (errors != null) {
+      List<Error> errorsList = errors.getErrors();
+      if (!errorsList.isEmpty() && errorsList.size() == 1) {
+        return errorsList.get(0).getCode().equalsIgnoreCase(CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+      }
+    }
+    return false;
   }
 
   private Future<Void> blockUser(JsonObject userObject, Map<String, String> requestHeaders, LoginAttempts attempt,

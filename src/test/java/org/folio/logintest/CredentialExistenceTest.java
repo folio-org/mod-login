@@ -31,7 +31,6 @@ import java.util.UUID;
 @RunWith(VertxUnitRunner.class)
 public class CredentialExistenceTest {
 
-
   private static final String USER_ID_PARAM = "userId";
   private static Vertx vertx;
   private static RequestSpecification spec;

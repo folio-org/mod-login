@@ -25,6 +25,7 @@ import org.junit.runner.RunWith;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 
@@ -34,13 +35,13 @@ public class LoginAttemptsTest {
   private static Vertx vertx;
   private static RequestSpecification spec;
 
-  private static final String TENANT = "diku";
+  private static final String TENANT_DIKU = "diku";
   private static final String TABLE_NAME_ATTEMPTS = "auth_attempts";
   private static final String CRED_PATH = "/authn/credentials";
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
   private static final String LOGIN_PATH = "/authn/login";
   private static final String UPDATE_PATH = "/authn/update";
-  public static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   private JsonObject credsObject8 = new JsonObject()
     .put("username", "admin")
@@ -70,7 +71,7 @@ public class LoginAttemptsTest {
 
     int port = NetworkUtils.nextFreePort();
     int mockPort = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku", false);
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, TENANT_DIKU, "diku", false);
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -110,7 +111,7 @@ public class LoginAttemptsTest {
       .setContentType(ContentType.JSON)
       .setBaseUri("http://localhost:" + port)
       .addHeader("x-okapi-url", "http://localhost:" + mockPort)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
+      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT_DIKU)
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummy.token")
       .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
       .build();
@@ -119,7 +120,7 @@ public class LoginAttemptsTest {
   @Before
   public void setUp(TestContext context) {
     Async async = context.async();
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, "diku");
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_DIKU);
     pgClient.startTx(beginTx ->
       pgClient.delete(beginTx, "auth_attempts", new Criterion(), event -> {
         if (event.failed()) {
@@ -149,12 +150,12 @@ public class LoginAttemptsTest {
   public static void teardown(TestContext context) {
     Async async = context.async();
 
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
+    PostgresClient.getInstance(vertx, TENANT_DIKU).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
       if (event.failed()) {
         context.fail(event.cause());
       } else {
         try {
-          PostgresClient.getInstance(vertx, TENANT).delete("auth_credentials", new Criterion(), r -> {
+          PostgresClient.getInstance(vertx, TENANT_DIKU).delete("auth_credentials", new Criterion(), r -> {
             if (r.failed()) {
               context.fail(r.cause());
             }
@@ -188,8 +189,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -225,8 +226,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -262,8 +263,8 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
 
     RestAssured.given()
       .spec(spec)
@@ -281,8 +282,18 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body(is("Password does not match"));
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect.block.user"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Login.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("user.blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -292,15 +303,5 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(200)
       .body("attemptCount", is(0));
-
-    RestAssured.given()
-      .spec(spec)
-      .body(credsObject8Login.encode())
-      .when()
-      .post(LOGIN_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body(is("User must be flagged as active"));
   }
 }

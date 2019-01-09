@@ -54,7 +54,6 @@ public class RestVerticleTest {
   private JsonObject credsObject2 = new JsonObject()
     .put("username", "gollum")
     .put("password", "12345");
-  //private JsonObject loginCredsObject1 = new JsonObject()
 
   private JsonObject credsObject3 = new JsonObject()
     .put("username", "saruman")
@@ -83,16 +82,16 @@ public class RestVerticleTest {
   private static String postCredsRequest6 = "{\"username\": \"bombadil\", \"password\":\"12345\"}";
 
   private static Vertx vertx;
-  static int port;
-  static int mockPort;
+  private static int port;
+  private static int mockPort;
   private static CaseInsensitiveHeaders headers;
 
   private final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
-  public static String credentialsUrl;
-  public static String attemptsUrl;
-  public static String loginUrl;
-  public static String updateUrl;
-  public static String okapiUrl;
+  private static String credentialsUrl;
+  private static String attemptsUrl;
+  private static String loginUrl;
+  private static String updateUrl;
+  private static String okapiUrl;
 
   @Rule
   public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
@@ -102,7 +101,7 @@ public class RestVerticleTest {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
-    TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     credentialsUrl = "http://localhost:" + port + "/authn/credentials";
     attemptsUrl = "http://localhost:" + port + "/authn/loginAttempts";
@@ -440,10 +439,7 @@ public class RestVerticleTest {
   }
 
   private boolean isSizeMatch(Response r, int size) {
-    if (r.body.getInteger("total_records") == size) {
-      return true;
-    }
-    return false;
+    return r.body.getInteger("total_records") == size;
   }
 
   private Future<WrappedResponse> postNewCredentials(TestContext context,
@@ -492,12 +488,12 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> doInactiveLogin(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      400, "Fail login with inactive credentials");
+      422, "Fail login with inactive credentials");
   }
 
   private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      400, "Fail login with bad credentials");
+      422, "Fail login with bad credentials");
   }
 
   private Future<WrappedResponse> doUpdatePassword(TestContext context, JsonObject updateCredentials) {
