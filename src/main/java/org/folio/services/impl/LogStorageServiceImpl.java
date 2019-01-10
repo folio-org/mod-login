@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LogEvents;
 import org.folio.rest.jaxrs.model.LogResponse;
@@ -16,14 +17,19 @@ import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
+import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 import org.z3950.zing.cql.cql2pgjson.FieldException;
 
+import java.util.List;
 import java.util.UUID;
 
+import static org.folio.rest.impl.LoginAPI.MESSAGE_LOG_CONFIGURATION_IS_DISABLED;
+import static org.folio.rest.impl.LoginAPI.MESSAGE_LOG_EVENT_IS_DISABLED;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_EVENT_LOGS;
+import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
 public class LogStorageServiceImpl implements LogStorageService {
 
@@ -36,8 +42,43 @@ public class LogStorageServiceImpl implements LogStorageService {
   private final Logger logger = LoggerFactory.getLogger(LogStorageServiceImpl.class);
   private final Vertx vertx;
 
+  private ConfigurationService configurationService;
+
   public LogStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
+    configurationService = new ConfigurationServiceImpl(vertx);
+  }
+
+
+  public LogStorageService logEvent(String tenantId, JsonObject headers, JsonObject eventEntity) {
+    LogEvent logEvent = eventEntity.mapTo(LogEvent.class);
+    configurationService.getEnableConfigurations(tenantId, headers, serviceHandler -> {
+      if (serviceHandler.failed()) {
+        logger.error(serviceHandler.cause().getMessage());
+        return;
+      }
+      ConfigResponse responseEntity = getResponseEntity(serviceHandler, ConfigResponse.class);
+      if (!responseEntity.getEnabled()) {
+        logger.info(MESSAGE_LOG_CONFIGURATION_IS_DISABLED);
+        return;
+      }
+      List<String> enableConfigCodes = responseEntity.getConfigs();
+      String eventCode = logEvent.getEventType().toString();
+      if (!enableConfigCodes.contains(eventCode)) {
+        logger.info(String.format(MESSAGE_LOG_EVENT_IS_DISABLED, eventCode));
+        return;
+      }
+
+      JsonObject loggingEventJson = JsonObject.mapFrom(logEvent);
+      createEvent(tenantId, loggingEventJson,
+        storageHandler -> {
+          if (storageHandler.failed()) {
+            logger.error(storageHandler.cause().getMessage());
+          }
+        });
+    });
+
+    return this;
   }
 
   @Override

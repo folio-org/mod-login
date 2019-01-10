@@ -12,6 +12,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -22,6 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -111,6 +113,7 @@ public class LoginAttemptsTest {
       .addHeader("x-okapi-url", "http://localhost:" + mockPort)
       .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT_DIKU)
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummy.token")
+      .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
       .build();
   }
 

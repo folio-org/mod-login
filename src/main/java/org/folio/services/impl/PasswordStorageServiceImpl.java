@@ -18,6 +18,7 @@ import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsExistence;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
+import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.Metadata;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
@@ -31,6 +32,7 @@ import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
+import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
@@ -45,8 +47,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
+import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
 import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
+import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 
@@ -67,9 +72,11 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
   private AuthUtil authUtil = new AuthUtil();
+  private LogStorageService logStorageService;
 
   public PasswordStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
+    logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
   }
 
   @Override
@@ -180,19 +187,16 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService resetPassword(Map<String, String> okapiHeaders, JsonObject resetActionEntity,
+  public PasswordStorageService resetPassword(Map<String, String> requestHeaders, JsonObject resetActionEntity,
                                               Handler<AsyncResult<JsonObject>> asyncHandler) {
 
-    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
-
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     try {
       PasswordReset passwordReset = resetActionEntity.mapTo(PasswordReset.class);
       PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
 
       pgClient.startTx(beginTx ->
-        findUserIdByActionId(tenant, token, okapiUrl, beginTx, passwordReset, asyncHandler));
+        findUserIdByActionId(requestHeaders, beginTx, passwordReset, asyncHandler));
     } catch (Exception ex) {
       String errorMessage = String.format(ERROR_MESSAGE_STORAGE_SERVICE,
         "reset the password action", ex.getMessage());
@@ -205,9 +209,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   /**
    * Find user by id in `auth_password_action` table
    */
-  private void findUserIdByActionId(String tenant, String token, String okapiUrl,
-                                    AsyncResult<SQLConnection> beginTx, PasswordReset passwordReset,
-                                    Handler<AsyncResult<JsonObject>> asyncHandler) {
+  private void findUserIdByActionId(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
+                                    PasswordReset passwordReset, Handler<AsyncResult<JsonObject>> asyncHandler) {
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String actionId = passwordReset.getPasswordResetActionId();
     Criterion criterionId = getCriterionId(actionId, ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
@@ -230,16 +234,20 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         }
 
         String userId = passwordCreateOpt.get().getUserId();
-        findUserCredentialById(tenant, token, okapiUrl, beginTx, passwordReset, userId, asyncHandler);
+        findUserCredentialById(requestHeaders, beginTx, passwordReset, userId, asyncHandler);
       });
   }
 
   /**
    * Find user's credential by userId in `auth_credentials` table
    */
-  private void findUserCredentialById(String tenant, String token, String okapiUrl,
-                                      AsyncResult<SQLConnection> beginTx, PasswordReset resetAction,
-                                      String userId, Handler<AsyncResult<JsonObject>> asyncHandler) {
+  private void findUserCredentialById(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
+                                      PasswordReset resetAction, String userId,
+                                      Handler<AsyncResult<JsonObject>> asyncHandler) {
+
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String token = requestHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String okapiUrl = requestHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
@@ -259,11 +267,19 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           .stream().findFirst();
         if (!credentialOpt.isPresent()) {
           Credential userCredential = createNewCredential(newPassword, userId);
-          saveUserCredential(pgClient, beginTx, asyncHandler, actionId, userCredential);
+          saveUserCredential(requestHeaders, beginTx, asyncHandler, actionId, userCredential);
         } else {
           Credential userCredential = createCredential(newPassword, credentialOpt.get());
           updateCredAndCredHistory(beginTx, userCredential, tenant, token, okapiUrl)
-            .setHandler(v -> deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, false));
+            .setHandler(v -> {
+              deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, false);
+
+              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_RESET, tenant, userId,
+                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
+              logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+            });
         }
       });
   }
@@ -271,9 +287,11 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   /**
    * Save a new user's credential
    */
-  private void saveUserCredential(PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
+  private void saveUserCredential(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
                                   Handler<AsyncResult<JsonObject>> asyncHandler, String actionId,
                                   Credential userCredential) {
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     String credId = userCredential.getId();
     pgClient.save(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, credId, userCredential,
       putReply -> {
@@ -283,6 +301,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               asyncHandler.handle(Future.failedFuture(rollbackTx.cause())));
           return;
         }
+        LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CREATE, tenant, userCredential.getUserId(),
+          requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+          new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
+        logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+
         deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, true);
       });
   }
@@ -363,11 +387,11 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> okapiHeaders,
+  public PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> requestHeaders,
                                                  Handler<AsyncResult<Void>> asyncResultHandler) {
-    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String token = requestHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String okapiUrl = requestHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     Credential cred = credJson.mapTo(Credential.class);
@@ -389,6 +413,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
             if (v.failed()) {
               asyncResultHandler.handle(Future.failedFuture(v.cause()));
             } else {
+              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CHANGE, tenant, cred.getUserId(),
+                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
+                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+
+              logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+
               asyncResultHandler.handle(Future.succeededFuture());
             }
           });
@@ -584,5 +614,17 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       })).end();
 
     return future;
+  }
+
+  private LogEvent createLogEventObject(LogEvent.EventType eventType, String tenant, String userId,
+                                        String browserInfo, String ip, Date timestamp) {
+    LogEvent logEvent = new LogEvent();
+    logEvent.setEventType(eventType);
+    logEvent.setTenant(tenant);
+    logEvent.setUserId(userId);
+    logEvent.setBrowserInformation(browserInfo);
+    logEvent.setIp(ip);
+    logEvent.setTimestamp(timestamp);
+    return logEvent;
   }
 }

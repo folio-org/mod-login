@@ -8,14 +8,16 @@
       "type": "string",
       "description": "The system assigned unique ID of the instance record; UUID"
     },
-    "eventCode": {
-      "type": "string",
-      "description": "Event code: PASSWORD_RESET, PASSWORD_CREATE"
-    },
-    "timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Event registration time"
+    "eventType": {
+      "enum": [
+        "PASSWORD_RESET",
+        "PASSWORD_CREATE",
+        "PASSWORD_CHANGE",
+        "SUCCESSFUL_LOGIN_ATTEMPT",
+        "FAILED_LOGIN_ATTEMPT",
+        "USER_BLOCK"
+      ],
+      "description": "Event type"
     },
     "tenant": {
       "type": "string",
@@ -25,37 +27,18 @@
       "type": "string",
       "description": "User ID for which the event is registered."
     },
-    "uri": {
-      "type": "string",
-      "description": "Unified user resource identifier"
-    },
-    "path": {
-      "type": "string",
-      "description": "Resource path"
-    },
-    "auth_result": {
-      "type": "string",
-      "description": "Describes the result of user authentication."
-    },
-    "auth_error": {
-      "type": "object",
-      "description": "Describes errors that occurred during user authentication."
-    },
-    "module_result": {
-      "type": "string",
-      "description": "Describes the result of the module response"
-    },
-    "module_error": {
-      "type": "object",
-      "description": "Describes errors that occurred during module execution"
-    },
-    "method": {
-      "type": "string",
-      "description": "Contains information about the http method"
-    },
     "ip": {
       "type": "string",
       "description": "Client IP address of registered user Okapi"
+    },
+    "browserInformation": {
+      "type": "string",
+      "description": "Client's browser information obtained from User-Agent http header"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event registration time"
     },
     "metadata": {
       "type": "object",
@@ -67,6 +50,6 @@
   "required": [
     "tenant",
     "userId",
-    "eventCode"
+    "eventType"
   ]
 }

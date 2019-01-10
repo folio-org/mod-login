@@ -2,33 +2,40 @@ package org.folio.util;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.UpdateResult;
-import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
+import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.interfaces.Results;
+import org.folio.services.LogStorageService;
 
+import javax.ws.rs.core.HttpHeaders;
 import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
+import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
+import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
+import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 /**
  * Helper class that contains static methods which helps with processing Login Attempts business logic
@@ -44,6 +51,16 @@ public class LoginAttemptsHelper {
   private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
   private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
+
+  private Vertx vertx;
+  private HttpClient httpClient;
+  private LogStorageService logStorageService;
+
+  public LoginAttemptsHelper(Vertx vertx) {
+    this.vertx = vertx;
+    logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
+    httpClient = vertx.createHttpClient();
+  }
 
   /**
    * Method build criteria for lookup Login Attempts for user by user id
@@ -66,7 +83,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity
    */
-  private static Future<String> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+  private Future<String> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Future<String> future = Future.future();
 
     try {
@@ -85,7 +102,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity for update
    */
-  private static Future<UpdateResult> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+  private Future<UpdateResult> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Future<UpdateResult> future = Future.future();
 
     try {
@@ -106,7 +123,7 @@ public class LoginAttemptsHelper {
    * @param pgClient     - postgres client
    * @return             - login attempts list
    */
-  public static Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
+  public Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
     Future<Results<LoginAttempts>> future = Future.future();
 
     try {
@@ -125,7 +142,7 @@ public class LoginAttemptsHelper {
    * @param count  - initial count of failed login
    * @return - new Login Attempt object
    */
-  private static LoginAttempts buildLoginAttemptsObject(String userId, Integer count) {
+  private LoginAttempts buildLoginAttemptsObject(String userId, Integer count) {
     LoginAttempts loginAttempt = new LoginAttempts();
     loginAttempt.setId(UUID.randomUUID().toString());
     loginAttempt.setAttemptCount(count);
@@ -139,13 +156,12 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private static Future<Errors> needToUserBlock(LoginAttempts attempts, OkapiConnectionParams params, JsonObject userObject) {
+  private Future<Errors> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders, JsonObject userObject) {
     Future<Errors> future = Future.future();
-
     try {
-      getLoginConfig(LOGIN_ATTEMPTS_CODE, params).setHandler(res ->
-        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, params).setHandler(handle ->
-          getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, params).setHandler(res1 -> {
+      getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders).setHandler(res ->
+        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders).setHandler(handle ->
+          getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders).setHandler(res1 -> {
             boolean result = false;
             int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
             int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
@@ -173,17 +189,7 @@ public class LoginAttemptsHelper {
 
   }
 
-  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
-    if (result) {
-      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
-    } else {
-      return LoginAPI.getErrors("Password does not match",
-        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-        new ImmutablePair<>(LoginAPI.USERNAME, username));
-    }
-  }
-
-  private static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+  private int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
     if (res.failed()) {
       logger.warn(res.cause());
       return Integer.parseInt(MODULE_SPECIFIC_ARGS
@@ -196,20 +202,31 @@ public class LoginAttemptsHelper {
     return defaultValue;
   }
 
+  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
+    if (result) {
+      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
+    } else {
+      return LoginAPI.getErrors("Password does not match",
+        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+        new ImmutablePair<>(LoginAPI.USERNAME, username));
+    }
+  }
+
   /**
    * Load config object by code for login module
    *
-   * @param configCode - configuration code
-   * @param params     - okapi configuration params
+   * @param configCode    - configuration code
+   * @param okapiHeaders  - okapi headers
    * @return - json object with configs
    */
-  private static Future<JsonObject> getLoginConfig(String configCode, OkapiConnectionParams params) {
+  private Future<JsonObject> getLoginConfig(String configCode, Map<String, String> okapiHeaders) {
     Future<JsonObject> future = Future.future();
-    HttpClient client = getHttpClient(params);
     String requestURL;
-    String requestToken = params.getToken() != null ? params.getToken() : "";
+    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
     try {
-      requestURL = params.getOkapiUrl() + "/configurations/entries?query=" +
+      requestURL = okapiUrl + "/configurations/entries?query=" +
         "code==" + URLEncoder.encode(configCode, "UTF-8");
     } catch (Exception e) {
       logger.error("Error building request URL: " + e.getLocalizedMessage());
@@ -217,8 +234,8 @@ public class LoginAttemptsHelper {
       return future;
     }
     try {
-      HttpClientRequest request = client.getAbs(requestURL);
-      request.putHeader(OKAPI_TENANT_HEADER, params.getTenantId())
+      HttpClientRequest request = httpClient.getAbs(requestURL);
+      request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
         .putHeader("Content-type", JSON_TYPE)
         .putHeader("Accept", JSON_TYPE);
@@ -255,7 +272,6 @@ public class LoginAttemptsHelper {
           });
         }
       });
-      request.setTimeout(params.getTimeout());
       request.exceptionHandler(future::fail);
       request.end();
     } catch (Exception e) {
@@ -267,31 +283,19 @@ public class LoginAttemptsHelper {
   }
 
   /**
-   * Prepare HttpClient from OkapiConnection params
-   *
-   * @param params - Okapi connection params
-   * @return - Vertx Http Client
-   */
-  private static HttpClient getHttpClient(OkapiConnectionParams params) {
-    HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(params.getTimeout());
-    options.setIdleTimeout(params.getTimeout());
-    return params.getVertx().createHttpClient(options);
-  }
-
-  /**
    * Method update user entity at mod-user
    *
-   * @param user   - Json user object to be updated
-   * @param params - object with connection params
+   * @param user          - Json user object to be updated
+   * @param okapiHeaders  - okapi headers
    */
-  private static Future<Void> updateUser(JsonObject user, OkapiConnectionParams params) {
+  private Future<Void> updateUser(JsonObject user, Map<String, String> okapiHeaders) {
     Future<Void> future = Future.future();
-    HttpClient client = getHttpClient(params);
     String requestURL;
-    String requestToken = params.getToken() != null ? params.getToken() : "";
+    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
+    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
     try {
-      requestURL = params.getOkapiUrl() + "/users/" + URLEncoder.encode(
+      requestURL = okapiUrl + "/users/" + URLEncoder.encode(
         user.getString("id"), "UTF-8");
     } catch (Exception e) {
       logger.error("Error building request URL: " + e.getLocalizedMessage());
@@ -299,7 +303,7 @@ public class LoginAttemptsHelper {
       return future;
     }
     try {
-      HttpClientRequest request = client.putAbs(requestURL, res -> {
+      HttpClientRequest request = httpClient.putAbs(requestURL, res -> {
         if (res.statusCode() != 204) {
           res.bodyHandler(buf -> {
             String message = "Expected status code 204, got '" + res.statusCode() +
@@ -310,7 +314,7 @@ public class LoginAttemptsHelper {
           future.complete();
         }
       });
-      request.putHeader(OKAPI_TENANT_HEADER, params.getTenantId())
+      request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
         .putHeader("Content-type", JSON_TYPE)
         .putHeader("accept", "text/plain");
@@ -324,7 +328,6 @@ public class LoginAttemptsHelper {
         }
         future.complete();
       });
-      request.setTimeout(params.getTimeout());
       request.exceptionHandler(future::fail);
       request.end(user.encode());
     } catch (Exception e) {
@@ -339,41 +342,46 @@ public class LoginAttemptsHelper {
    * Handle on users login fail event
    *
    * @param userObject         - Json user object
-   * @param params             - okapi connection params
-   * @param pgClient           - postgres client
+   * @param requestHeaders     - request headers
    * @param attempts           - login attempts list for given user
    */
-  public static Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, OkapiConnectionParams params,
-                                                       PostgresClient pgClient, List<LoginAttempts> attempts) {
+  public Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
+                                                  List<LoginAttempts> attempts) {
 
-    Future<Errors> future = Future.future();
     String userId = userObject.getString("id");
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+
+    LogEvent event = new LogEvent();
+    event.setEventType(LogEvent.EventType.FAILED_LOGIN_ATTEMPT);
+    event.setTenant(tenant);
+    event.setUserId(userId);
+    event.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
+    event.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
+    event.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+    logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(event));
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
-        .map(s -> null);
-      future.complete(LoginAPI.getErrors("Password does not match",
-        LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-        new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
-      return future;
+      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
+        .map(s -> LoginAPI.getErrors("Password does not match",
+          LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
+          new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
     } else {
       // check users login attempts
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(attempt.getAttemptCount() + 1);
       attempt.setLastAttempt(new Date());
-      return needToUserBlock(attempt, params, userObject)
+      return needToUserBlock(attempt, requestHeaders, userObject)
         .compose(errors -> {
           if (needBlock(errors)) {
-            blockUser(userObject, params, attempt, userId, pgClient);
+            return blockUser(userObject, requestHeaders, attempt, userId, pgClient)
+              .map(v -> errors);
           } else {
-            Integer attemptCount = attempt.getAttemptCount();
-            logLoginAttempt(LoginEvent.LOGIN_FAIL, userId, attemptCount);
-            updateAttempt(pgClient, attempt)
-              .map(updateResult -> null);
+            return updateAttempt(pgClient, attempt)
+              .map(updateResult -> errors);
           }
-          future.complete(errors);
-          return future;
         });
     }
   }
@@ -388,16 +396,26 @@ public class LoginAttemptsHelper {
     return false;
   }
 
-  private static Future<Void> blockUser(JsonObject userObject, OkapiConnectionParams params, LoginAttempts attempt,
-                                        String userId, PostgresClient pgClient) {
+  private Future<Void> blockUser(JsonObject userObject, Map<String, String> requestHeaders, LoginAttempts attempt,
+                                 String userId, PostgresClient pgClient) {
 
     JsonObject user = userObject.copy();
     user.put("active", false);
-    return updateUser(user, params)
+    return updateUser(user, requestHeaders)
       .compose(v -> {
+        String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+        LogEvent logEvent = new LogEvent();
+        logEvent.setEventType(LogEvent.EventType.USER_BLOCK);
+        logEvent.setTenant(tenant);
+        logEvent.setUserId(userId);
+        logEvent.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
+        logEvent.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
+        logEvent.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+        logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+
         attempt.setAttemptCount(0);
         attempt.setLastAttempt(new Date());
-        logLoginAttempt(LoginEvent.LOGIN_FAIL_BLOCK_USER, userId, attempt.getAttemptCount());
+
         return updateAttempt(pgClient, attempt)
           .map(updateResult -> null);
       });
@@ -407,22 +425,32 @@ public class LoginAttemptsHelper {
    * Handle users success login
    *
    * @param userObject         - Json user object
-   * @param pgClient           - postgres client
+   * @param requestHeaders     - request headers
    * @param attempts           - login attempts list for given user
    */
-  public static Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, PostgresClient pgClient,
-                                                          List<LoginAttempts> attempts) {
+  public Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
+                                                   List<LoginAttempts> attempts) {
 
     String userId = userObject.getString("id");
+    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+
+    LogEvent event = new LogEvent();
+    event.setEventType(LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT);
+    event.setTenant(tenant);
+    event.setUserId(userId);
+    event.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
+    event.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
+    event.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
+    logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(event));
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      logLoginAttempt(LoginEvent.LOGIN_SUCCESSFUL, userId, 0);
       return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 0))
         .map(s -> null);
     } else {
       // drops user login attempts
-      logLoginAttempt(LoginEvent.LOGIN_SUCCESSFUL, userId, 0);
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(0);
       attempt.setLastAttempt(new Date());
@@ -430,33 +458,4 @@ public class LoginAttemptsHelper {
         .map(updateResult -> null);
     }
   }
-
-  /**
-   * Log login events by default logger
-   * TODO - refactor loggin after creating tech design MODLOGIN-36
-   *
-   * @param event    - login event
-   * @param userId   - user id of logged user
-   * @param attempts - failed login attempts number
-   */
-  private static void logLoginAttempt(LoginEvent event, String userId, Integer attempts) {
-    logger.info(event.getCaption() + "UserID: " + userId + "  Date: " + DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss") + " Failed login attempts: " + attempts);
-  }
-
-  private enum LoginEvent {
-    LOGIN_FAIL("LOGIN attempt was FAILED. "),
-    LOGIN_SUCCESSFUL("LOGIN attempt was SUCCESSFUL. "),
-    LOGIN_FAIL_BLOCK_USER("LOGIN attempt was FAILED. User was BLOCKED. ");
-
-    LoginEvent(String caption) {
-      this.caption = caption;
-    }
-
-    private String caption;
-
-    public String getCaption() {
-      return caption;
-    }
-  }
-
 }

@@ -19,6 +19,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.logintest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -31,6 +32,7 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
 import java.net.HttpURLConnection;
+import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -82,6 +84,7 @@ public class RestVerticleTest {
   private static Vertx vertx;
   private static int port;
   private static int mockPort;
+  private static CaseInsensitiveHeaders headers;
 
   private final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
   private static String credentialsUrl;
@@ -105,6 +108,11 @@ public class RestVerticleTest {
     loginUrl = "http://localhost:" + port + "/authn/login";
     updateUrl = "http://localhost:" + port + "/authn/update";
     okapiUrl = "http://localhost:" + mockPort;
+
+    headers = new CaseInsensitiveHeaders();
+    headers.add(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken");
+    headers.add(LoginAPI.OKAPI_URL_HEADER, okapiUrl);
+    headers.add(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()));
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -474,55 +482,33 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> doLogin(TestContext context, JsonObject loginCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
       201, "Login with created credentials");
   }
 
   private Future<WrappedResponse> doInactiveLogin(TestContext context, JsonObject loginCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
       422, "Fail login with inactive credentials");
   }
 
   private Future<WrappedResponse> doBadPasswordLogin(TestContext context, JsonObject loginCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
       422, "Fail login with bad credentials");
   }
 
-  private Future<WrappedResponse> doUpdatePassword(TestContext context,
-                                                   JsonObject updateCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
+  private Future<WrappedResponse> doUpdatePassword(TestContext context, JsonObject updateCredentials) {
     return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
       204, "Update existing credentials");
   }
 
-  private Future<WrappedResponse> doBadCredentialsUpdatePassword(TestContext context,
-                                                                 JsonObject updateCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
+  private Future<WrappedResponse> doBadCredentialsUpdatePassword(TestContext context, JsonObject updateCredentials) {
     return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
       401, "Attempt to update password with bad credentials");
   }
 
-  private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context,
-                                                           JsonObject updateCredentials) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", "dummytoken");
-    headers.add("X-Okapi-Url", okapiUrl);
+  private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context, JsonObject updateCredentials) {
     return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
       400, "Attempt to update password with bad data");
   }
-
 }
 

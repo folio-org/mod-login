@@ -80,6 +80,7 @@ public class UpdateCredentialsHistoryTest {
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, TOKEN)
       .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + mockPort)
       .addHeader(LoginAPI.OKAPI_USER_ID_HEADER, gollumId)
+      .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
       .build();
 
     try {

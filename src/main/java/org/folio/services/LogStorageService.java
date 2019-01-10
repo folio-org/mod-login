@@ -63,4 +63,13 @@ public interface LogStorageService {
    */
   @Fluent
   LogStorageService deleteEventByUserId(String tenantId, String userId, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+
+  /**
+   * Logs given event
+   * @param tenantId    tenant id
+   * @param headers     okapi headers
+   * @param eventEntity event entity
+   */
+  @Fluent
+  LogStorageService logEvent(String tenantId, JsonObject headers, JsonObject eventEntity);
 }
