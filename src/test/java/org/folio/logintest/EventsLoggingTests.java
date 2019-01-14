@@ -13,7 +13,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
 import org.awaitility.Awaitility;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -35,12 +35,14 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -51,7 +53,8 @@ import java.util.stream.IntStream;
 
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
 
-@RunWith(VertxUnitRunner.class)
+@RunWith(Parameterized.class)
+@Parameterized.UseParametersRunnerFactory(VertxUnitRunnerWithParametersFactory.class)
 public class EventsLoggingTests {
 
   private Vertx vertx;
@@ -66,7 +69,18 @@ public class EventsLoggingTests {
   private static final String NEW_PASSWORD = "Admin!10";
   private static final String TENANT = "tenant";
   private static final String TOKEN = "token";
-  private static final String IP = "50.185.56.89";
+  private static final String CLIENT_IP = "50.185.56.89";
+
+  private String clientIpHeader;
+
+  @Parameterized.Parameters
+  public static Iterable<String> headers() {
+    return Arrays.asList(LoginAPI.X_FORWARDED_FOR_HEADER, LoginAPI.OKAPI_REQUEST_IP_HEADER);
+  }
+
+  public EventsLoggingTests(String clientIpHeader) {
+    this.clientIpHeader = clientIpHeader;
+  }
 
   @Rule
   public WireMockRule mockServer = new WireMockRule(
@@ -91,7 +105,7 @@ public class EventsLoggingTests {
       .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, TOKEN)
       .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + mockServer.port())
-      .addHeader(LoginAPI.X_FORWARDED_FOR_HEADER, IP)
+      .addHeader(clientIpHeader, CLIENT_IP)
       .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
       .build();
 
@@ -413,7 +427,7 @@ public class EventsLoggingTests {
           .anyMatch(event -> event.getEventType() == eventType
             && event.getTenant().equals(TENANT)
             && event.getUserId().equals(userId)
-            && event.getIp().equals(IP)
+            && event.getIp().equals(CLIENT_IP)
             && event.getBrowserInformation() != null
             && event.getTimestamp() != null
           )));

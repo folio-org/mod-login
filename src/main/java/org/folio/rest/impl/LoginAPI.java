@@ -87,6 +87,7 @@ public class LoginAPI implements Authn {
   public static final String OKAPI_URL_HEADER = "x-okapi-url";
   public static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
   public static final String OKAPI_REQUEST_TIMESTAMP_HEADER = "x-okapi-request-timestamp";
+  public static final String OKAPI_REQUEST_IP_HEADER = "x-okapi-request-ip";
   public static final String X_FORWARDED_FOR_HEADER = "X-Forwarded-For";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String CREDENTIAL_ID_FIELD = "'id'";

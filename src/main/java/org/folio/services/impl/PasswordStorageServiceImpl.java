@@ -47,8 +47,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
-import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
 import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
@@ -274,11 +272,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
             .setHandler(v -> {
               deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, false);
 
-              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_RESET, tenant, userId,
-                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
-                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-
-              logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+              logStorageService.logEvent(tenant, userId, LogEvent.EventType.PASSWORD_RESET,
+                JsonObject.mapFrom(requestHeaders));
             });
         }
       });
@@ -301,13 +296,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               asyncHandler.handle(Future.failedFuture(rollbackTx.cause())));
           return;
         }
-        LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CREATE, tenant, userCredential.getUserId(),
-          requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
-          new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-
-        logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
-
         deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, true);
+        logStorageService.logEvent(tenant, userCredential.getUserId(),
+          LogEvent.EventType.PASSWORD_CREATE, JsonObject.mapFrom(requestHeaders));
       });
   }
 
@@ -413,11 +404,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
             if (v.failed()) {
               asyncResultHandler.handle(Future.failedFuture(v.cause()));
             } else {
-              LogEvent logEvent = createLogEventObject(LogEvent.EventType.PASSWORD_CHANGE, tenant, cred.getUserId(),
-                requestHeaders.get(HttpHeaders.USER_AGENT), requestHeaders.get(X_FORWARDED_FOR_HEADER),
-                new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-
-              logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+              logStorageService.logEvent(tenant, cred.getUserId(),
+                LogEvent.EventType.PASSWORD_CHANGE, JsonObject.mapFrom(requestHeaders));
 
               asyncResultHandler.handle(Future.succeededFuture());
             }
@@ -614,17 +602,5 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       })).end();
 
     return future;
-  }
-
-  private LogEvent createLogEventObject(LogEvent.EventType eventType, String tenant, String userId,
-                                        String browserInfo, String ip, Date timestamp) {
-    LogEvent logEvent = new LogEvent();
-    logEvent.setEventType(eventType);
-    logEvent.setTenant(tenant);
-    logEvent.setUserId(userId);
-    logEvent.setBrowserInformation(browserInfo);
-    logEvent.setIp(ip);
-    logEvent.setTimestamp(timestamp);
-    return logEvent;
   }
 }
