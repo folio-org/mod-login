@@ -19,7 +19,7 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
-import org.folio.util.EventLogUtil;
+import org.folio.util.EventLogUtils;
 import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 import org.z3950.zing.cql.cql2pgjson.FieldException;
 
@@ -52,7 +52,7 @@ public class LogStorageServiceImpl implements LogStorageService {
 
 
   public LogStorageService logEvent(String tenantId, String userId, LogEvent.EventType eventType, JsonObject headers) {
-    LogEvent logEvent = EventLogUtil.createLogEventObject(eventType, userId, headers);
+    LogEvent logEvent = EventLogUtils.createLogEventObject(eventType, userId, headers);
     configurationService.getEnableConfigurations(tenantId, headers, serviceHandler -> {
       if (serviceHandler.failed()) {
         logger.error(serviceHandler.cause().getMessage());

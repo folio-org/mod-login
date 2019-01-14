@@ -11,10 +11,16 @@ import java.util.Optional;
 
 import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
 
-public class EventLogUtil {
+public class EventLogUtils {
+
+  private EventLogUtils() {
+    throw new IllegalStateException("Utility class");
+  }
 
   public static LogEvent createLogEventObject(LogEvent.EventType eventType, String userId,
                                               JsonObject requestHeaders) {
+
+
 
     return new LogEvent()
       .withEventType(eventType)
