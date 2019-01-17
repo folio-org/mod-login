@@ -22,7 +22,6 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 
-import javax.ws.rs.core.HttpHeaders;
 import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
@@ -31,10 +30,8 @@ import java.util.UUID;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
-import static org.folio.rest.impl.LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
-import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 /**
@@ -351,14 +348,8 @@ public class LoginAttemptsHelper {
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
 
-    LogEvent event = new LogEvent();
-    event.setEventType(LogEvent.EventType.FAILED_LOGIN_ATTEMPT);
-    event.setTenant(tenant);
-    event.setUserId(userId);
-    event.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-    event.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-    event.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-    logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(event));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT,
+      JsonObject.mapFrom(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one
@@ -404,14 +395,8 @@ public class LoginAttemptsHelper {
     return updateUser(user, requestHeaders)
       .compose(v -> {
         String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-        LogEvent logEvent = new LogEvent();
-        logEvent.setEventType(LogEvent.EventType.USER_BLOCK);
-        logEvent.setTenant(tenant);
-        logEvent.setUserId(userId);
-        logEvent.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-        logEvent.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-        logEvent.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-        logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(logEvent));
+        logStorageService.logEvent(tenant, userId, LogEvent.EventType.USER_BLOCK,
+          JsonObject.mapFrom(requestHeaders));
 
         attempt.setAttemptCount(0);
         attempt.setLastAttempt(new Date());
@@ -434,14 +419,8 @@ public class LoginAttemptsHelper {
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
 
-    LogEvent event = new LogEvent();
-    event.setEventType(LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT);
-    event.setTenant(tenant);
-    event.setUserId(userId);
-    event.setBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT));
-    event.setIp(requestHeaders.get(X_FORWARDED_FOR_HEADER));
-    event.setTimestamp(new Date(Long.parseLong(requestHeaders.get(OKAPI_REQUEST_TIMESTAMP_HEADER))));
-    logStorageService.logEvent(tenant, JsonObject.mapFrom(requestHeaders), JsonObject.mapFrom(event));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT,
+      JsonObject.mapFrom(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one

@@ -66,10 +66,12 @@ public interface LogStorageService {
 
   /**
    * Logs given event
+   *
    * @param tenantId    tenant id
-   * @param headers     okapi headers
-   * @param eventEntity event entity
+   * @param userId      user id
+   * @param eventType   type of event
+   * @param headers     http request headers
    */
   @Fluent
-  LogStorageService logEvent(String tenantId, JsonObject headers, JsonObject eventEntity);
+  LogStorageService logEvent(String tenantId, String userId, LogEvent.EventType eventType, JsonObject headers);
 }
