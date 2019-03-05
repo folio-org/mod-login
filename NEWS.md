@@ -1,3 +1,17 @@
+## 2019-03-05 v5.0.0
+
+ * Update to RMB 23.9.0 (MODLOGIN-106)
+ * Use `x-okapi-requet-ip` header if `X-Forwarded-For` is not present
+   (MODLOGIN-104)
+ * Use EventsLogAPI (MODLOGIN-77)
+ * Handle failed login attempts. This changes provided login interface
+   from 4.7 to 5.0 (MODLOGIN-103).
+ * Implementing endpoint for checking credentials existence (UIU-758)
+ * Create/Extend password storage to support retaining last 10 changed
+   passwords a user has saved (MODLOGIN-86)
+ * Add and Implement new "EventsLogApi" component (MODLOGIN-75)
+ * Fix user blocking (MODLOGIN-89)
+
 ## 2018-12-03 v4.6.0
  * Set Content-Type and Accept headers for outgoing requests (MODLOGIN-92)
  * Update to RAML 1.0 (MODLOGIN-80)
