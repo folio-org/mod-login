@@ -11,7 +11,6 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
 import io.vertx.ext.sql.UpdateResult;
-import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Configurations;
@@ -589,7 +588,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
       .exceptionHandler(throwable -> future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER))
       .handler(resp -> resp.bodyHandler(body -> {
-        if (resp.statusCode() != HttpStatus.SC_OK) {
+        if (resp.statusCode() != 200) {
           future.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
         } else {
           Configurations conf = body.toJsonObject().mapTo(Configurations.class);

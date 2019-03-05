@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.apache.http.HttpStatus.SC_OK;
 import static org.folio.rest.RestVerticle.*;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_CODE_STATUS;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
@@ -129,7 +128,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
       .putHeader(HTTP_HEADER_CONTENT_TYPE, MediaType.APPLICATION_JSON)
       .putHeader(HTTP_HEADER_ACCEPT, MediaType.APPLICATION_JSON)
       .handler(response -> {
-        if (response.statusCode() != SC_OK) {
+        if (response.statusCode() != 200) {
           response.bodyHandler(responseHandler ->
             future.fail(
               String.format(ERROR_LOOKING_UP_MOD_CONFIG, requestUrl, response.statusCode(), responseHandler.toString())));
