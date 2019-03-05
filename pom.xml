@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-login</artifactId>
-  <version>4.6.1-SNAPSHOT</version>
+  <version>4.7.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -99,6 +99,15 @@
       <version>${vertx.version}</version>
       <scope>provided</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>3.1.5</version>
+      <scope>test</scope>
+    </dependency>
+
+
   </dependencies>
 
   <build>
@@ -427,4 +436,5 @@
     <developerConnection>scm:git:git@github.com:folio-org/mod-auth.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
+
 </project>

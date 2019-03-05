@@ -21,6 +21,12 @@ types:
   passwordCreate: !include passwordCreateAction.json
   responseCreateAction: !include responseCreateAction.json
   responseResetAction: !include responseResetAction.json
+  configurations: !include configurations.json
+  configResponse: !include configResponse.json
+  logEvent: !include logEvent.json
+  logEvents: !include logEventCollection.json
+  logResponse: !include logResponse.json
+  credentialsExistence: !include credentialsExistence.json
 
 traits:
   validate: !include raml-util/traits/validation.raml
@@ -76,6 +82,9 @@ traits:
   /login:
     post:
       description: Get a new login token
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           type: loginCredentials
@@ -105,14 +114,15 @@ traits:
   /update:
     post:
       description: Self-update existing credentials
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           type: updateCredentials
       responses:
         204:
           description: "Successful update"
-          body:
-            text/plain: !!null
         400:
           description: "Bad request"
           body:
@@ -252,6 +262,9 @@ traits:
   /reset-password:
     post:
       description: Resets password for user in record and deletes action record
+      headers:
+        User-Agent:
+        X-Forwarded-For:
       body:
         application/json:
           schema: passwordReset
@@ -310,3 +323,89 @@ traits:
             body:
               text/plain:
                 example: "Internal server error"
+  /log:
+    /events:
+      get:
+        description: Returns a list of events retrieved from storage
+        is: [
+          pageable,
+          queryable
+        ]
+        responses:
+          200:
+            body:
+              application/json:
+                schema: logEvents
+          204:
+            body:
+              text/plain:
+                example: "No Content"
+          404:
+            description: "Event not found"
+            body:
+              text/plain:
+                example: "Event not found"
+          500:
+            description: "Internal server error"
+            body:
+              text/plain:
+                example: "Internal server error"
+      post:
+        description: Saves received event into the storage
+        body:
+          application/json:
+            schema: logEvent
+        responses:
+          201:
+            body:
+              application/json:
+                schema: logResponse
+          204:
+            body:
+              text/plain:
+                example: "No Content"
+          500:
+            description: "Internal server error"
+            body:
+              text/plain:
+                example: "Internal server error"
+      /{id}:
+        delete:
+          description: Removes events by filter
+          responses:
+            200:
+              body:
+                application/json:
+                  schema: logResponse
+            204:
+              body:
+                text/plain:
+                  example: "No Content"
+            404:
+              description: "Event not found"
+              body:
+                text/plain:
+                  example: "Event not found"
+            500:
+              description: "Internal server error"
+              body:
+                text/plain:
+                  example: "Internal server error"
+  /credentials-existence:
+    get:
+      description: Returns single property 'credentialsExist' with true, if user has local password
+      queryParameters:
+        userId:
+          description: "User id"
+          pattern: "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"
+          required: true
+      responses:
+        200:
+          body:
+            application/json:
+              schema: credentialsExistence
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"

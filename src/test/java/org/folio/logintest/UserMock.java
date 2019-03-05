@@ -13,7 +13,6 @@ import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 /**
- *
  * @author kurt
  */
 public class UserMock extends AbstractVerticle {
@@ -21,7 +20,7 @@ public class UserMock extends AbstractVerticle {
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
-  public static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
@@ -39,13 +38,13 @@ public class UserMock extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
 
     router.route("/users").handler(this::handleUsers);
-    router.put("/users/"+adminId).handler(this::handleUserPut);
+    router.put("/users/" + adminId).handler(this::handleUserPut);
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
     System.out.println("Running UserMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
-      if(result.failed()) {
+      if (result.failed()) {
         future.fail(result.cause());
       } else {
         future.complete();
@@ -56,82 +55,92 @@ public class UserMock extends AbstractVerticle {
   private void handleUsers(RoutingContext context) {
     try {
       String query = context.request().getParam("query");
-      if(query.equals("username==gollum")) {
-        JsonObject userOb = new JsonObject()
-                .put("username", "gollum")
-                .put("id", gollumId)
-                .put("active", true);
-        JsonObject responseOb = new JsonObject()
-                .put("users", new JsonArray()
-                  .add(userOb))
-                .put("totalRecords", 1);
-        context.response()
-                .setStatusCode(200)
-                .end(responseOb.encode());
+      JsonObject userOb;
+      JsonObject responseOb;
+      switch (query) {
+        case "username==gollum":
+          userOb = new JsonObject()
+            .put("username", "gollum")
+            .put("id", gollumId)
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "username==bombadil":
+          sleep(500); //Bombadil gets delayed on purpose
 
-      } else if(query.equals("username==bombadil")) {
-        sleep(500); //Bombadil gets delayed on purpose
-        JsonObject userOb = new JsonObject()
-                .put("username", "bombadil")
-                .put("id", bombadilId)
-                .put("active", true);
-        JsonObject responseOb = new JsonObject()
-                .put("users", new JsonArray()
-                  .add(userOb))
-                .put("totalRecords", 1);
-        context.response()
-                .setStatusCode(200)
-                .end(responseOb.encode());
+          userOb = new JsonObject()
+            .put("username", "bombadil")
+            .put("id", bombadilId)
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
 
-      } else if(query.equals("username==saruman")) {
-        JsonObject userOb = new JsonObject()
-                .put("username", "saruman")
-                .put("id", sarumanId)
-                .put("active", false);
-        JsonObject responseOb = new JsonObject()
-                .put("users", new JsonArray()
-                  .add(userOb))
-                .put("totalRecords", 1);
-        context.response()
-                .setStatusCode(200)
-                .end(responseOb.encode());
-      } else if(query.equals("id=="+sarumanId)) {
-        JsonObject userOb = new JsonObject()
-                .put("username", "saruman")
-                .put("id", sarumanId)
-                .put("active", false);
-        JsonObject responseOb = new JsonObject()
-                .put("users", new JsonArray()
-                  .add(userOb))
-                .put("totalRecords", 1);
-        context.response()
-                .setStatusCode(200)
-                .end(responseOb.encode());
-      } else if(query.equals("id=="+gollumId)) {
-        JsonObject userOb = new JsonObject()
-                .put("username", "gollum")
-                .put("id", gollumId)
-                .put("active", true);
-        JsonObject responseOb = new JsonObject()
-                .put("users", new JsonArray()
-                  .add(userOb))
-                .put("totalRecords", 1);
-        context.response()
-                .setStatusCode(200)
-                .end(responseOb.encode());
-      } else if (query.equals("username==admin")) {
-        context.response()
-          .setStatusCode(200)
-          .end(responseAdmin.encode());
-      } else if (query.equals("id=="+adminId)) {
-        context.response()
-          .setStatusCode(200)
-          .end(responseAdmin.encode());
-      }
-      else {
-        context.response()
-          .setStatusCode(404)
-          .end("Not found");
+          break;
+        case "username==saruman":
+          userOb = new JsonObject()
+            .put("username", "saruman")
+            .put("id", sarumanId)
+            .put("active", false);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "id==" + sarumanId:
+          userOb = new JsonObject()
+            .put("username", "saruman")
+            .put("id", sarumanId)
+            .put("active", false);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "id==" + gollumId:
+          userOb = new JsonObject()
+            .put("username", "gollum")
+            .put("id", gollumId)
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "username==admin":
+          context.response()
+            .setStatusCode(200)
+            .end(responseAdmin.encode());
+          break;
+        case "id==" + adminId:
+          context.response()
+            .setStatusCode(200)
+            .end(responseAdmin.encode());
+          break;
+        default:
+          context.response()
+            .setStatusCode(404)
+            .end("Not found");
+          break;
       }
     } catch (Exception e) {
       context.response()
@@ -142,15 +151,15 @@ public class UserMock extends AbstractVerticle {
 
   private void handleToken(RoutingContext context) {
     context.response()
-            .setStatusCode(201)
-            .putHeader("X-Okapi-Token", "dummytoken")
-            .end(new JsonObject().put("token", "dummytoken").encode());
+      .setStatusCode(201)
+      .putHeader("X-Okapi-Token", "dummytoken")
+      .end(new JsonObject().put("token", "dummytoken").encode());
   }
-  
+
   private void handleRefreshToken(RoutingContext context) {
     context.response()
-        .setStatusCode(201)
-        .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
+      .setStatusCode(201)
+      .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
   private void handleConfig(RoutingContext context) {

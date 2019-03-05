@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "A logging event that describes the event code and basic information for logging events",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The system assigned unique ID of the instance record; UUID"
+    },
+    "eventType": {
+      "enum": [
+        "PASSWORD_RESET",
+        "PASSWORD_CREATE",
+        "PASSWORD_CHANGE",
+        "SUCCESSFUL_LOGIN_ATTEMPT",
+        "FAILED_LOGIN_ATTEMPT",
+        "USER_BLOCK"
+      ],
+      "description": "Event type"
+    },
+    "tenant": {
+      "type": "string",
+      "description": "The tenant for which the event occurred"
+    },
+    "userId": {
+      "type": "string",
+      "description": "User ID for which the event is registered."
+    },
+    "ip": {
+      "type": "string",
+      "description": "Client IP address of registered user Okapi"
+    },
+    "browserInformation": {
+      "type": "string",
+      "description": "Client's browser information obtained from User-Agent http header"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event registration time"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadata about creation and changes to logging event, provided by the server (client should not provide)",
+      "$ref": "raml-util/schemas/metadata.schema",
+      "readonly": true
+    }
+  },
+  "required": [
+    "tenant",
+    "userId",
+    "eventType"
+  ]
+}
