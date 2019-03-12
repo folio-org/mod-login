@@ -38,6 +38,7 @@ public class TenantRefAPI extends TenantAPI {
       tl.withKey("loadSample").withLead("sample-data")
         .withPostOnly()
         .withFilter(this::filter)
+        .withAcceptStatus(422)
         .add("users", "authn/credentials")
         .perform(ta, headers, vertx, res1 -> {
           if (res1.failed()) {
