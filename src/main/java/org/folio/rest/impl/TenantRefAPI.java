@@ -11,6 +11,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.folio.rest.tools.utils.TenantLoading;
 
+@java.lang.SuppressWarnings({"squid:S1192"})
 public class TenantRefAPI extends TenantAPI {
 
   private static final Logger log = LoggerFactory.getLogger(TenantRefAPI.class);
