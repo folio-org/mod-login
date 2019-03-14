@@ -33,6 +33,8 @@ import org.junit.runner.RunWith;
 
 import java.net.HttpURLConnection;
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +42,8 @@ import static org.folio.logintest.TestUtil.doRequest;
 import static org.folio.logintest.UserMock.bombadilId;
 import static org.folio.logintest.UserMock.gollumId;
 import static org.folio.logintest.UserMock.sarumanId;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -139,7 +143,12 @@ public class RestVerticleTest {
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
           try {
-            tenantClient.postTenant(null, res2 -> {
+            TenantAttributes ta = new TenantAttributes();
+            ta.setModuleTo("mod-login-1.0.0");
+            List<Parameter> parameters = new LinkedList<>();
+            parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+            ta.setParameters(parameters);
+            tenantClient.postTenant(ta, res2 -> {
               async.complete();
             });
           } catch (Exception e) {
