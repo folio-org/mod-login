@@ -1,3 +1,6 @@
+## 2019-03-15 v5.1.0
+ * MODLOGIN-105	use loadSample to load sample data
+
 ## 2019-03-05 v5.0.0
 
  * Update to RMB 23.9.0 (MODLOGIN-106)
