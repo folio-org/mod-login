@@ -46,7 +46,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.folio.rest.persist.Criteria.Criteria.OP_EQUAL;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
@@ -371,7 +370,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Criterion getCriterionId(String actionId, String field) {
     Criteria criteria = new Criteria()
       .addField(field)
-      .setOperation(Criteria.OP_EQUAL)
+      .setOperation("=")
       .setValue(actionId);
     return new Criterion(criteria);
   }
@@ -452,7 +451,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Future<Credential> future = Future.future();
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
-      .setOperation(Criteria.OP_EQUAL)
+      .setOperation("=")
       .setValue(userId);
 
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
@@ -554,7 +553,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
-      .setOperation(OP_EQUAL)
+      .setOperation("=")
       .setValue(userId);
 
     Criterion criterion = new Criterion(criteria)
