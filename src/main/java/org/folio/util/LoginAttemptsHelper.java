@@ -39,7 +39,6 @@ import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
  */
 public class LoginAttemptsHelper {
 
-  public static final String LOGIN_ATTEMPTS_SCHEMA_PATH = "ramls/loginAttempts.json";
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
   private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
@@ -66,9 +65,9 @@ public class LoginAttemptsHelper {
    * @return - Criterion for search login attempts using user id
    */
   public static Criterion buildCriteriaForUserAttempts(String userId) throws Exception {
-    Criteria attemptCrit = new Criteria(LOGIN_ATTEMPTS_SCHEMA_PATH);
+    Criteria attemptCrit = new Criteria();
     attemptCrit.addField(LOGIN_ATTEMPTS_USERID_FIELD);
-    attemptCrit.setOperation(Criteria.OP_EQUAL);
+    attemptCrit.setOperation("=");
     attemptCrit.setValue(userId);
     return new Criterion(attemptCrit);
   }

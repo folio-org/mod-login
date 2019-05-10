@@ -66,7 +66,6 @@ import java.util.UUID;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_SCHEMA_PATH;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
@@ -93,7 +92,6 @@ public class LoginAPI implements Authn {
   private static final String CREDENTIAL_ID_FIELD = "'id'";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
-  private static final String CREDENTIAL_SCHEMA_PATH = "ramls/credentials.json";
   private static final String APPLICATION_JSON_CONTENT_TYPE = "application/json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient: ";
   private static final String VERTX_CONTEXT_ERROR = "Error running on vertx context: ";
@@ -317,7 +315,6 @@ public class LoginAPI implements Authn {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         try {
-          testForFile(LOGIN_ATTEMPTS_SCHEMA_PATH);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(id), true,  getReply -> {
             if(getReply.failed()) {
               logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
@@ -347,7 +344,6 @@ public class LoginAPI implements Authn {
                              LoginCredentials entity, Map<String, String> okapiHeaders,
                              Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      testForFile(CREDENTIAL_SCHEMA_PATH);
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
@@ -421,9 +417,9 @@ public class LoginAPI implements Authn {
                   return;
                 }
               }
-              Criteria useridCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+              Criteria useridCrit = new Criteria();
               useridCrit.addField(CREDENTIAL_USERID_FIELD);
-              useridCrit.setOperation(Criteria.OP_EQUAL);
+              useridCrit.setOperation("=");
               useridCrit.setValue(userObject.getString("id"));
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
@@ -623,7 +619,7 @@ public class LoginAPI implements Authn {
             JsonObject userOb = verifyRes.result();
             Criteria userIdCrit = new Criteria();
             userIdCrit.addField(CREDENTIAL_USERID_FIELD);
-            userIdCrit.setOperation(Criteria.OP_EQUAL);
+            userIdCrit.setOperation("=");
             userIdCrit.setValue(userOb.getString("id"));
             try {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
@@ -705,7 +701,7 @@ public class LoginAPI implements Authn {
         String tenantId = getTenant(okapiHeaders);
         Criteria idCrit = new Criteria();
         idCrit.addField(CREDENTIAL_ID_FIELD);
-        idCrit.setOperation(Criteria.OP_EQUAL);
+        idCrit.setOperation("=");
         idCrit.setValue(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
@@ -757,10 +753,9 @@ public class LoginAPI implements Authn {
       vertxContext.runOnContext(v -> {
         String tenantId = getTenant(okapiHeaders);
         try {
-          testForFile(CREDENTIAL_SCHEMA_PATH);
-          Criteria idCrit = new Criteria(CREDENTIAL_SCHEMA_PATH);
+          Criteria idCrit = new Criteria();
           idCrit.addField(CREDENTIAL_ID_FIELD);
-          idCrit.setOperation(Criteria.OP_EQUAL);
+          idCrit.setOperation("=");
           idCrit.setValue(id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
@@ -795,7 +790,7 @@ public class LoginAPI implements Authn {
         String tenantId = getTenant(okapiHeaders);
         Criteria nameCrit = new Criteria();
         nameCrit.addField(CREDENTIAL_ID_FIELD);
-        nameCrit.setOperation(Criteria.OP_EQUAL);
+        nameCrit.setOperation("=");
         nameCrit.setValue(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
@@ -1269,7 +1264,7 @@ public class LoginAPI implements Authn {
     //Get credentials
     Criteria credCrit = new Criteria()
         .addField(CREDENTIAL_USERID_FIELD)
-        .setOperation(Criteria.OP_EQUAL)
+        .setOperation("=")
         .setValue(userId);
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(credCrit),
         true, getReply -> {

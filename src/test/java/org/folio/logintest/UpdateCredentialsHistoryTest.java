@@ -63,7 +63,7 @@ public class UpdateCredentialsHistoryTest {
 
   private Criteria userIdCrit = new Criteria()
     .addField("'userId'")
-    .setOperation(Criteria.OP_EQUAL)
+    .setOperation("=")
     .setValue(gollumId);
 
   @BeforeClass
