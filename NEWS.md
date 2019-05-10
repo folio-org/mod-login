@@ -1,8 +1,11 @@
+## 2019-05-10 v5.2.0
+ * MODLOGIN-110 Update to RMB 24 / CQLPG 4.0.0
+ * MODLOGIN-108 Change limit from 1000 to 2147483647 (login.raml)
+
 ## 2019-03-15 v5.1.0
  * MODLOGIN-105	use loadSample to load sample data
 
 ## 2019-03-05 v5.0.0
-
  * Update to RMB 23.9.0 (MODLOGIN-106)
  * Use `x-okapi-requet-ip` header if `X-Forwarded-For` is not present
    (MODLOGIN-104)
