@@ -114,6 +114,12 @@
       ]
     }
   ],
+  "requires" : [
+    {
+      "id" : "users",
+      "version" : "15.0"
+    }
+  ],
   "permissionSets" : [
     {
       "permissionName" : "login.collection.get",
