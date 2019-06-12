@@ -522,7 +522,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
     Future<ResultSet> future = Future.future();
-    String query = String.format("SELECT count(_id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
+    String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
     pgClient.select(query, future.completer());
 
     return future.map(resultSet -> resultSet.getResults().get(0).getInteger(0));
@@ -538,8 +538,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
 
-    String query = String.format("DELETE FROM %s WHERE _id IN " +
-        "(SELECT _id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
+    String query = String.format("DELETE FROM %s WHERE id IN " +
+        "(SELECT id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
       tableName, tableName, userId, count);
     conn.result().execute(query, future.completer());
 
