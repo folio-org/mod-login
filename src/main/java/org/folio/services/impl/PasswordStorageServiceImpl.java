@@ -34,8 +34,8 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-import org.z3950.zing.cql.cql2pgjson.FieldException;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -371,7 +371,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(field)
       .setOperation("=")
-      .setValue(actionId);
+      .setVal(actionId);
     return new Criterion(criteria);
   }
 
@@ -452,7 +452,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
       .setOperation("=")
-      .setValue(userId);
+      .setVal(userId);
 
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
       if (get.failed()) {
@@ -554,7 +554,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
       .setOperation("=")
-      .setValue(userId);
+      .setVal(userId);
 
     Criterion criterion = new Criterion(criteria)
       .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))

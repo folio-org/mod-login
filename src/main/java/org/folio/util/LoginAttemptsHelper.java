@@ -68,7 +68,7 @@ public class LoginAttemptsHelper {
     Criteria attemptCrit = new Criteria();
     attemptCrit.addField(LOGIN_ATTEMPTS_USERID_FIELD);
     attemptCrit.setOperation("=");
-    attemptCrit.setValue(userId);
+    attemptCrit.setVal(userId);
     return new Criterion(attemptCrit);
   }
 

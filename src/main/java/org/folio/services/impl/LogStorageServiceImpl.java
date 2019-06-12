@@ -20,8 +20,8 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.util.EventLogUtils;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-import org.z3950.zing.cql.cql2pgjson.FieldException;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
 
 import java.util.List;
 import java.util.UUID;
@@ -197,7 +197,7 @@ public class LogStorageServiceImpl implements LogStorageService {
    * @param limit - limit of records for pagination
    * @return - CQL wrapper for building postgres request to database
    */
-  private CQLWrapper getCQL(String query, int limit, int offset) throws org.z3950.zing.cql.cql2pgjson.FieldException {
+  private CQLWrapper getCQL(String query, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(SNAPSHOTS_TABLE_EVENT_LOGS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query)
       .setLimit(new Limit(limit))
