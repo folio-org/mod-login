@@ -1,3 +1,7 @@
+## 2019-06-11 v5.3.0
+ * MODLOGIN-111 mod-login requires users interface
+   (how on earth would it valudate a user anyway?)
+
 ## 2019-05-10 v5.2.0
  * MODLOGIN-110 Update to RMB 24 / CQLPG 4.0.0
  * MODLOGIN-108 Change limit from 1000 to 2147483647 (login.raml)
