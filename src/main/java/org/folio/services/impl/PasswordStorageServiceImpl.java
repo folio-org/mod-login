@@ -34,8 +34,8 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-import org.z3950.zing.cql.cql2pgjson.FieldException;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -371,7 +371,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(field)
       .setOperation("=")
-      .setValue(actionId);
+      .setVal(actionId);
     return new Criterion(criteria);
   }
 
@@ -452,7 +452,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
       .setOperation("=")
-      .setValue(userId);
+      .setVal(userId);
 
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
       if (get.failed()) {
@@ -522,7 +522,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
     Future<ResultSet> future = Future.future();
-    String query = String.format("SELECT count(_id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
+    String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
     pgClient.select(query, future.completer());
 
     return future.map(resultSet -> resultSet.getResults().get(0).getInteger(0));
@@ -538,8 +538,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
 
-    String query = String.format("DELETE FROM %s WHERE _id IN " +
-        "(SELECT _id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
+    String query = String.format("DELETE FROM %s WHERE id IN " +
+        "(SELECT id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
       tableName, tableName, userId, count);
     conn.result().execute(query, future.completer());
 
@@ -554,7 +554,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criteria criteria = new Criteria()
       .addField(USER_ID_FIELD)
       .setOperation("=")
-      .setValue(userId);
+      .setVal(userId);
 
     Criterion criterion = new Criterion(criteria)
       .setOrder(new Order(String.format("jsonb->>'%s'", CREDENTIALS_HISTORY_DATE_FIELD), Order.ORDER.DESC))

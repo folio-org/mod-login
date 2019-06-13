@@ -47,7 +47,8 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -145,7 +146,7 @@ public class LoginAPI implements Authn {
   }
 
   private CQLWrapper getCQL(String query, int limit, int offset)
-      throws org.z3950.zing.cql.cql2pgjson.FieldException {
+      throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(
         new Offset(offset));
@@ -420,7 +421,7 @@ public class LoginAPI implements Authn {
               Criteria useridCrit = new Criteria();
               useridCrit.addField(CREDENTIAL_USERID_FIELD);
               useridCrit.setOperation("=");
-              useridCrit.setValue(userObject.getString("id"));
+              useridCrit.setVal(userObject.getString("id"));
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
                   true, getReply-> {
@@ -620,7 +621,7 @@ public class LoginAPI implements Authn {
             Criteria userIdCrit = new Criteria();
             userIdCrit.addField(CREDENTIAL_USERID_FIELD);
             userIdCrit.setOperation("=");
-            userIdCrit.setValue(userOb.getString("id"));
+            userIdCrit.setVal(userOb.getString("id"));
             try {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(userIdCrit),
@@ -702,7 +703,7 @@ public class LoginAPI implements Authn {
         Criteria idCrit = new Criteria();
         idCrit.addField(CREDENTIAL_ID_FIELD);
         idCrit.setOperation("=");
-        idCrit.setValue(id);
+        idCrit.setVal(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
             if(getReply.failed()) {
@@ -756,7 +757,7 @@ public class LoginAPI implements Authn {
           Criteria idCrit = new Criteria();
           idCrit.addField(CREDENTIAL_ID_FIELD);
           idCrit.setOperation("=");
-          idCrit.setValue(id);
+          idCrit.setVal(id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
             if(getReply.failed()) {
               logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
@@ -791,7 +792,7 @@ public class LoginAPI implements Authn {
         Criteria nameCrit = new Criteria();
         nameCrit.addField(CREDENTIAL_ID_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(id);
+        nameCrit.setVal(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
             if(getReply.failed()) {
@@ -1265,7 +1266,7 @@ public class LoginAPI implements Authn {
     Criteria credCrit = new Criteria()
         .addField(CREDENTIAL_USERID_FIELD)
         .setOperation("=")
-        .setValue(userId);
+        .setVal(userId);
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(credCrit),
         true, getReply -> {
       if(getReply.failed()) {

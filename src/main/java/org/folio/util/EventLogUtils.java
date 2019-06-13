@@ -8,6 +8,7 @@ import org.folio.rest.jaxrs.model.LogEvent;
 import javax.ws.rs.core.HttpHeaders;
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.folio.rest.impl.LoginAPI.X_FORWARDED_FOR_HEADER;
 
@@ -23,6 +24,7 @@ public class EventLogUtils {
 
 
     return new LogEvent()
+      .withId(UUID.randomUUID().toString())
       .withEventType(eventType)
       .withUserId(userId)
       .withTenant(requestHeaders.getString(RestVerticle.OKAPI_HEADER_TENANT))

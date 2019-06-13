@@ -64,7 +64,7 @@ public class UpdateCredentialsHistoryTest {
   private Criteria userIdCrit = new Criteria()
     .addField("'userId'")
     .setOperation("=")
-    .setValue(gollumId);
+    .setVal(gollumId);
 
   @BeforeClass
   public static void setUp(TestContext context) {
