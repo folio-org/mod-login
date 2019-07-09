@@ -415,18 +415,20 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
+  public PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordJson, Map<String, String> okapiHeaders,
                                                          Handler<AsyncResult<Boolean>> asyncResultHandler) {
 
-    Password password = passwordEntity.mapTo(Password.class);
+    Password passwordEntity = passwordJson.mapTo(Password.class);
+    String password = passwordEntity.getPassword();
+    String userId = passwordEntity.getUserId();
+
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String userId = okapiHeaders.get(LoginAPI.OKAPI_USER_ID_HEADER);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     getCredByUserId(tenant, userId)
       .map(credential ->
-        credential.getHash().equals(authUtil.calculateHash(password.getPassword(), credential.getSalt())))
+        credential.getHash().equals(authUtil.calculateHash(password, credential.getSalt())))
       .compose(used -> {
         if (used) {
           return Future.succeededFuture(Boolean.TRUE);
@@ -547,7 +549,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   private Future<Boolean> isPresentInCredHistory(String tenantId, String userId,
-                                                 Password password, int pwdHistoryNumber) {
+                                                 String password, int pwdHistoryNumber) {
     Future<Boolean> future = Future.future();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
 
@@ -567,7 +569,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       }
 
       boolean anyMatch = get.result().getResults().stream()
-        .map(history -> authUtil.calculateHash(password.getPassword(), history.getSalt()))
+        .map(history -> authUtil.calculateHash(password, history.getSalt()))
         .anyMatch(hash -> get.result().getResults().stream()
           .anyMatch(history -> history.getHash().equals(hash)));
 
