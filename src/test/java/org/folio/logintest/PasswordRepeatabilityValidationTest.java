@@ -114,13 +114,9 @@ public class PasswordRepeatabilityValidationTest {
 
   @Test
   public void testNewPassword() {
-    Password passwordEntity = new Password()
-      .withPassword(NEW_PASSWORD)
-      .withUserId(USER_ID);
-
     RestAssured.given()
       .spec(spec)
-      .body(passwordEntity)
+      .body(buildPasswordEntity(NEW_PASSWORD))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
       .then()
@@ -130,13 +126,9 @@ public class PasswordRepeatabilityValidationTest {
 
   @Test
   public void testRecentPassword() {
-    Password passwordEntity = new Password()
-      .withPassword(PASSWORD_TEMPLATE + 1)
-      .withUserId(USER_ID);
-
     RestAssured.given()
       .spec(spec)
-      .body(passwordEntity)
+      .body(buildPasswordEntity(PASSWORD_TEMPLATE + 1))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
       .then()
@@ -146,13 +138,9 @@ public class PasswordRepeatabilityValidationTest {
 
   @Test
   public void testOldPassword() {
-    Password passwordEntity = new Password()
-      .withPassword(OLD_PASSWORD)
-      .withUserId(USER_ID);
-
     RestAssured.given()
       .spec(spec)
-      .body(passwordEntity)
+      .body(buildPasswordEntity(OLD_PASSWORD))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
       .then()
@@ -162,14 +150,10 @@ public class PasswordRepeatabilityValidationTest {
 
   @Test
   public void testCurrentPassword() {
-    Password passwordEntity = new Password()
-      .withPassword(CURRENT_PASSWORD)
-      .withUserId(USER_ID);
-
     RestAssured.given()
       .spec(spec)
       .header(RestVerticle.OKAPI_USERID_HEADER, USER_ID)
-      .body(passwordEntity)
+      .body(buildPasswordEntity(CURRENT_PASSWORD))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
       .then()
@@ -245,5 +229,11 @@ public class PasswordRepeatabilityValidationTest {
     history.setDate(date);
 
     return history;
+  }
+
+  private Password buildPasswordEntity(String password) {
+    return new Password()
+      .withPassword(password)
+      .withUserId(USER_ID);
   }
 }
