@@ -442,9 +442,9 @@
   </distributionManagement>
 
   <scm>
-    <url>https://github.com/folio-org/mod-auth/login_module</url>
-    <connection>scm:git:git://github.com:folio-org/mod-auth.git</connection>
-    <developerConnection>scm:git:git@github.com:folio-org/mod-auth.git</developerConnection>
+    <url>https://github.com/folio-org/${project.artifactId}</url>
+    <connection>scm:git:git://github.com/folio-org/${project.artifactId}.git</connection>
+    <developerConnection>scm:git:git@github.com:folio-org/${project.artifactId}.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
 
