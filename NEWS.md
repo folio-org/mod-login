@@ -1,3 +1,7 @@
+## 2019-07-24 v6.0.0
+ * MODLOGIN-112 update RMB version to 25.0.1
+ * MODLOGIN-114 Change the implementation of password checking for repeatability
+
 ## 2019-06-11 v5.3.0
  * MODLOGIN-111 mod-login requires users interface
    (how on earth would it valudate a user anyway?)
