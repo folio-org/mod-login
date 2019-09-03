@@ -55,7 +55,7 @@ public class LoginAttemptsHelper {
   public LoginAttemptsHelper(Vertx vertx) {
     this.vertx = vertx;
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-    httpClient = vertx.createHttpClient();
+    this.httpClient = vertx.getOrCreateContext().get("httpClient");
   }
 
   /**
