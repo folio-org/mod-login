@@ -69,9 +69,11 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private final Vertx vertx;
   private AuthUtil authUtil = new AuthUtil();
   private LogStorageService logStorageService;
+  private final HttpClient httpClient;
 
   public PasswordStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
+    httpClient = vertx.createHttpClient();
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
   }
 
@@ -581,7 +583,6 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
     Future<Integer> future = Future.future();
-    HttpClient httpClient = vertx.createHttpClient();
 
     httpClient.getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
       .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)

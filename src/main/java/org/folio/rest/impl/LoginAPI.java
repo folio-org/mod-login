@@ -66,6 +66,9 @@ import java.util.UUID;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.util.Constants.DEFAULT_TIMEOUT;
+import static org.folio.util.Constants.HTTP_CLIENT;
+import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
@@ -80,7 +83,6 @@ import static org.folio.util.LoginConfigUtils.getResponseEntity;
  */
 public class LoginAPI implements Authn {
 
-  private static final String HTTP_CLIENT = "httpClient";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   public static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
@@ -116,7 +118,7 @@ public class LoginAPI implements Authn {
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
       .getOrDefault("require.active", "true"));
   private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
-      .getOrDefault("lookup.timeout", "1000"));
+      .getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 

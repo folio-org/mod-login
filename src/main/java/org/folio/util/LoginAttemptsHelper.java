@@ -32,6 +32,7 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
+import static org.folio.util.Constants.HTTP_CLIENT;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 /**
@@ -55,7 +56,7 @@ public class LoginAttemptsHelper {
   public LoginAttemptsHelper(Vertx vertx) {
     this.vertx = vertx;
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-    this.httpClient = vertx.getOrCreateContext().get("httpClient");
+    this.httpClient = vertx.getOrCreateContext().get(HTTP_CLIENT);
   }
 
   /**
