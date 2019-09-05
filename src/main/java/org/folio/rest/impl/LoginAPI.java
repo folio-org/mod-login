@@ -7,7 +7,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -67,6 +66,9 @@ import java.util.UUID;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.util.Constants.DEFAULT_TIMEOUT;
+import static org.folio.util.Constants.HTTP_CLIENT;
+import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
@@ -116,7 +118,7 @@ public class LoginAPI implements Authn {
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
       .getOrDefault("require.active", "true"));
   private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
-      .getOrDefault("lookup.timeout", "1000"));
+      .getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
@@ -163,10 +165,6 @@ public class LoginAPI implements Authn {
   private Future<JsonObject> lookupUser(String username, String userId, String tenant,
       final String okapiURL, String requestToken, Vertx vertx) {
     Future<JsonObject> future = Future.future();
-    HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    HttpClient client = vertx.createHttpClient(options);
     String requestURL;
     if(requestToken == null) {
       requestToken = "";
@@ -189,7 +187,8 @@ public class LoginAPI implements Authn {
     }
     try {
       final String finalRequestURL = requestURL;
-      HttpClientRequest request = client.getAbs(finalRequestURL);
+      HttpClientRequest request = vertx.getOrCreateContext().<HttpClient>get(HTTP_CLIENT)
+          .getAbs(finalRequestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
               .putHeader(OKAPI_TOKEN_HEADER, requestToken)
               .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
@@ -240,7 +239,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchToken(JsonObject payload, String tenant,
       String okapiURL, String requestToken, Vertx vertx) {
     Future<String> future = Future.future();
-    HttpClient client = vertx.createHttpClient();
+    HttpClient client = vertx.getOrCreateContext().get(HTTP_CLIENT);
     HttpClientRequest request = client.postAbs(okapiURL + "/token");
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
@@ -280,7 +279,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
       String okapiURL, String requestToken, Vertx vertx) {
     Future<String> future = Future.future();
-    HttpClient client = vertx.createHttpClient();
+    HttpClient client = vertx.getOrCreateContext().get(HTTP_CLIENT);
     HttpClientRequest request = client.postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)

@@ -23,6 +23,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.folio.rest.RestVerticle.*;
+import static org.folio.util.Constants.DEFAULT_TIMEOUT;
+import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_CODE_STATUS;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
 
@@ -33,8 +35,6 @@ public class ConfigurationServiceImpl implements ConfigurationService {
   private static final String REQUEST_URL_TEMPLATE = "%s/%s?query=module==%s";
   private static final String HTTP_HEADER_CONTENT_TYPE = HttpHeaders.CONTENT_TYPE.toString();
   private static final String HTTP_HEADER_ACCEPT = HttpHeaders.ACCEPT.toString();
-  private static final String LOOKUP_TIMEOUT = "lookup.timeout";
-  private static final String LOOKUP_TIMEOUT_VAL = "1000";
   private static final String EVENT_LOG_STATUS_CODE = "statusCode";
 
   private static final Predicate<Config> HAS_EVENT_CONFIG_ENABLE_LOG_CONFIG = config -> config.getModule().equals(EVENT_LOG_API_MODULE) && config.getCode().equals(EVENT_LOG_API_CODE_STATUS);
@@ -50,7 +50,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
   /**
    * Timeout to wait for response
    */
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, LOOKUP_TIMEOUT_VAL));
+  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   public ConfigurationServiceImpl(Vertx vertx) {
     this.vertx = vertx;
