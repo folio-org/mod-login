@@ -1,3 +1,7 @@
+## 2019-09-24 v6.1.0
+ * MODLOGIN-116 Fix "Multiple HttpClient objects are created for every
+   login attempt causing CPU usages to spike"
+
 ## 2019-07-24 v6.0.0
  * MODLOGIN-112 update RMB version to 25.0.1
  * MODLOGIN-114 Change the implementation of password checking for repeatability
