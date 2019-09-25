@@ -1,3 +1,6 @@
+## 2019-09-25 v6.1.1
+ * MODLOGIN-117 Update to RMB 25.0.2 . Fixes security issue / FOLIO-2281
+
 ## 2019-09-24 v6.1.0
  * MODLOGIN-116 Fix "Multiple HttpClient objects are created for every
    login attempt causing CPU usages to spike"
