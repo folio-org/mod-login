@@ -143,8 +143,7 @@ public class RestVerticleTest {
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
           try {
-            TenantAttributes ta = new TenantAttributes();
-            ta.setModuleTo("mod-login-1.0.0");
+            TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
             List<Parameter> parameters = new LinkedList<>();
             parameters.add(new Parameter().withKey("loadSample").withValue("true"));
             ta.setParameters(parameters);

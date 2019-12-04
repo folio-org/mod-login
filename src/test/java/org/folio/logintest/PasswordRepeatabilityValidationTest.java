@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 import static org.hamcrest.Matchers.is;
 
@@ -75,7 +76,8 @@ public class PasswordRepeatabilityValidationTest {
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
       try {
-        tenantClient.postTenant(null, handler -> fillInCredentialsHistory()
+        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+        tenantClient.postTenant(ta, handler -> fillInCredentialsHistory()
           .compose(v -> saveCredential())
           .setHandler(v -> {
             if (v.succeeded()) {

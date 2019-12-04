@@ -24,6 +24,7 @@ import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -97,7 +98,8 @@ public class LoginAttemptsTest {
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
           try {
-            tenantClient.postTenant(null, res2 -> {
+            TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+            tenantClient.postTenant(ta, res2 -> {
               async.complete();
             });
           } catch (Exception e) {

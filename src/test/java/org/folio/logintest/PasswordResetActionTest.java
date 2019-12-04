@@ -44,6 +44,7 @@ import java.util.UUID;
 import static junit.framework.TestCase.*;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 
@@ -103,7 +104,8 @@ public class PasswordResetActionTest {
       res ->
       {
         try {
-          tenantClient.postTenant(null, handler -> async.complete());
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+          tenantClient.postTenant(ta, handler -> async.complete());
         } catch (Exception e) {
           context.fail(e);
         }
