@@ -1,3 +1,6 @@
+## 2019-12-04 v6.2.0
+ * MODLOGIN-122 Upgrade to RMB 29
+
 ## 2019-09-24 v6.1.0
  * MODLOGIN-116 Fix "Multiple HttpClient objects are created for every
    login attempt causing CPU usages to spike"
