@@ -50,6 +50,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
 
@@ -369,9 +370,10 @@ public class EventsLoggingTests {
 
   private Future<Void> postTenant() {
     Future<Void> future = Future.future();
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     try {
       new TenantClient("http://localhost:" + port, TENANT, "token")
-        .postTenant(null, resp -> future.complete());
+        .postTenant(ta, resp -> future.complete());
     } catch (Exception e) {
       e.printStackTrace();
     }

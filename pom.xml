@@ -27,7 +27,7 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>3.5.4</vertx.version>
+    <vertx.version>3.8.4</vertx.version>
   </properties>
 
   <dependencies>
@@ -40,7 +40,7 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>25.0.2</version>
+      <version>29.1.1</version>
     </dependency>
 
     <dependency>

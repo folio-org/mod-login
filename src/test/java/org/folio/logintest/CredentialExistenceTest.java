@@ -27,6 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.UUID;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 @RunWith(VertxUnitRunner.class)
 public class CredentialExistenceTest {
@@ -62,7 +63,8 @@ public class CredentialExistenceTest {
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
       try {
-        tenantClient.postTenant(null, handler -> saveCredential()
+        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+        tenantClient.postTenant(ta, handler -> saveCredential()
           .setHandler(v -> {
             if (v.succeeded()) {
               async.complete();

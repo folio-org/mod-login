@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.folio.logintest.UserMock.gollumId;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWORDS_HISTORY_NUMBER;
 
 @RunWith(VertxUnitRunner.class)
@@ -69,7 +70,6 @@ public class UpdateCredentialsHistoryTest {
   @BeforeClass
   public static void setUp(TestContext context) {
     vertx = Vertx.vertx();
-    pgClient = PostgresClient.getInstance(vertx, TENANT);
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
 
@@ -89,6 +89,8 @@ public class UpdateCredentialsHistoryTest {
     } catch (Exception e) {
       context.fail(e);
     }
+
+    pgClient = PostgresClient.getInstance(vertx, TENANT);
 
     Future.succeededFuture()
       .compose(v -> deployUserMockVerticle())
@@ -210,8 +212,9 @@ public class UpdateCredentialsHistoryTest {
   private static Future<Void> postTenant() {
     Future<Void> future = Future.future();
     try {
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
       new TenantClient("http://localhost:" + port, TENANT, TOKEN, false)
-        .postTenant(null, resp -> {
+        .postTenant(ta, resp -> {
           if (resp.statusCode() != HttpStatus.SC_CREATED) {
             future.fail(resp.statusMessage());
           }

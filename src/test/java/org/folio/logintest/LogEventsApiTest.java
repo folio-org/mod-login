@@ -44,6 +44,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static junit.framework.TestCase.assertTrue;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import static org.folio.util.LoginConfigUtils.*;
 
 @RunWith(VertxUnitRunner.class)
@@ -91,7 +92,8 @@ public class LogEventsApiTest {
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
       res -> {
         try {
-          tenantClient.postTenant(null, handler -> async.complete());
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+          tenantClient.postTenant(ta, handler -> async.complete());
         } catch (Exception e) {
           context.fail(e);
         }
