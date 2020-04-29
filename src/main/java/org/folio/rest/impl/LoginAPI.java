@@ -608,6 +608,13 @@ public class LoginAPI implements Authn {
           userVerifyFuture = lookupUser(entity.getUsername(), null,
             tenantId, okapiURL, requestToken, vertxContext.owner());
         }
+        if (entity.getPassword() == null) {
+          asyncResultHandler.handle(Future.succeededFuture(
+            PostAuthnCredentialsResponse.respond422WithApplicationJson(
+              ValidationHelper.createValidationErrorMessage(
+                CREDENTIAL_USERID_FIELD, entity.getUserId(), "Password is missing"))));
+          return;
+        }
         userVerifyFuture.setHandler(verifyRes -> {
           if(verifyRes.failed()) {
             String message = "Error looking up user: " + verifyRes.cause()
@@ -1298,25 +1305,35 @@ public class LoginAPI implements Authn {
     return cred;
   }
 
-  public static Errors getErrors(String errorMessage, String errorCode, Pair... pairs) {
+  public static Errors getErrors(String errorMessage, String errorCode,
+    Pair<String, String> pair) {
+
     Errors errors = new Errors();
-    Error error = new Error();
-    error.setMessage(errorMessage);
-    error.setCode(errorCode);
-    error.setType(TYPE_ERROR);
+    Error error = getError(errorMessage, errorCode);
     List<Parameter> params = new ArrayList<>();
-    if (pairs.length > 0) {
-      for (Pair p : pairs) {
-        if (p.getKey() != null && p.getValue() != null) {
-          Parameter param = new Parameter();
-          param.setKey((String) p.getKey());
-          param.setValue((String) p.getValue());
-          params.add(param);
-        }
-      }
+    if (pair.getKey() != null && pair.getValue() != null) {
+      Parameter param = new Parameter();
+      param.setKey(pair.getKey());
+      param.setValue(pair.getValue());
+      params.add(param);
     }
     error.withParameters(params);
     errors.setErrors(Collections.singletonList(error));
     return errors;
+  }
+
+  public static Errors getErrors(String errorMessage, String errorCode) {
+    Errors errors = new Errors();
+    Error error = getError(errorMessage, errorCode);
+    errors.setErrors(Collections.singletonList(error));
+    return errors;
+  }
+
+  private static Error getError(String errorMessage, String errorCode) {
+    Error error = new Error();
+    error.setMessage(errorMessage);
+    error.setCode(errorCode);
+    error.setType(TYPE_ERROR);
+    return error;
   }
 }
