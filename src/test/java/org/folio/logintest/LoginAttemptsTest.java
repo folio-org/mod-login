@@ -13,6 +13,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -24,6 +25,8 @@ import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
+import java.util.UUID;
+
 import org.folio.rest.jaxrs.model.TenantAttributes;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -305,5 +308,18 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(200)
       .body("attemptCount", is(0));
+  }
+
+  @Test
+  public void shouldReturnValidationErrorWithNoPassword() {
+    RestAssured.given()
+      .spec(spec)
+      .header(RestVerticle.OKAPI_USERID_HEADER, adminId)
+      .body(new Password().withUserId(UUID.randomUUID().toString()))
+      .when()
+      .post(CRED_PATH)
+      .then()
+      .statusCode(422)
+      .body("errors[0].message", equalTo("Password is missing"));
   }
 }

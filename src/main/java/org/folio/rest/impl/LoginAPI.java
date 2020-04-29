@@ -608,6 +608,13 @@ public class LoginAPI implements Authn {
           userVerifyFuture = lookupUser(entity.getUsername(), null,
             tenantId, okapiURL, requestToken, vertxContext.owner());
         }
+        if (entity.getPassword() == null) {
+          asyncResultHandler.handle(Future.succeededFuture(
+            PostAuthnCredentialsResponse.respond422WithApplicationJson(
+              ValidationHelper.createValidationErrorMessage(
+                CREDENTIAL_USERID_FIELD, entity.getUserId(), "Password is missing"))));
+          return;
+        }
         userVerifyFuture.setHandler(verifyRes -> {
           if(verifyRes.failed()) {
             String message = "Error looking up user: " + verifyRes.cause()
