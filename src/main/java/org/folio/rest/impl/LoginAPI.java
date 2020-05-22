@@ -12,6 +12,7 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -156,6 +157,39 @@ public class LoginAPI implements Authn {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   }
 
+  private String buildUserLookupURL(String okapiURL, String username, String userId) throws UnsupportedEncodingException {
+    String requestURL;
+    if(username != null) {
+      requestURL = String.format("%s/users?query=username==%s", okapiURL,
+          URLEncoder.encode(username, "UTF-8"));
+    } else {
+      requestURL = String.format("%s/users?query=id==%s", okapiURL,
+          URLEncoder.encode(userId, "UTF-8"));
+    }
+    return requestURL;
+  }
+
+  private JsonObject extractUserFromLookupResponse(HttpResponse<Buffer> res, String requestURL, String username) throws UserLookupException {
+    if (res.statusCode() != 200) {
+      String message = "Error looking up user at url '" + requestURL + "' Expected status code 200, got '" + res.statusCode()
+          + "' :" + res.bodyAsString();
+      throw new UserLookupException(message);
+    } else {
+      JsonObject lookupResult = res.bodyAsJsonObject();
+      if (!lookupResult.containsKey("totalRecords") || !lookupResult.containsKey("users")) {
+        throw new UserLookupException("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+      } else {
+        int recordCount = lookupResult.getInteger("totalRecords");
+        if (recordCount > 1) {
+          throw new UserLookupException("Bad results from username");
+        } else if (recordCount == 0) {
+          throw new UserLookupException("No user found by username " + username);
+        }
+      }
+      return lookupResult.getJsonArray("users").getJsonObject(0);
+    }
+  }
+
   /*
     Query the mod-users module to determine whether or not the username is
     valid for login
@@ -171,13 +205,7 @@ public class LoginAPI implements Authn {
       return Future.failedFuture("Need a valid username or userId to query");
     }
     try {
-      if(username != null) {
-        requestURL = String.format("%s/users?query=username==%s", okapiURL,
-            URLEncoder.encode(username, "UTF-8"));
-      } else {
-        requestURL = String.format("%s/users?query=id==%s", okapiURL,
-            URLEncoder.encode(userId, "UTF-8"));
-      }
+      requestURL = buildUserLookupURL(okapiURL, username, userId);
     } catch(Exception e) {
       logger.error("Error building request URL: " + e.getLocalizedMessage());
       promise.fail(e);
@@ -195,31 +223,11 @@ public class LoginAPI implements Authn {
           promise.fail(ar.cause());
         } else {
           HttpResponse<Buffer> res = ar.result();
-
-          if (res.statusCode() != 200) {
-            String message = "Error looking up user at url '" + finalRequestURL + "' Expected status code 200, got '"
-                + res.statusCode() + "' :" + res.bodyAsString();
-            promise.fail(message);
-          } else {
-            try {
-              JsonObject resultObject = res.bodyAsJsonObject();
-              if (!resultObject.containsKey("totalRecords") || !resultObject.containsKey("users")) {
-                promise.fail("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
-              } else {
-                int recordCount = resultObject.getInteger("totalRecords");
-                if (recordCount > 1) {
-                  promise.fail("Bad results from username");
-                } else if (recordCount == 0) {
-                  logger.error("No user found by username " + username);
-                  promise.fail("No user found by username " + username);
-                } else {
-                  promise.complete(resultObject.getJsonArray("users")
-                    .getJsonObject(0));
-                }
-              }
-            } catch (Exception e) {
-              promise.fail(e);
-            }
+          try {
+            promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
+          } catch (Exception e) {
+            logger.error(e.getMessage());
+            promise.fail(e);
           }
         }
       });
@@ -1327,5 +1335,13 @@ public class LoginAPI implements Authn {
     error.setCode(errorCode);
     error.setType(TYPE_ERROR);
     return error;
+  }
+
+  public static class UserLookupException extends Exception {
+    private static final long serialVersionUID = 5473696882222270905L;
+
+    public UserLookupException(String message) {
+      super(message);
+    }
   }
 }
