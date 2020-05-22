@@ -1,25 +1,22 @@
 package org.folio.logintest;
 
-import io.restassured.RestAssured;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
+import static org.hamcrest.Matchers.is;
+
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Password;
-import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
 import org.junit.AfterClass;
@@ -27,14 +24,19 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.folio.rest.jaxrs.model.TenantAttributes;
-
-import static org.hamcrest.Matchers.is;
+import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 
 @RunWith(VertxUnitRunner.class)
@@ -79,7 +81,7 @@ public class PasswordRepeatabilityValidationTest {
         TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
         tenantClient.postTenant(ta, handler -> fillInCredentialsHistory()
           .compose(v -> saveCredential())
-          .setHandler(v -> {
+          .onComplete(v -> {
             if (v.succeeded()) {
               async.complete();
             }
@@ -164,7 +166,7 @@ public class PasswordRepeatabilityValidationTest {
   }
 
   private static Future<Void> fillInCredentialsHistory() {
-    Future<Void> future = Future.future();
+    Promise<Void> promise = Promise.promise();
 
     //add ten passwords
     List<Future> list = IntStream.range(0, PASSWORDS_HISTORY_NUMBER - 1)
@@ -178,19 +180,19 @@ public class PasswordRepeatabilityValidationTest {
     list.add(saveCredentialsHistoryObject(buildCredentialsHistoryObject(
       OLD_PASSWORD, new Date(new Date().getTime() - hourMillis))));
 
-    CompositeFuture.all(list).setHandler(event -> {
+    CompositeFuture.all(list).onComplete(event -> {
       if (event.succeeded()) {
-        future.complete();
+        promise.complete();
       } else {
-        future.fail(event.cause());
+        promise.fail(event.cause());
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private static Future<Void> saveCredential() {
-    Future<String> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
@@ -198,23 +200,23 @@ public class PasswordRepeatabilityValidationTest {
     credential.setHash(authUtil.calculateHash(CURRENT_PASSWORD, salt));
     credential.setUserId(USER_ID);
     PostgresClient.getInstance(vertx, TENANT).save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(),
-      credential, future.completer());
-    return future.map(s -> null);
+      credential, done -> promise.complete());
+    return promise.future();
   }
 
-  private static Future saveCredentialsHistoryObject(CredentialsHistory obj) {
-    Future future = Future.future();
+  private static Future<Void> saveCredentialsHistoryObject(CredentialsHistory obj) {
+    Promise<Void> promise = Promise.promise();
 
     PostgresClient client = PostgresClient.getInstance(vertx, TENANT);
     client.save(TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), obj, event -> {
       if (event.failed()) {
-        future.fail(event.cause());
+        promise.fail(event.cause());
       } else {
-        future.complete();
+        promise.complete();
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private static CredentialsHistory buildCredentialsHistoryObject(String password) {

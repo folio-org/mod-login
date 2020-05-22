@@ -1,27 +1,26 @@
 package org.folio.logintest;
 
-import io.restassured.RestAssured;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.specification.RequestSpecification;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.sql.UpdateResult;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
+import static org.folio.logintest.UserMock.gollumId;
+import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWORDS_HISTORY_NUMBER;
+
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MediaType;
+
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.jaxrs.model.UpdateCredentials;
+import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.interfaces.Results;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
@@ -31,17 +30,17 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import static org.folio.logintest.UserMock.gollumId;
-import org.folio.rest.jaxrs.model.TenantAttributes;
-import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWORDS_HISTORY_NUMBER;
+import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.specification.RequestSpecification;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
 public class UpdateCredentialsHistoryTest {
@@ -97,7 +96,7 @@ public class UpdateCredentialsHistoryTest {
       .compose(v -> deployRestVerticle())
       .compose(v -> postTenant())
       .compose(v -> persistCredentials())
-      .setHandler(context.asyncAssertSuccess());
+      .onComplete(context.asyncAssertSuccess());
 
   }
 
@@ -114,7 +113,7 @@ public class UpdateCredentialsHistoryTest {
       .compose(v -> clearCredentialsHistoryTable())
       .compose(v -> clearCredentialsTable())
       .compose(v -> persistCredentials())
-      .setHandler(context.asyncAssertSuccess());
+      .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -134,9 +133,9 @@ public class UpdateCredentialsHistoryTest {
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
 
-    Future<Results<CredentialsHistory>> future = Future.future();
-    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, future.completer());
-    future.setHandler(results -> {
+    Promise<Results<CredentialsHistory>> promise = Promise.promise();
+    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, reply -> promise.complete(reply.result()));
+    promise.future().onComplete(results -> {
       List<CredentialsHistory> credHist = results.result().getResults();
       context.assertEquals(credHist.size(), 1);
 
@@ -172,7 +171,7 @@ public class UpdateCredentialsHistoryTest {
       password = newPassword;
     }
 
-    isInitialPasswordRemovedFromHistory().setHandler(any -> {
+    isInitialPasswordRemovedFromHistory().onComplete(any -> {
       if (any.failed()) {
         context.fail(any.cause());
       } else {
@@ -183,69 +182,60 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private Future<Boolean> isInitialPasswordRemovedFromHistory() {
-    Future<Boolean> future = Future.future();
+    Promise<Boolean> promise = Promise.promise();
 
     pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, get -> {
       if (get.failed()) {
-        future.fail(get.cause());
+        promise.fail(get.cause());
       } else {
         boolean any = get.result().getResults()
           .stream()
           .anyMatch(obj -> authUtil.calculateHash(INITIAL_PASSWORD, obj.getSalt()).equals(obj.getHash()));
 
-        future.complete(any);
+        promise.complete(any);
       }
     });
 
-    return future;
-  }
-
-  private Future<Void> fillInCredentialsHistory() {
-
-    return CompositeFuture.all(IntStream.range(0, DEFAULT_PASSWORDS_HISTORY_NUMBER - 2)
-      .mapToObj(UpdateCredentialsHistoryTest::buildCredentialsHistoryObject)
-      .map(UpdateCredentialsHistoryTest::saveCredentialsHistoryObject)
-      .collect(Collectors.toList()))
-      .map(v -> null);
+    return promise.future();
   }
 
   private static Future<Void> postTenant() {
-    Future<Void> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     try {
       TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
       new TenantClient("http://localhost:" + port, TENANT, TOKEN, false)
         .postTenant(ta, resp -> {
           if (resp.statusCode() != HttpStatus.SC_CREATED) {
-            future.fail(resp.statusMessage());
+            promise.fail(resp.statusMessage());
           }
-          future.complete();
+          promise.complete();
         });
     } catch (Exception e) {
-      future.fail(e);
+      promise.fail(e);
     }
-    return future;
+    return promise.future();
   }
 
   private static Future<Void> deployUserMockVerticle() {
-    Future<String> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(UserMock.class, options, future.completer());
+    vertx.deployVerticle(UserMock.class, options, done -> promise.complete());
 
-    return future.map(v -> null);
+    return promise.future();
   }
 
   private static Future<Void> deployRestVerticle() {
-    Future<String> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class, options, future.completer());
+    vertx.deployVerticle(RestVerticle.class, options, done -> promise.complete());
 
-    return future.map(v -> null);
+    return promise.future();
   }
 
   private static Future<Void> persistCredentials() {
-    Future<String> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -254,39 +244,21 @@ public class UpdateCredentialsHistoryTest {
       .withSalt(salt)
       .withHash(authUtil.calculateHash(INITIAL_PASSWORD, salt))
       .withUserId(gollumId);
-    pgClient.save(TABLE_NAME_CRED, id, cred, future.completer());
+    pgClient.save(TABLE_NAME_CRED, id, cred, done -> promise.complete());
 
-    return future.map(v -> null);
-  }
-
-  private static Future<Void> saveCredentialsHistoryObject(CredentialsHistory object) {
-    Future<String> future = Future.future();
-    pgClient.save(TABLE_NAME_CRED_HIST, UUID.randomUUID().toString(), object, future.completer());
-
-    return future.map(v -> null);
+    return promise.future();
   }
 
   private Future<Void> clearCredentialsHistoryTable() {
-    Future<UpdateResult> future = Future.future();
-    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), future.completer());
-    return future.map(v -> null);
+    Promise<Void> promise = Promise.promise();
+    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), done -> promise.complete());
+    return promise.future();
   }
 
   private Future<Void> clearCredentialsTable() {
-    Future<UpdateResult> future = Future.future();
-    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), future.completer());
-    return future.map(v -> null);
+    Promise<Void> promise = Promise.promise();
+    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), done -> promise.complete());
+    return promise.future();
   }
 
-  private static CredentialsHistory buildCredentialsHistoryObject(int i) {
-    CredentialsHistory history = new CredentialsHistory();
-    String salt = authUtil.getSalt();
-    history.setId(UUID.randomUUID().toString());
-    history.setUserId(gollumId);
-    history.setHash(authUtil.calculateHash(PASSWORD_TEMPLATE + i, salt));
-    history.setSalt(salt);
-    history.setDate(new Date());
-
-    return history;
-  }
 }

@@ -3,9 +3,9 @@ package org.folio.logintest;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
@@ -88,7 +88,7 @@ public class RestVerticleTest {
   private static Vertx vertx;
   private static int port;
   private static int mockPort;
-  private static CaseInsensitiveHeaders headers;
+  private static MultiMap headers;
 
   private final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
   private static String credentialsUrl;
@@ -113,7 +113,7 @@ public class RestVerticleTest {
     updateUrl = "http://localhost:" + port + "/authn/update";
     okapiUrl = "http://localhost:" + mockPort;
 
-    headers = new CaseInsensitiveHeaders();
+    headers = MultiMap.caseInsensitiveMultiMap();
     headers.add(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken");
     headers.add(LoginAPI.OKAPI_URL_HEADER, okapiUrl);
     headers.add(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()));
@@ -221,7 +221,7 @@ public class RestVerticleTest {
         .compose(w -> doLogin(context, credsObject5))
         .compose(w -> doBadCredentialsUpdatePassword(context, credsObject6))
         .compose(w -> doBadInputUpdatePassword(context, credsObject4));
-    chainedFuture.setHandler(chainedRes -> {
+    chainedFuture.onComplete(chainedRes -> {
       if (chainedRes.failed()) {
         logger.error("Test failed: " + chainedRes.cause().getLocalizedMessage());
         context.fail(chainedRes.cause());
@@ -238,7 +238,7 @@ public class RestVerticleTest {
       String credentialsId = null;
 
       /**add creds */
-      CompletableFuture<Response> addPUCF = new CompletableFuture();
+      CompletableFuture<Response> addPUCF = new CompletableFuture<>();
       String addPUURL = url;
       send(addPUURL, context, HttpMethod.POST, postCredsRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addPUCF));
@@ -252,7 +252,7 @@ public class RestVerticleTest {
         System.currentTimeMillis() + " for " + addPUURL);
 
       /**add same creds again 422 */
-      CompletableFuture<Response> addPUCF2 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF2 = new CompletableFuture<>();
       String addPUURL2 = url;
       send(addPUURL2, context, HttpMethod.POST, postCredsRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 422, new HTTPResponseHandler(addPUCF2));
@@ -264,7 +264,7 @@ public class RestVerticleTest {
 
 
       /**try to GET the recently created creds 200 */
-      CompletableFuture<Response> addPUCF2_5 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF2_5 = new CompletableFuture<>();
       String addPUURL2_5 = url + "/" + credentialsId;
       send(addPUURL2_5, context, HttpMethod.GET, null,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, new HTTPResponseHandler(addPUCF2_5));
@@ -275,7 +275,7 @@ public class RestVerticleTest {
         + addPUURL2_5);
 
       /**login with creds 201 */
-      CompletableFuture<Response> addPUCF3 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF3 = new CompletableFuture<>();
       String addPUURL3 = "http://localhost:" + port + "/authn/login";
       send(addPUURL3, context, HttpMethod.POST, postCredsRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addPUCF3));
@@ -286,7 +286,7 @@ public class RestVerticleTest {
         + addPUURL3);
 
       /* test mock user*/
-      CompletableFuture<Response> addPUCF4 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF4 = new CompletableFuture<>();
       String addPUURL4 = "http://localhost:" + mockPort + "/users?query=username==gollum";
       send(addPUURL4, context, HttpMethod.GET, null,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, new HTTPResponseHandler(addPUCF4));
@@ -298,7 +298,7 @@ public class RestVerticleTest {
 
 
       // test mock user 404
-      CompletableFuture<Response> addPUCF5 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF5 = new CompletableFuture<>();
       String addPUURL5 = "http://localhost:" + mockPort + "/users?query=username==bilbo";
       send(addPUURL5, context, HttpMethod.GET, null,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 404, new HTTPResponseHandler(addPUCF5));
@@ -310,7 +310,7 @@ public class RestVerticleTest {
 
 
       /**login with creds, no userid supplied, 201 */
-      CompletableFuture<Response> addPUCF6 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF6 = new CompletableFuture<>();
       String addPUURL6 = "http://localhost:" + port + "/authn/login";
       send(addPUURL6, context, HttpMethod.POST, postCredsRequest2,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addPUCF6));
@@ -321,7 +321,7 @@ public class RestVerticleTest {
         + addPUURL6);
 
       /*add creds for inactive user */
-      CompletableFuture<Response> addPUCF7 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF7 = new CompletableFuture<>();
       String addPUURL7 = url;
       send(addPUURL7, context, HttpMethod.POST, postCredsRequest3,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addPUCF7));
@@ -332,7 +332,7 @@ public class RestVerticleTest {
         System.currentTimeMillis() + " for " + addPUURL7);
 
       /* try to login with inactive user */
-      CompletableFuture<Response> addPUCF8 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF8 = new CompletableFuture<>();
       String addPUURL8 = "http://localhost:" + port + "/authn/login";
       send(addPUURL8, context, HttpMethod.POST, postCredsRequest4,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 400, new HTTPResponseHandler(addPUCF8));
@@ -343,7 +343,7 @@ public class RestVerticleTest {
         + addPUURL8);
 
       /*add creds for slow lookup user */
-      CompletableFuture<Response> addPUCF9 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF9 = new CompletableFuture<>();
       String addPUURL9 = url;
       send(addPUURL9, context, HttpMethod.POST, postCredsRequest5,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 201, new HTTPResponseHandler(addPUCF9));
@@ -354,7 +354,7 @@ public class RestVerticleTest {
         System.currentTimeMillis() + " for " + addPUURL9);
 
       /* try to login with slow lookup user */
-      CompletableFuture<Response> addPUCF10 = new CompletableFuture();
+      CompletableFuture<Response> addPUCF10 = new CompletableFuture<>();
       String addPUURL10 = "http://localhost:" + port + "/authn/login";
       send(addPUURL10, context, HttpMethod.POST, postCredsRequest6,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, new HTTPResponseHandler(addPUCF10));

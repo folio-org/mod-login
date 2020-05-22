@@ -1,14 +1,16 @@
 package org.folio.logintest;
 
+import java.util.Map;
+
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
-import java.util.Map;
 
 /**
  *
@@ -57,9 +59,9 @@ public class TestUtil {
   }
 
   public static Future<WrappedResponse> doRequest(Vertx vertx, String url,
-          HttpMethod method, CaseInsensitiveHeaders headers, String payload,
+          HttpMethod method, MultiMap headers, String payload,
           Integer expectedCode, String explanation) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     boolean addPayLoad = false;
     HttpClient client = vertx.createHttpClient();
     HttpClientRequest request = client.requestAbs(method, url);
@@ -68,26 +70,28 @@ public class TestUtil {
             .putHeader("content-type", "application/json")
             .putHeader("accept", "application/json");
     if(headers != null) {
-      for(Map.Entry entry : headers.entries()) {
+      for(Map.Entry<?,?> entry : headers.entries()) {
         request.putHeader((String)entry.getKey(), (String)entry.getValue());
         System.out.println(String.format("Adding header '%s' with value '%s'",
             (String)entry.getKey(), (String)entry.getValue()));
       }
     }
     //standard exception handler
-    request.exceptionHandler(e -> { future.fail(e); });
+    request.exceptionHandler(e -> {
+      promise.fail(e);
+    });
     request.handler( req -> {
       req.bodyHandler(buf -> {
         String explainString = "(no explanation)";
         if(explanation != null) { explainString = explanation; }
         if(expectedCode != null && expectedCode != req.statusCode()) {
-          future.fail(method.toString() + " to " + url + " failed. Expected status code "
+          promise.fail(method.toString() + " to " + url + " failed. Expected status code "
                   + expectedCode + ", got status code " + req.statusCode() + ": "
                   + buf.toString() + " | " + explainString);
         } else {
           System.out.println("Got status code " + req.statusCode() + " with payload of: " + buf.toString() + " | " + explainString);
           WrappedResponse wr = new WrappedResponse(explanation, req.statusCode(), buf.toString(), req);
-          future.complete(wr);
+          promise.complete(wr);
         }
       });
     });
@@ -98,6 +102,6 @@ public class TestUtil {
     } else {
       request.end();
     }
-    return future;
+    return promise.future();
   }
 }

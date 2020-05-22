@@ -1,16 +1,16 @@
 package org.folio.logintest;
 
+import static java.lang.Thread.sleep;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
+
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-
-import static java.lang.Thread.sleep;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 /**
  * @author kurt
@@ -31,23 +31,23 @@ public class UserMock extends AbstractVerticle {
       .add(admin))
     .put("totalRecords", 1);
 
-  public void start(Future<Void> future) {
+  public void start(Promise<Void> promise) {
     final int port = context.config().getInteger("port");
 
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
 
     router.route("/users").handler(this::handleUsers);
-    router.put("/users/" + adminId).handler(this::handleUserPut);
+    router.putWithRegex("/users/.*").handler(this::handleUserPut);
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
     System.out.println("Running UserMock on port " + port);
-    server.requestHandler(router::accept).listen(port, result -> {
+    server.requestHandler(router::handle).listen(port, result -> {
       if (result.failed()) {
-        future.fail(result.cause());
+        promise.fail(result.cause());
       } else {
-        future.complete();
+        promise.complete();
       }
     });
   }

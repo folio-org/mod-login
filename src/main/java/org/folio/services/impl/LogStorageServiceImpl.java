@@ -161,7 +161,7 @@ public class LogStorageServiceImpl implements LogStorageService {
               return;
             }
 
-            int resultCode = deleteReply.result().getUpdated();
+            int resultCode = deleteReply.result().rowCount();
             if (resultCode == 0) {
               asyncResultHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT));
               return;
