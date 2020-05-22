@@ -1,10 +1,7 @@
 package org.folio.services.impl;
 
-import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
-import static org.folio.util.Constants.DEFAULT_TIMEOUT;
-import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_CODE_STATUS;
 import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
 
@@ -18,6 +15,7 @@ import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.services.ConfigurationService;
+import org.folio.util.WebClientFactory;
 
 import com.google.common.collect.Lists;
 
@@ -33,8 +31,6 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 public class ConfigurationServiceImpl implements ConfigurationService {
 
@@ -52,21 +48,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
   private final Logger logger = LoggerFactory.getLogger(ConfigurationServiceImpl.class);
 
-  private WebClient httpClient;
-  private final Vertx vertx;
-
-  /**
-   * Timeout to wait for response
-   */
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
-
   public ConfigurationServiceImpl(Vertx vertx) {
-    this.vertx = vertx;
-
-    WebClientOptions options = new WebClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    this.httpClient = WebClient.create(vertx, options);
   }
 
   @Override
@@ -123,7 +105,8 @@ public class ConfigurationServiceImpl implements ConfigurationService {
     String okapiUrl = headers.getString(OKAPI_URL_HEADER);
     String okapiToken = headers.getString(OKAPI_HEADER_TOKEN);
     String requestUrl = String.format(REQUEST_URL_TEMPLATE, okapiUrl, REQUEST_URI_PATH, EVENT_LOG_API_MODULE);
-    HttpRequest<Buffer> request = httpClient.getAbs(requestUrl);
+
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestUrl);
     request.putHeader(OKAPI_HEADER_TOKEN, okapiToken)
       .putHeader(OKAPI_HEADER_TENANT, tenantId)
       .putHeader(HTTP_HEADER_CONTENT_TYPE, MediaType.APPLICATION_JSON)

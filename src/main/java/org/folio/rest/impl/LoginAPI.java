@@ -3,8 +3,6 @@ package org.folio.rest.impl;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.util.Constants.DEFAULT_TIMEOUT;
-import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
@@ -64,6 +62,7 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
+import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
@@ -78,8 +77,6 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 /**
  * @author kurt
@@ -120,13 +117,10 @@ public class LoginAPI implements Authn {
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
       .getOrDefault("require.active", "true"));
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS
-      .getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
 
   private String vTenantId;
-  private WebClient client;
   private LogStorageService logStorageService;
   private ConfigurationService configurationService;
   private PasswordStorageService passwordStorageService;
@@ -142,11 +136,6 @@ public class LoginAPI implements Authn {
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
     configurationService = ConfigurationService.createProxy(vertx, EVENT_CONFIG_PROXY_CONFIG_ADDRESS);
     loginAttemptsHelper = new LoginAttemptsHelper(vertx);
-
-    WebClientOptions options = new WebClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    client = WebClient.create(vertx, options);
   }
 
   private String getErrorResponse(String response) {
@@ -196,12 +185,11 @@ public class LoginAPI implements Authn {
     }
     try {
       final String finalRequestURL = requestURL;
-      HttpRequest<Buffer> request = client.getAbs(finalRequestURL);
+      HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
         .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
         .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
-      request.timeout(lookupTimeout);
       request.send(ar -> {
         if (ar.failed()) {
           promise.fail(ar.cause());
@@ -246,7 +234,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchToken(JsonObject payload, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = client.postAbs(okapiURL + "/token");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/token");
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
@@ -287,7 +275,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = client.postAbs(okapiURL + "/refreshtoken");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
@@ -495,7 +483,7 @@ public class LoginAPI implements Authn {
                               refreshToken = fetchRefreshTokenFuture.result();
                             }
                             PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                              // after succesfull login skip login attempts counter
+                              // after succesful login skip login attempts counter
                             String finalRefreshToken = refreshToken;
                             Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
                             requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);

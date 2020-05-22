@@ -4,8 +4,6 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
-import static org.folio.util.Constants.DEFAULT_TIMEOUT;
-import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 import java.net.URLEncoder;
@@ -36,8 +34,6 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 /**
  * Helper class that contains static methods which helps with processing Login Attempts business logic
@@ -54,22 +50,11 @@ public class LoginAttemptsHelper {
   private static final String VALUE = "value";
 
   private Vertx vertx;
-  private WebClient httpClient;
   private LogStorageService logStorageService;
-
-  /**
-   * Timeout to wait for response
-   */
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   public LoginAttemptsHelper(Vertx vertx) {
     this.vertx = vertx;
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-
-    WebClientOptions options = new WebClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    this.httpClient = WebClient.create(vertx, options);
   }
 
   /**
@@ -244,7 +229,7 @@ public class LoginAttemptsHelper {
       return promise.future();
     }
     try {
-      HttpRequest<Buffer> request = httpClient.getAbs(requestURL);
+      HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
         .putHeader("Content-type", JSON_TYPE)
@@ -314,7 +299,7 @@ public class LoginAttemptsHelper {
       return promise.future();
     }
     try {
-      HttpRequest<Buffer> request = httpClient.putAbs(requestURL);
+      HttpRequest<Buffer> request = WebClientFactory.getWebClient().putAbs(requestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
         .putHeader("Content-type", JSON_TYPE)

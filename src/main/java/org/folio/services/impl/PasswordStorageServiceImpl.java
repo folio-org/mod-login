@@ -1,8 +1,5 @@
 package org.folio.services.impl;
 
-import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.util.Constants.DEFAULT_TIMEOUT;
-import static org.folio.util.Constants.LOOKUP_TIMEOUT;
 import static org.folio.util.LoginConfigUtils.EMPTY_JSON_OBJECT;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
@@ -43,6 +40,7 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -54,8 +52,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -75,21 +71,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private final Vertx vertx;
   private AuthUtil authUtil = new AuthUtil();
   private LogStorageService logStorageService;
-  private final WebClient httpClient;
-
-  /**
-   * Timeout to wait for response
-   */
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
   public PasswordStorageServiceImpl(Vertx vertx) {
     this.vertx = vertx;
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-
-    WebClientOptions options = new WebClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    this.httpClient = WebClient.create(vertx, options);
   }
 
   @Override
@@ -597,7 +582,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
     Promise<Integer> promise = Promise.promise();
 
-    httpClient.getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
+    WebClientFactory.getWebClient().getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
       .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
       .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
