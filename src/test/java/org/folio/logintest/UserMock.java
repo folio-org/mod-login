@@ -4,6 +4,8 @@ import static java.lang.Thread.sleep;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
+import java.util.UUID;
+
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
@@ -20,6 +22,7 @@ public class UserMock extends AbstractVerticle {
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
+  public static final String gimliId = "ade0c47f-4c86-46e1-8932-0991322799c1";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   private JsonObject admin = new JsonObject()
@@ -85,7 +88,37 @@ public class UserMock extends AbstractVerticle {
           context.response()
             .setStatusCode(200)
             .end(responseOb.encode());
-
+          break;
+        case "username==gimli":
+          userOb = new JsonObject();
+          context.response()
+            .setStatusCode(200)
+            .end(userOb.encode());
+          break;
+        case "username==mrunderhill":
+          userOb = new JsonObject();
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 0);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+        case "username==gandalf":
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(new JsonObject()
+                  .put("username", "gandalf")
+                  .put("id", UUID.randomUUID().toString())
+                  .put("active", true))
+              .add(new JsonObject()
+                  .put("username", "gandalf")
+                  .put("id", UUID.randomUUID().toString())
+                  .put("active", false)))
+            .put("totalRecords", 2);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
           break;
         case "username==saruman":
           userOb = new JsonObject()
