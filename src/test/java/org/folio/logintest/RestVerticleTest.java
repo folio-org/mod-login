@@ -92,6 +92,10 @@ public class RestVerticleTest {
       .put("username", "gandalf")
       .put("password", "54321");
 
+  private JsonObject credsUserWithNoId = new JsonObject()
+      .put("username", "strider")
+      .put("password", "54321");
+
   private static Vertx vertx;
   private static int port;
   private static int mockPort;
@@ -222,6 +226,7 @@ public class RestVerticleTest {
         .compose(w -> doLoginBadUserResponse(context, credsElicitBadUserResp))
         .compose(w -> doLoginNonExistentUser(context, credsNonExistentUser))
         .compose(w -> doLoginMultiUserRespose(context, credsElicitMultiUserResp))
+        .compose(w -> doLoginNoUserId(context, credsUserWithNoId))
         .compose(w -> doLogin(context, credsObject1))
         .compose(w -> doLogin(context, credsObject2))
         .compose(w -> postNewCredentials(context, credsObject3))
@@ -334,6 +339,11 @@ public class RestVerticleTest {
   private Future<WrappedResponse> doLoginNoUsernameOrUserId(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
       400, "You must provide a username or userId");
+  }
+
+  private Future<WrappedResponse> doLoginNoUserId(TestContext context, JsonObject loginCredentials) {
+    return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
+      500, "No user id could be found");
   }
 
   private Future<WrappedResponse> doLoginNoPassword(TestContext context, JsonObject loginCredentials) {

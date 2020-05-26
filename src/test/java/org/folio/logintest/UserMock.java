@@ -6,6 +6,8 @@ import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 import java.util.UUID;
 
+import org.drools.core.spi.Accumulator.SafeAccumulator;
+
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
@@ -41,7 +43,7 @@ public class UserMock extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
 
     router.route("/users").handler(this::handleUsers);
-    router.putWithRegex("/users/.*").handler(this::handleUserPut);
+    router.put("/users/:id").handler(this::handleUserPut);
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
@@ -116,6 +118,18 @@ public class UserMock extends AbstractVerticle {
                   .put("id", UUID.randomUUID().toString())
                   .put("active", false)))
             .put("totalRecords", 2);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "username==strider":
+          userOb = new JsonObject()
+            .put("username", "strider")
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
             .end(responseOb.encode());
@@ -233,10 +247,17 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleUserPut(RoutingContext context) {
-    admin.put("active", false);
-    context.response()
-      .setStatusCode(204)
-      .end();
+    String id = context.request().getParam("id");
+    if(id.equals(adminId)) {
+      admin.put("active", false);
+      context.response()
+        .setStatusCode(204)
+        .end();
+    } else {
+      context.response()
+        .setStatusCode(204)
+        .end();
+    }
   }
 }
 

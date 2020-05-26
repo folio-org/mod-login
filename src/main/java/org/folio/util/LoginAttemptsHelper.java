@@ -310,9 +310,9 @@ public class LoginAttemptsHelper {
         } else {
           HttpResponse<Buffer> res = ar.result();
           if (res.statusCode() != 204) {
-            Buffer buf = res.bodyAsBuffer();
+            String body = res.bodyAsString();
               String message = "Expected status code 204, got '" + res.statusCode() +
-                "' :" + buf.toString();
+                "' :" + body;
               promise.fail(message);
           } else {
             promise.complete();

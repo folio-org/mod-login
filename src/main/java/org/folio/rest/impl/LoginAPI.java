@@ -197,21 +197,10 @@ public class LoginAPI implements Authn {
   private Future<JsonObject> lookupUser(String username, String userId, String tenant,
       final String okapiURL, String requestToken) {
     Promise<JsonObject> promise = Promise.promise();
-    String requestURL;
-    if(requestToken == null) {
-      requestToken = "";
-    }
-    if(username == null && userId == null) {
-      return Future.failedFuture("Need a valid username or userId to query");
-    }
+    String requestURL = null;
+
     try {
       requestURL = buildUserLookupURL(okapiURL, username, userId);
-    } catch(Exception e) {
-      logger.error("Error building request URL: " + e.getLocalizedMessage());
-      promise.fail(e);
-      return promise.future();
-    }
-    try {
       final String finalRequestURL = requestURL;
       HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
