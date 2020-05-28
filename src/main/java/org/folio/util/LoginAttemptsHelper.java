@@ -133,13 +133,17 @@ public class LoginAttemptsHelper {
   private Future<Errors> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders, JsonObject userObject) {
     Promise<Errors> promise = Promise.promise();
     try {
-      getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders).onComplete(res ->
-        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders).onComplete(handle ->
-          getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders).onComplete(res1 -> {
+      Future<JsonObject> attemptsFut = getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders);
+      Future<JsonObject> timeoutFut = getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders);
+      Future<JsonObject> warnFut = getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders);
+
+      attemptsFut.onComplete(attemptsConf ->
+        timeoutFut.onComplete(timeoutConf ->
+          warnFut.onComplete(warnConf -> {
             boolean result = false;
-            int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
-            int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
-            int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+            int loginTimeoutConfigValue = getValue(timeoutConf, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+            int loginFailConfigValue = getValue(attemptsConf, LOGIN_ATTEMPTS_CODE, 5);
+            int loginFailToWarnValue = getValue(warnConf, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
 
             if (loginFailConfigValue != 0) {
               // get time diff between current date and last login attempt
