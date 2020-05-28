@@ -6,8 +6,6 @@ import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 import java.util.UUID;
 
-import org.drools.core.spi.Accumulator.SafeAccumulator;
-
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
