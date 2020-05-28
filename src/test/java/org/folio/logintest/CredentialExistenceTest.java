@@ -123,7 +123,7 @@ public class CredentialExistenceTest {
   }
 
   private static Future<Void> saveCredential() {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
@@ -131,13 +131,7 @@ public class CredentialExistenceTest {
     credential.setHash(authUtil.calculateHash("password", salt));
     credential.setUserId(EXISTING_CREDENTIALS_USER_ID);
     PostgresClient.getInstance(vertx, TENANT)
-      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, reply -> {
-        if (reply.failed()) {
-          promise.fail(reply.cause());
-        } else {
-          promise.complete();
-        }
-      });
-    return promise.future();
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
+    return promise.future().map(s -> null);
   }
 }

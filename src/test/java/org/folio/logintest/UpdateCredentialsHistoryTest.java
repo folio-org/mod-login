@@ -41,6 +41,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 
 @RunWith(VertxUnitRunner.class)
 public class UpdateCredentialsHistoryTest {
@@ -134,7 +136,7 @@ public class UpdateCredentialsHistoryTest {
       .statusCode(HttpStatus.SC_NO_CONTENT);
 
     Promise<Results<CredentialsHistory>> promise = Promise.promise();
-    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, reply -> promise.complete(reply.result()));
+    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, promise);
     promise.future().onComplete(results -> {
       List<CredentialsHistory> credHist = results.result().getResults();
       context.assertEquals(credHist.size(), 1);
@@ -217,35 +219,23 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private static Future<Void> deployUserMockVerticle() {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(UserMock.class, options, reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete();
-      }
-    });
-    return promise.future();
+    vertx.deployVerticle(UserMock.class, options, promise);
+    return promise.future().map(s -> null);
   }
 
   private static Future<Void> deployRestVerticle() {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class, options, reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete();
-      }
-    });
-    return promise.future();
+    vertx.deployVerticle(RestVerticle.class, options, promise);
+    return promise.future().map(s -> null);
   }
 
   private static Future<Void> persistCredentials() {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
     authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -254,38 +244,20 @@ public class UpdateCredentialsHistoryTest {
       .withSalt(salt)
       .withHash(authUtil.calculateHash(INITIAL_PASSWORD, salt))
       .withUserId(gollumId);
-    pgClient.save(TABLE_NAME_CRED, id, cred, reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete();
-      }
-    });
-    return promise.future();
+    pgClient.save(TABLE_NAME_CRED, id, cred, promise);
+    return promise.future().map(s -> null);
   }
 
   private Future<Void> clearCredentialsHistoryTable() {
-    Promise<Void> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete();
-      }
-    });
-    return promise.future();
+    Promise<RowSet<Row>> promise = Promise.promise();
+    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), promise);
+    return promise.future().map(s -> null);
   }
 
   private Future<Void> clearCredentialsTable() {
-    Promise<Void> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete();
-      }
-    });
-    return promise.future();
+    Promise<RowSet<Row>> promise = Promise.promise();
+    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), promise);
+    return promise.future().map(s -> null);
   }
 
 }
