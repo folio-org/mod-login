@@ -42,10 +42,10 @@ public class LoginAttemptsHelper {
 
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
-  private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
+  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
-  private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
+  public static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
   private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
 
@@ -80,14 +80,7 @@ public class LoginAttemptsHelper {
    */
   private Future<Void> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Promise<Void> promise = Promise.promise();
-
-    try {
-      pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, reply -> promise.complete());
-    } catch (Exception e) {
-      logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
-      promise.fail(e.getCause());
-    }
-
+    pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, reply -> promise.complete());
     return promise.future();
   }
 
@@ -99,15 +92,7 @@ public class LoginAttemptsHelper {
    */
   private Future<Void> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Promise<Void> promise = Promise.promise();
-
-    try {
-      pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), done -> promise.complete());
-    } catch (Exception e) {
-      logger.error(
-        "Error with postgresclient on saving login attempt during post login request: "+ e.getLocalizedMessage());
-      promise.fail(e.getCause());
-    }
-
+    pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), done -> promise.complete());
     return promise.future();
   }
 
@@ -120,15 +105,9 @@ public class LoginAttemptsHelper {
    */
   public Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
     Promise<List<LoginAttempts>> promise = Promise.promise();
-
-    try {
-      pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId), false, reply ->
-        promise.complete(reply.result().getResults()));
-    } catch (Exception e) {
-      logger.error("Error with postgres client on getting login attempt during post login request: " + e.getLocalizedMessage());
-      promise.fail(e.getCause());
-    }
-
+    pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId), false,
+        reply -> promise.complete(reply.result()
+          .getResults()));
     return promise.future();
   }
 
@@ -223,12 +202,6 @@ public class LoginAttemptsHelper {
     try {
       requestURL = okapiUrl + "/configurations/entries?query=" +
         "code==" + URLEncoder.encode(configCode, "UTF-8");
-    } catch (Exception e) {
-      logger.error("Error building request URL: " + e.getLocalizedMessage());
-      promise.fail(e);
-      return promise.future();
-    }
-    try {
       HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestURL);
       request.putHeader(OKAPI_TENANT_HEADER, tenant)
         .putHeader(OKAPI_TOKEN_HEADER, requestToken)
@@ -240,14 +213,13 @@ public class LoginAttemptsHelper {
         } else {
           HttpResponse<?> res = ar.result();
           if (res.statusCode() != 200) {
-            Buffer buf = res.bodyAsBuffer();
-              String message = "Expected status code 200, got '" + res.statusCode() +
-                "' :" + buf.toString();
-              promise.fail(message);
+            String message = "Expected status code 200, got '" + res.statusCode() +
+                "' :" + res.bodyAsString();
+            logger.warn(message);
+            promise.fail(message);
           } else {
-            Buffer buf = res.bodyAsBuffer();
             try {
-              JsonObject resultObject = buf.toJsonObject();
+              JsonObject resultObject = res.bodyAsJsonObject();
               if (!resultObject.containsKey("totalRecords") ||
                 !resultObject.containsKey("configs")) {
                 promise.fail("Error, missing field(s) 'totalRecords' and/or 'configs' in config response object");

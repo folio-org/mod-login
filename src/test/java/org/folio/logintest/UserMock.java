@@ -5,8 +5,7 @@ import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 import java.util.UUID;
-
-import org.drools.core.spi.Accumulator.SafeAccumulator;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
@@ -27,6 +26,8 @@ public class UserMock extends AbstractVerticle {
   public static final String gimliId = "ade0c47f-4c86-46e1-8932-0991322799c1";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
+  private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
+
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
     .put("id", adminId)
@@ -37,6 +38,7 @@ public class UserMock extends AbstractVerticle {
     .put("totalRecords", 1);
 
   public void start(Promise<Void> promise) {
+    resetConfigs();
     final int port = context.config().getInteger("port");
 
     Router router = Router.router(vertx);
@@ -209,28 +211,42 @@ public class UserMock extends AbstractVerticle {
       .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
+  public static void setConfig(String code, JsonObject json) {
+    configs.put(code, json);
+  }
+
+  public static JsonObject removeConfig(String code) {
+    return configs.remove(code);
+  }
+
+  public static void resetConfigs() {
+    JsonObject configOb = new JsonObject().put("value", 2);
+    JsonArray array = new JsonArray().add(configOb);
+    JsonObject responseJson = new JsonObject()
+        .put("configs", array)
+        .put("totalRecords", 1);
+    configs.put(LOGIN_ATTEMPTS_CODE, responseJson);
+
+    configOb = new JsonObject().put("value", 2);
+    array = new JsonArray().add(configOb);
+    responseJson = new JsonObject()
+       .put("configs", array)
+       .put("totalRecords", 1);
+    configs.put(LOGIN_ATTEMPTS_TIMEOUT_CODE, responseJson);
+  }
+
   private void handleConfig(RoutingContext context) {
     try {
-      JsonObject responseJson = new JsonObject();
+      JsonObject responseJson = null;
       String queryString = "code==";
       String query = context.request().getParam("query");
       if (query.equals(queryString + LOGIN_ATTEMPTS_CODE)) {
-        JsonObject configOb = new JsonObject()
-          .put("value", 2);
-        JsonArray array = new JsonArray();
-        array.add(configOb);
-        responseJson.put("configs", array)
-          .put("totalRecords", 1);
-        context.response()
-          .setStatusCode(200)
-          .end(responseJson.encode());
+        responseJson = configs.get(LOGIN_ATTEMPTS_CODE);
       } else if (query.equals(queryString + LOGIN_ATTEMPTS_TIMEOUT_CODE)) {
-        JsonObject configOb = new JsonObject()
-          .put("value", 1);
-        JsonArray array = new JsonArray();
-        array.add(configOb);
-        responseJson.put("configs", array)
-          .put("totalRecords", 1);
+        responseJson = configs.get(LOGIN_ATTEMPTS_TIMEOUT_CODE);
+      }
+
+      if(responseJson != null) {
         context.response()
           .setStatusCode(200)
           .end(responseJson.encode());
