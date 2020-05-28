@@ -37,6 +37,7 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
@@ -119,17 +120,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   public PasswordStorageService getPasswordExistence(String userId, String tenantId, Handler<AsyncResult<JsonObject>> asyncHandler) {
     Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Promise<JsonObject> promise = Promise.promise();
-    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false,reply -> {
-      if (reply.failed()) {
-        promise.fail(reply.cause());
-      } else {
-        promise.complete(JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(reply.result()
-          .getResultInfo()
-          .getTotalRecords() == 1)));
-      }
-    });
-    promise.future().onComplete(asyncHandler);
+    Promise<Results<Credential>> promise = Promise.promise();
+    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false, promise);
+    promise.future().map(credentialResults -> {
+      boolean credentialFound = credentialResults.getResults().size() == 1;
+      return JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(credentialFound));
+    }).onComplete(asyncHandler);
     return this;
   }
 
