@@ -200,7 +200,13 @@ public class PasswordRepeatabilityValidationTest {
     credential.setHash(authUtil.calculateHash(CURRENT_PASSWORD, salt));
     credential.setUserId(USER_ID);
     PostgresClient.getInstance(vertx, TENANT).save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(),
-      credential, done -> promise.complete());
+      credential, reply -> {
+        if (reply.failed()) {
+          promise.fail(reply.cause());
+        } else {
+          promise.complete();
+        }
+      });
     return promise.future();
   }
 

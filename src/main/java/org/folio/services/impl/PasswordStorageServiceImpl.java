@@ -52,6 +52,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -118,10 +120,15 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
     Promise<JsonObject> promise = Promise.promise();
-    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false,
-        reply -> promise.complete(JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(reply.result()
+    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false,reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete(JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(reply.result()
           .getResultInfo()
-          .getTotalRecords() == 1))));
+          .getTotalRecords() == 1)));
+      }
+    });
     promise.future().onComplete(asyncHandler);
     return this;
   }
@@ -491,8 +498,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       promise.fail(e);
     }
     CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + newCred.getId());
-    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, reply -> promise.complete(oldCred));
-
+    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete(oldCred);
+      }
+    });
     return promise.future();
   }
 
@@ -513,9 +525,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         credHistory.setDate(new Date());
 
         PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
-        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(),
-          credHistory, done -> promise.complete());
-
+        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), credHistory, reply -> {
+          if (reply.failed()) {
+            promise.fail(reply.cause());
+          } else {
+            promise.complete();
+          }
+        });
         return promise.future();
       });
   }
@@ -526,7 +542,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
     Promise<Integer> promise = Promise.promise();
     String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
-    pgClient.select(query, reply -> promise.complete(reply.result().iterator().next().getInteger(0)));
+    pgClient.select(query, reply -> {
+      if(reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete(reply.result().iterator().next().getInteger(0));
+      }
+    });
     return promise.future();
   }
 
@@ -543,8 +565,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String query = String.format("DELETE FROM %s WHERE id IN " +
         "(SELECT id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
       tableName, tableName, userId, count);
-    pgClient.execute(query, done -> promise.complete());
-
+    pgClient.execute(query, reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 

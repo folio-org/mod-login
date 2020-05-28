@@ -130,9 +130,14 @@ public class CredentialExistenceTest {
     credential.setSalt(salt);
     credential.setHash(authUtil.calculateHash("password", salt));
     credential.setUserId(EXISTING_CREDENTIALS_USER_ID);
-    PostgresClient.getInstance(vertx, TENANT).save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(),
-      credential, done -> promise.complete());
+    PostgresClient.getInstance(vertx, TENANT)
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, reply -> {
+        if (reply.failed()) {
+          promise.fail(reply.cause());
+        } else {
+          promise.complete();
+        }
+      });
     return promise.future();
   }
-
 }

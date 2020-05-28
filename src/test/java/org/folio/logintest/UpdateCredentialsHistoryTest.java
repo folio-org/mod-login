@@ -220,8 +220,13 @@ public class UpdateCredentialsHistoryTest {
     Promise<Void> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(UserMock.class, options, done -> promise.complete());
-
+    vertx.deployVerticle(UserMock.class, options, reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 
@@ -229,8 +234,13 @@ public class UpdateCredentialsHistoryTest {
     Promise<Void> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class, options, done -> promise.complete());
-
+    vertx.deployVerticle(RestVerticle.class, options, reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 
@@ -244,20 +254,37 @@ public class UpdateCredentialsHistoryTest {
       .withSalt(salt)
       .withHash(authUtil.calculateHash(INITIAL_PASSWORD, salt))
       .withUserId(gollumId);
-    pgClient.save(TABLE_NAME_CRED, id, cred, done -> promise.complete());
-
+    pgClient.save(TABLE_NAME_CRED, id, cred, reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 
   private Future<Void> clearCredentialsHistoryTable() {
     Promise<Void> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), done -> promise.complete());
+    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 
   private Future<Void> clearCredentialsTable() {
     Promise<Void> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), done -> promise.complete());
+    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), reply -> {
+      if (reply.failed()) {
+        promise.fail(reply.cause());
+      } else {
+        promise.complete();
+      }
+    });
     return promise.future();
   }
 
