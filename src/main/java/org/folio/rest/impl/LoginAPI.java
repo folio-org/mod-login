@@ -157,14 +157,18 @@ public class LoginAPI implements Authn {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   }
 
-  private String buildUserLookupURL(String okapiURL, String username, String userId) throws UnsupportedEncodingException {
-    String requestURL;
-    if(username != null) {
-      requestURL = String.format("%s/users?query=username==%s", okapiURL,
-          URLEncoder.encode(username, "UTF-8"));
-    } else {
-      requestURL = String.format("%s/users?query=id==%s", okapiURL,
-          URLEncoder.encode(userId, "UTF-8"));
+  private String buildUserLookupURL(String okapiURL, String username, String userId) {
+    String requestURL = null;
+    try {
+      if(username != null) {
+        requestURL = String.format("%s/users?query=username==%s", okapiURL,
+            URLEncoder.encode(username, "UTF-8"));
+      } else {
+        requestURL = String.format("%s/users?query=id==%s", okapiURL,
+            URLEncoder.encode(userId, "UTF-8"));
+      }
+    } catch (UnsupportedEncodingException e) {
+      // Should never happen - UTF-8 is supported
     }
     return requestURL;
   }
@@ -199,32 +203,27 @@ public class LoginAPI implements Authn {
     Promise<JsonObject> promise = Promise.promise();
     String requestURL = null;
 
-    try {
-      requestURL = buildUserLookupURL(okapiURL, username, userId);
-      final String finalRequestURL = requestURL;
-      HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
-      request.putHeader(OKAPI_TENANT_HEADER, tenant)
-        .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
-        .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
-      request.send(ar -> {
-        if (ar.failed()) {
-          promise.fail(ar.cause());
-        } else {
-          HttpResponse<Buffer> res = ar.result();
-          try {
-            promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
-          } catch (Exception e) {
-            logger.error(e.getMessage());
-            promise.fail(e);
-          }
+    requestURL = buildUserLookupURL(okapiURL, username, userId);
+    final String finalRequestURL = requestURL;
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
+      .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
+    request.send(ar -> {
+      if (ar.failed()) {
+        promise.fail(ar.cause());
+      } else {
+        HttpResponse<Buffer> res = ar.result();
+        try {
+          promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
+        } catch (Exception e) {
+          logger.error(e.getMessage());
+          promise.fail(e);
         }
-      });
-    } catch (Exception e) {
-      String message = "User lookup failed at url '" + requestURL + "': " + e.getLocalizedMessage();
-      logger.error(message, e);
-      promise.fail(message);
-    }
+      }
+    });
+
     return promise.future();
   }
 
