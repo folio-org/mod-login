@@ -22,12 +22,20 @@ public class WebClientFactory {
   private WebClientFactory() {
   }
 
-  public static void init(Vertx vertx) {
-    int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
+  /**
+   * Initializes a WebClient for the provided Vertx.
+   * Calling this method more than once with the same Vertx has no effect.
+   *
+   * @param vertx
+   */
+  public static synchronized void init(Vertx vertx) {
+    if (vertx != null && !clients.containsKey(vertx)) {
+      int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
 
-    WebClientOptions options = new WebClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    clients.put(vertx, WebClient.create(vertx, options));
+      WebClientOptions options = new WebClientOptions();
+      options.setConnectTimeout(lookupTimeout);
+      options.setIdleTimeout(lookupTimeout);
+      clients.put(vertx, WebClient.create(vertx, options));
+    }
   }
 }
