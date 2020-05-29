@@ -177,20 +177,19 @@ public class LoginAPI implements Authn {
       String message = "Error looking up user at url '" + requestURL + "' Expected status code 200, got '" + res.statusCode()
           + "' :" + res.bodyAsString();
       throw new UserLookupException(message);
-    } else {
-      JsonObject lookupResult = res.bodyAsJsonObject();
-      if (!lookupResult.containsKey("totalRecords") || !lookupResult.containsKey("users")) {
-        throw new UserLookupException("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
-      } else {
-        int recordCount = lookupResult.getInteger("totalRecords");
-        if (recordCount > 1) {
-          throw new UserLookupException("Bad results from username");
-        } else if (recordCount == 0) {
-          throw new UserLookupException("No user found by username " + username);
-        }
-      }
-      return lookupResult.getJsonArray("users").getJsonObject(0);
     }
+    JsonObject lookupResult = res.bodyAsJsonObject();
+    if (!lookupResult.containsKey("totalRecords") || !lookupResult.containsKey("users")) {
+      throw new UserLookupException("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+    }
+    int recordCount = lookupResult.getInteger("totalRecords");
+    if (recordCount > 1) {
+      throw new UserLookupException("Bad results from username");
+    }
+    if (recordCount == 0) {
+      throw new UserLookupException("No user found by username " + username);
+    }
+    return lookupResult.getJsonArray("users").getJsonObject(0);
   }
 
   /*
