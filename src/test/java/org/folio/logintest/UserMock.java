@@ -108,6 +108,7 @@ public class UserMock extends AbstractVerticle {
           context.response()
             .setStatusCode(200)
             .end(responseOb.encode());
+          break;
         case "username==gandalf":
           responseOb = new JsonObject()
             .put("users", new JsonArray()
