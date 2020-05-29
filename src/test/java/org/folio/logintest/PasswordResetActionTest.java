@@ -1,29 +1,31 @@
 package org.folio.logintest;
 
-import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import io.restassured.RestAssured;
-import io.restassured.http.Header;
-import io.restassured.http.Headers;
-import io.restassured.response.Response;
-import io.restassured.specification.RequestSpecification;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.sql.SQLConnection;
-import io.vertx.ext.sql.UpdateResult;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertTrue;
+import static junit.framework.TestCase.fail;
+import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
+import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
+import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
+import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
+import java.util.UUID;
+
+import javax.ws.rs.core.MediaType;
+
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.PasswordReset;
-import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.SQLConnection;
+import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
 import org.junit.AfterClass;
@@ -34,19 +36,24 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
-import javax.ws.rs.core.MediaType;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
-import java.util.UUID;
+import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
-import static junit.framework.TestCase.*;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
-import org.folio.rest.jaxrs.model.TenantAttributes;
-import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
-import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
+import io.restassured.RestAssured;
+import io.restassured.http.Header;
+import io.restassured.http.Headers;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 
 @RunWith(VertxUnitRunner.class)
 public class PasswordResetActionTest {
@@ -309,7 +316,7 @@ public class PasswordResetActionTest {
   }
 
   private void deleteAuthCredentials(TestContext context, PostgresClient pgClient, AsyncResult<SQLConnection> beginTx,
-                                     Async async, AsyncResult<UpdateResult> event) {
+                                     Async async, AsyncResult<RowSet<Row>> event) {
     pgClient.delete(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, new Criterion(), eventAuth ->
     {
       if (event.failed()) {

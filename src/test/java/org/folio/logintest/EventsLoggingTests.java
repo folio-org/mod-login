@@ -116,7 +116,7 @@ public class EventsLoggingTests {
       .compose(v -> postTenant())
       .compose(v -> persistCredentials())
       .compose(v -> persistPasswordResetActions())
-      .setHandler(context.asyncAssertSuccess());
+      .onComplete(context.asyncAssertSuccess());
   }
 
   @After

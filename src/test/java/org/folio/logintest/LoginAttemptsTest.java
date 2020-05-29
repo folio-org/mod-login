@@ -1,5 +1,32 @@
 package org.folio.logintest;
 
+import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.util.LoginAttemptsHelper.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+
+import java.io.UnsupportedEncodingException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.UUID;
+
+import org.folio.rest.RestVerticle;
+import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Password;
+import org.folio.rest.jaxrs.model.TenantAttributes;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.tools.utils.NetworkUtils;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
@@ -10,27 +37,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
-import org.folio.rest.impl.LoginAPI;
-import org.folio.rest.jaxrs.model.Password;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.tools.utils.NetworkUtils;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.io.UnsupportedEncodingException;
-import java.util.Date;
-import java.util.UUID;
-
-import org.folio.rest.jaxrs.model.TenantAttributes;
-
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 
 
 @RunWith(VertxUnitRunner.class)
@@ -68,8 +74,11 @@ public class LoginAttemptsTest {
     .put("password", "admin2")
     .put("userId", adminId);
 
+  private static Map<String, String> moduleArgs;
+
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
+    moduleArgs = new HashMap<String,String>(MODULE_SPECIFIC_ARGS);
     Async async = context.async();
     vertx = Vertx.vertx();
 
@@ -124,6 +133,9 @@ public class LoginAttemptsTest {
 
   @Before
   public void setUp(TestContext context) {
+    MODULE_SPECIFIC_ARGS.clear();
+    MODULE_SPECIFIC_ARGS.putAll(moduleArgs);
+    UserMock.resetConfigs();
     Async async = context.async();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_DIKU);
     pgClient.startTx(beginTx ->
@@ -308,6 +320,65 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(200)
       .body("attemptCount", is(0));
+  }
+
+  @Test
+  public void testConfiguration(final TestContext context) throws UnsupportedEncodingException {
+    MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_CODE);
+    MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TIMEOUT_CODE);
+    MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TO_WARN_CODE);
+
+    UserMock.setConfig(LOGIN_ATTEMPTS_CODE, new JsonObject().put("totalRecords", 0)); // fallback to hardcoded value (5)
+    UserMock.removeConfig(LOGIN_ATTEMPTS_TO_WARN_CODE); // fallback to hardcoded value (3)
+    UserMock.setConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, new JsonObject()); // fallback to hardcoded value (10)
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8.encode())
+      .when()
+      .post(CRED_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Fail.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Fail.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8Fail.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect.warn.user"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject8.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
   }
 
   @Test

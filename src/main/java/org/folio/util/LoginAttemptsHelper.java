@@ -1,14 +1,16 @@
 package org.folio.util;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.sql.UpdateResult;
+import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
+import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
+import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
+import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
+import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
@@ -16,24 +18,21 @@ import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LoginAttempts;
+import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 
-import java.net.URLEncoder;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
-import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
-import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
-import static org.folio.util.Constants.HTTP_CLIENT;
-import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
 
 /**
  * Helper class that contains static methods which helps with processing Login Attempts business logic
@@ -42,21 +41,19 @@ public class LoginAttemptsHelper {
 
   public static final String TABLE_NAME_LOGIN_ATTEMPTS = "auth_attempts";
   public static final String LOGIN_ATTEMPTS_CODE = "login.fail.attempts";
-  private static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
+  public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
-  private static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
+  public static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
   private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
 
   private Vertx vertx;
-  private HttpClient httpClient;
   private LogStorageService logStorageService;
 
   public LoginAttemptsHelper(Vertx vertx) {
     this.vertx = vertx;
     logStorageService = LogStorageService.createProxy(vertx, EVENT_CONFIG_PROXY_STORY_ADDRESS);
-    this.httpClient = vertx.getOrCreateContext().get(HTTP_CLIENT);
   }
 
   /**
@@ -65,7 +62,7 @@ public class LoginAttemptsHelper {
    * @param userId - identifier of user
    * @return - Criterion for search login attempts using user id
    */
-  public static Criterion buildCriteriaForUserAttempts(String userId) throws Exception {
+  public static Criterion buildCriteriaForUserAttempts(String userId) {
     Criteria attemptCrit = new Criteria();
     attemptCrit.addField(LOGIN_ATTEMPTS_USERID_FIELD);
     attemptCrit.setOperation("=");
@@ -80,17 +77,10 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity
    */
-  private Future<String> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
-    Future<String> future = Future.future();
-
-    try {
-      pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, future.completer());
-    } catch (Exception e) {
-      logger.error("Error with postgresclient on saving login attempt during post login request: " + e.getLocalizedMessage());
-      future.fail(e.getCause());
-    }
-
-    return future;
+  private Future<Void> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+    Promise<Void> promise = Promise.promise();
+    pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, reply -> promise.complete());
+    return promise.future();
   }
 
   /**
@@ -99,18 +89,10 @@ public class LoginAttemptsHelper {
    * @param pgClient     - client of postgres database
    * @param loginAttempt - login attempt entity for update
    */
-  private Future<UpdateResult> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
-    Future<UpdateResult> future = Future.future();
-
-    try {
-      pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), future.completer());
-    } catch (Exception e) {
-      logger.error(
-        "Error with postgresclient on saving login attempt during post login request: "+ e.getLocalizedMessage());
-      future.fail(e.getCause());
-    }
-
-    return future;
+  private Future<Void> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
+    Promise<Void> promise = Promise.promise();
+    pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), done -> promise.complete());
+    return promise.future();
   }
 
   /**
@@ -121,17 +103,10 @@ public class LoginAttemptsHelper {
    * @return             - login attempts list
    */
   public Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
-    Future<Results<LoginAttempts>> future = Future.future();
-
-    try {
-      pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId), false,
-        future.completer());
-    } catch (Exception e) {
-      logger.error("Error with postgres client on getting login attempt during post login request: " + e.getLocalizedMessage());
-      future.fail(e.getCause());
-    }
-
-    return future.map(Results::getResults);
+    Promise<List<LoginAttempts>> promise = Promise.promise();
+    pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId), false,
+        reply -> promise.complete(reply.result().getResults()));
+    return promise.future();
   }
 
   /**
@@ -154,15 +129,19 @@ public class LoginAttemptsHelper {
    * @return - boolean value that describe need block user or not
    */
   private Future<Errors> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders, JsonObject userObject) {
-    Future<Errors> future = Future.future();
+    Promise<Errors> promise = Promise.promise();
     try {
-      getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders).setHandler(res ->
-        getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders).setHandler(handle ->
-          getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders).setHandler(res1 -> {
+      Future<JsonObject> attemptsFut = getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders);
+      Future<JsonObject> timeoutFut = getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders);
+      Future<JsonObject> warnFut = getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders);
+
+      attemptsFut.onComplete(attemptsConf ->
+        timeoutFut.onComplete(timeoutConf ->
+          warnFut.onComplete(warnConf -> {
             boolean result = false;
-            int loginTimeoutConfigValue = getValue(handle, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
-            int loginFailConfigValue = getValue(res, LOGIN_ATTEMPTS_CODE, 5);
-            int loginFailToWarnValue = getValue(res1, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+            int loginTimeoutConfigValue = getValue(timeoutConf, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+            int loginFailConfigValue = getValue(attemptsConf, LOGIN_ATTEMPTS_CODE, 5);
+            int loginFailToWarnValue = getValue(warnConf, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
 
             if (loginFailConfigValue != 0) {
               // get time diff between current date and last login attempt
@@ -175,22 +154,19 @@ public class LoginAttemptsHelper {
                 result = true;
               }
             }
-            future.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
+            promise.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
           })));
     } catch (Exception e) {
       logger.error(e);
-      future.complete(null);
+      promise.complete(null);
     }
-
-    return future;
-
+    return promise.future();
   }
 
   private int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
     if (res.failed()) {
       logger.warn(res.cause());
-      return Integer.parseInt(MODULE_SPECIFIC_ARGS
-        .getOrDefault(key, String.valueOf(defaultValue)));
+      return Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
       return res.result().getInteger(VALUE);
     } catch (Exception e) {
@@ -217,66 +193,54 @@ public class LoginAttemptsHelper {
    * @return - json object with configs
    */
   private Future<JsonObject> getLoginConfig(String configCode, Map<String, String> okapiHeaders) {
-    Future<JsonObject> future = Future.future();
+    Promise<JsonObject> promise = Promise.promise();
     String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
-    try {
-      requestURL = okapiUrl + "/configurations/entries?query=" +
-        "code==" + URLEncoder.encode(configCode, "UTF-8");
-    } catch (Exception e) {
-      logger.error("Error building request URL: " + e.getLocalizedMessage());
-      future.fail(e);
-      return future;
-    }
-    try {
-      HttpClientRequest request = httpClient.getAbs(requestURL);
-      request.putHeader(OKAPI_TENANT_HEADER, tenant)
-        .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader("Content-type", JSON_TYPE)
-        .putHeader("Accept", JSON_TYPE);
-      request.handler(res -> {
+
+    requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader("Content-type", JSON_TYPE)
+      .putHeader("Accept", JSON_TYPE);
+    request.send(ar -> {
+      if (ar.failed()) {
+        promise.fail(ar.cause());
+      } else {
+        HttpResponse<?> res = ar.result();
         if (res.statusCode() != 200) {
-          res.bodyHandler(buf -> {
-            String message = "Expected status code 200, got '" + res.statusCode() +
-              "' :" + buf.toString();
-            future.fail(message);
-          });
+          String message = "Expected status code 200, got '" + res.statusCode() + "' :" + res.bodyAsString();
+          logger.warn(message);
+          promise.fail(message);
         } else {
-          res.bodyHandler(buf -> {
-            try {
-              JsonObject resultObject = buf.toJsonObject();
-              if (!resultObject.containsKey("totalRecords") ||
-                !resultObject.containsKey("configs")) {
-                future.fail("Error, missing field(s) 'totalRecords' and/or 'configs' in config response object");
+          try {
+            JsonObject resultObject = res.bodyAsJsonObject();
+            if (!resultObject.containsKey("totalRecords") || !resultObject.containsKey("configs")) {
+              promise.fail("Error, missing field(s) 'totalRecords' and/or 'configs' in config response object");
+            } else {
+              int recordCount = resultObject.getInteger("totalRecords");
+              if (recordCount > 1) {
+                promise.fail("Bad results from configs");
+              } else if (recordCount == 0) {
+                String errorMessage = "No config found by code " + configCode;
+                logger.error(errorMessage);
+                promise.fail(errorMessage);
               } else {
-                int recordCount = resultObject.getInteger("totalRecords");
-                if (recordCount > 1) {
-                  future.fail("Bad results from configs");
-                } else if (recordCount == 0) {
-                  String errorMessage = "No config found by code " + configCode;
-                  logger.error(errorMessage);
-                  future.fail(errorMessage);
-                } else {
-                  future.complete(resultObject.getJsonArray("configs").getJsonObject(0));
-                }
+                promise.complete(resultObject.getJsonArray("configs")
+                  .getJsonObject(0));
               }
-            } catch (Exception e) {
-              logger.error(e);
-              future.fail(e);
             }
-          });
+          } catch (Exception e) {
+            logger.error(e);
+            promise.fail(e);
+          }
         }
-      });
-      request.exceptionHandler(future::fail);
-      request.end();
-    } catch (Exception e) {
-      String message = "Configs lookup failed: " + e.getLocalizedMessage();
-      logger.error(message, e);
-      future.fail(message);
-    }
-    return future;
+      }
+    });
+
+    return promise.future();
   }
 
   /**
@@ -286,53 +250,34 @@ public class LoginAttemptsHelper {
    * @param okapiHeaders  - okapi headers
    */
   private Future<Void> updateUser(JsonObject user, Map<String, String> okapiHeaders) {
-    Future<Void> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
-    try {
-      requestURL = okapiUrl + "/users/" + URLEncoder.encode(
-        user.getString("id"), "UTF-8");
-    } catch (Exception e) {
-      logger.error("Error building request URL: " + e.getLocalizedMessage());
-      future.fail(e);
-      return future;
-    }
-    try {
-      HttpClientRequest request = httpClient.putAbs(requestURL, res -> {
+
+    requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader("Content-type", JSON_TYPE)
+      .putHeader("accept", "text/plain");
+    request.send(ar -> {
+      if (ar.failed()) {
+        promise.fail(ar.cause());
+      } else {
+        HttpResponse<Buffer> res = ar.result();
         if (res.statusCode() != 204) {
-          res.bodyHandler(buf -> {
-            String message = "Expected status code 204, got '" + res.statusCode() +
-              "' :" + buf.toString();
-            future.fail(message);
-          });
+          String body = res.bodyAsString();
+          String message = "Expected status code 204, got '" + res.statusCode() + "' :" + body;
+          promise.fail(message);
         } else {
-          future.complete();
+          promise.complete();
         }
-      });
-      request.putHeader(OKAPI_TENANT_HEADER, tenant)
-        .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader("Content-type", JSON_TYPE)
-        .putHeader("accept", "text/plain");
-      request.handler(res -> {
-        if (res.statusCode() != 204) {
-          res.bodyHandler(buf -> {
-            String message = "Expected status code 204, got '" + res.statusCode() +
-              "' :" + buf.toString();
-            future.fail(message);
-          });
-        }
-        future.complete();
-      });
-      request.exceptionHandler(future::fail);
-      request.end(user.encode());
-    } catch (Exception e) {
-      String message = "User update failed: " + e.getLocalizedMessage();
-      logger.error(message, e);
-      future.fail(message);
-    }
-    return future;
+      }
+    });
+
+    return promise.future();
   }
 
   /**
@@ -426,15 +371,13 @@ public class LoginAttemptsHelper {
     // if there no attempts record for user, create one
     if (attempts.isEmpty()) {
       // save new attempt record to database
-      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 0))
-        .map(s -> null);
+      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 0));
     } else {
       // drops user login attempts
       LoginAttempts attempt = attempts.get(0);
       attempt.setAttemptCount(0);
       attempt.setLastAttempt(new Date());
-      return updateAttempt(pgClient, attempt)
-        .map(updateResult -> null);
+      return updateAttempt(pgClient, attempt);
     }
   }
 }

@@ -1,16 +1,19 @@
 package org.folio.logintest;
 
+import static java.lang.Thread.sleep;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
+import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
+
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-
-import static java.lang.Thread.sleep;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
-import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
 /**
  * @author kurt
@@ -20,7 +23,10 @@ public class UserMock extends AbstractVerticle {
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
+  public static final String gimliId = "ade0c47f-4c86-46e1-8932-0991322799c1";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+
+  private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
 
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
@@ -31,23 +37,24 @@ public class UserMock extends AbstractVerticle {
       .add(admin))
     .put("totalRecords", 1);
 
-  public void start(Future<Void> future) {
+  public void start(Promise<Void> promise) {
+    resetConfigs();
     final int port = context.config().getInteger("port");
 
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
 
     router.route("/users").handler(this::handleUsers);
-    router.put("/users/" + adminId).handler(this::handleUserPut);
+    router.put("/users/:id").handler(this::handleUserPut);
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
     System.out.println("Running UserMock on port " + port);
-    server.requestHandler(router::accept).listen(port, result -> {
+    server.requestHandler(router::handle).listen(port, result -> {
       if (result.failed()) {
-        future.fail(result.cause());
+        promise.fail(result.cause());
       } else {
-        future.complete();
+        promise.complete();
       }
     });
   }
@@ -85,7 +92,50 @@ public class UserMock extends AbstractVerticle {
           context.response()
             .setStatusCode(200)
             .end(responseOb.encode());
-
+          break;
+        case "username==gimli":
+          userOb = new JsonObject();
+          context.response()
+            .setStatusCode(200)
+            .end(userOb.encode());
+          break;
+        case "username==mrunderhill":
+          userOb = new JsonObject();
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 0);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "username==gandalf":
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(new JsonObject()
+                  .put("username", "gandalf")
+                  .put("id", UUID.randomUUID().toString())
+                  .put("active", true))
+              .add(new JsonObject()
+                  .put("username", "gandalf")
+                  .put("id", UUID.randomUUID().toString())
+                  .put("active", false)))
+            .put("totalRecords", 2);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
+          break;
+        case "username==strider":
+          userOb = new JsonObject()
+            .put("username", "strider")
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .end(responseOb.encode());
           break;
         case "username==saruman":
           userOb = new JsonObject()
@@ -162,28 +212,42 @@ public class UserMock extends AbstractVerticle {
       .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
+  public static void setConfig(String code, JsonObject json) {
+    configs.put(code, json);
+  }
+
+  public static JsonObject removeConfig(String code) {
+    return configs.remove(code);
+  }
+
+  public static void resetConfigs() {
+    JsonObject configOb = new JsonObject().put("value", 2);
+    JsonArray array = new JsonArray().add(configOb);
+    JsonObject responseJson = new JsonObject()
+        .put("configs", array)
+        .put("totalRecords", 1);
+    configs.put(LOGIN_ATTEMPTS_CODE, responseJson);
+
+    configOb = new JsonObject().put("value", 2);
+    array = new JsonArray().add(configOb);
+    responseJson = new JsonObject()
+       .put("configs", array)
+       .put("totalRecords", 1);
+    configs.put(LOGIN_ATTEMPTS_TIMEOUT_CODE, responseJson);
+  }
+
   private void handleConfig(RoutingContext context) {
     try {
-      JsonObject responseJson = new JsonObject();
+      JsonObject responseJson = null;
       String queryString = "code==";
       String query = context.request().getParam("query");
       if (query.equals(queryString + LOGIN_ATTEMPTS_CODE)) {
-        JsonObject configOb = new JsonObject()
-          .put("value", 2);
-        JsonArray array = new JsonArray();
-        array.add(configOb);
-        responseJson.put("configs", array)
-          .put("totalRecords", 1);
-        context.response()
-          .setStatusCode(200)
-          .end(responseJson.encode());
+        responseJson = configs.get(LOGIN_ATTEMPTS_CODE);
       } else if (query.equals(queryString + LOGIN_ATTEMPTS_TIMEOUT_CODE)) {
-        JsonObject configOb = new JsonObject()
-          .put("value", 1);
-        JsonArray array = new JsonArray();
-        array.add(configOb);
-        responseJson.put("configs", array)
-          .put("totalRecords", 1);
+        responseJson = configs.get(LOGIN_ATTEMPTS_TIMEOUT_CODE);
+      }
+
+      if(responseJson != null) {
         context.response()
           .setStatusCode(200)
           .end(responseJson.encode());
@@ -200,10 +264,17 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleUserPut(RoutingContext context) {
-    admin.put("active", false);
-    context.response()
-      .setStatusCode(204)
-      .end();
+    String id = context.request().getParam("id");
+    if(id.equals(adminId)) {
+      admin.put("active", false);
+      context.response()
+        .setStatusCode(204)
+        .end();
+    } else {
+      context.response()
+        .setStatusCode(204)
+        .end();
+    }
   }
 }
 

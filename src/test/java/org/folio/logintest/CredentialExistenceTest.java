@@ -6,6 +6,7 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -65,7 +66,7 @@ public class CredentialExistenceTest {
       try {
         TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
         tenantClient.postTenant(ta, handler -> saveCredential()
-          .setHandler(v -> {
+          .onComplete(v -> {
             if (v.succeeded()) {
               async.complete();
             }
@@ -122,16 +123,15 @@ public class CredentialExistenceTest {
   }
 
   private static Future<Void> saveCredential() {
-    Future<String> future = Future.future();
+    Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
     credential.setHash(authUtil.calculateHash("password", salt));
     credential.setUserId(EXISTING_CREDENTIALS_USER_ID);
-    PostgresClient.getInstance(vertx, TENANT).save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(),
-      credential, future.completer());
-    return future.map(s -> null);
+    PostgresClient.getInstance(vertx, TENANT)
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
+    return promise.future().map(s -> null);
   }
-
 }

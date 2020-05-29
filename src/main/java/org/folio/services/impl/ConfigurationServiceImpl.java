@@ -1,32 +1,36 @@
 package org.folio.services.impl;
 
-import com.google.common.collect.Lists;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import org.folio.rest.jaxrs.model.Config;
-import org.folio.rest.jaxrs.model.ConfigResponse;
-import org.folio.rest.jaxrs.model.Configurations;
-import org.folio.services.ConfigurationService;
+import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
+import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
+import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_CODE_STATUS;
+import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
 
-import javax.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.folio.rest.RestVerticle.*;
-import static org.folio.util.Constants.DEFAULT_TIMEOUT;
-import static org.folio.util.Constants.LOOKUP_TIMEOUT;
-import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_CODE_STATUS;
-import static org.folio.util.LoginConfigUtils.EVENT_LOG_API_MODULE;
+import javax.ws.rs.core.MediaType;
+
+import org.folio.rest.jaxrs.model.Config;
+import org.folio.rest.jaxrs.model.ConfigResponse;
+import org.folio.rest.jaxrs.model.Configurations;
+import org.folio.services.ConfigurationService;
+import org.folio.util.WebClientFactory;
+
+import com.google.common.collect.Lists;
+
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
 
 public class ConfigurationServiceImpl implements ConfigurationService {
 
@@ -44,33 +48,16 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
   private final Logger logger = LoggerFactory.getLogger(ConfigurationServiceImpl.class);
 
-  private HttpClient httpClient;
-  private final Vertx vertx;
-
-  /**
-   * Timeout to wait for response
-   */
-  private int lookupTimeout = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(LOOKUP_TIMEOUT, DEFAULT_TIMEOUT));
+  private Vertx vertx;
 
   public ConfigurationServiceImpl(Vertx vertx) {
     this.vertx = vertx;
-    initHttpClient();
-  }
-
-  /**
-   * init the http client to 'mod-config'
-   */
-  private void initHttpClient() {
-    HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(lookupTimeout);
-    options.setIdleTimeout(lookupTimeout);
-    this.httpClient = vertx.createHttpClient(options);
   }
 
   @Override
   public ConfigurationService getEnableConfigurations(String tenantId, JsonObject headers, Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     try {
-      lookupConfig(headers, tenantId).setHandler(lookupConfigHandler -> {
+      lookupConfig(headers, tenantId).onComplete(lookupConfigHandler -> {
         ConfigResponse configResponse = new ConfigResponse()
           .withCode(EVENT_LOG_STATUS_CODE)
           .withConfigs(Lists.newArrayList())
@@ -117,29 +104,28 @@ public class ConfigurationServiceImpl implements ConfigurationService {
   }
 
   private Future<JsonObject> lookupConfig(JsonObject headers, String tenantId) {
-    Future<JsonObject> future = Future.future();
+    Promise<JsonObject> promise = Promise.promise();
     String okapiUrl = headers.getString(OKAPI_URL_HEADER);
     String okapiToken = headers.getString(OKAPI_HEADER_TOKEN);
     String requestUrl = String.format(REQUEST_URL_TEMPLATE, okapiUrl, REQUEST_URI_PATH, EVENT_LOG_API_MODULE);
-    HttpClientRequest request = httpClient.getAbs(requestUrl);
-    request
-      .putHeader(OKAPI_HEADER_TOKEN, okapiToken)
+
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestUrl);
+    request.putHeader(OKAPI_HEADER_TOKEN, okapiToken)
       .putHeader(OKAPI_HEADER_TENANT, tenantId)
       .putHeader(HTTP_HEADER_CONTENT_TYPE, MediaType.APPLICATION_JSON)
       .putHeader(HTTP_HEADER_ACCEPT, MediaType.APPLICATION_JSON)
-      .handler(response -> {
-        if (response.statusCode() != 200) {
-          response.bodyHandler(responseHandler ->
-            future.fail(
-              String.format(ERROR_LOOKING_UP_MOD_CONFIG, requestUrl, response.statusCode(), responseHandler.toString())));
+      .send(ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
         } else {
-          response.bodyHandler(responseHandler -> {
-            JsonObject resultObject = responseHandler.toJsonObject();
-            future.complete(resultObject);
-          });
+          HttpResponse<Buffer> response = ar.result();
+          if (response.statusCode() != 200) {
+            promise.fail(String.format(ERROR_LOOKING_UP_MOD_CONFIG, requestUrl, response.statusCode(), response.bodyAsString()));
+          } else {
+            promise.complete(response.bodyAsJsonObject());
+          }
         }
       });
-    request.end();
-    return future;
+    return promise.future();
   }
 }
