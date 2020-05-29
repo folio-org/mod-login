@@ -126,7 +126,10 @@ public class LoginAPI implements Authn {
   private PasswordStorageService passwordStorageService;
   private LoginAttemptsHelper loginAttemptsHelper;
 
+  private Vertx vertx;
+
   public LoginAPI(Vertx vertx, String tenantId) {
+    this.vertx = vertx;
     this.vTenantId = tenantId;
     initService(vertx);
   }
@@ -201,7 +204,7 @@ public class LoginAPI implements Authn {
 
     requestURL = buildUserLookupURL(okapiURL, username, userId);
     final String finalRequestURL = requestURL;
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(finalRequestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
@@ -226,7 +229,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchToken(JsonObject payload, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/token");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/token");
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
@@ -267,7 +270,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/refreshtoken");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)

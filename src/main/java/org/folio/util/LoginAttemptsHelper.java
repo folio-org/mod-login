@@ -200,7 +200,7 @@ public class LoginAttemptsHelper {
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestURL);
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader("Content-type", JSON_TYPE)
@@ -257,7 +257,7 @@ public class LoginAttemptsHelper {
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().putAbs(requestURL);
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader("Content-type", JSON_TYPE)

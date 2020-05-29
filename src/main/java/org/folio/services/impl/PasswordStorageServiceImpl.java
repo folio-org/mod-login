@@ -581,7 +581,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
     Promise<Integer> promise = Promise.promise();
 
-    WebClientFactory.getWebClient().getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
+    WebClientFactory.getWebClient(vertx).getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
       .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
       .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
