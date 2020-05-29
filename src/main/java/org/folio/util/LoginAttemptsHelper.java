@@ -6,8 +6,6 @@ import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
 import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -187,16 +185,6 @@ public class LoginAttemptsHelper {
     }
   }
 
-  private String encodeUtf8(String s) {
-    String ret = null;
-    try {
-      ret = URLEncoder.encode(s, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      // Should never happen - UTF-8 is supported
-    }
-    return ret;
-  }
-
   /**
    * Load config object by code for login module
    *
@@ -211,7 +199,7 @@ public class LoginAttemptsHelper {
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
-    requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + encodeUtf8(configCode);
+    requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
@@ -268,7 +256,7 @@ public class LoginAttemptsHelper {
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
-    requestURL = okapiUrl + "/users/" + encodeUtf8(user.getString("id"));
+    requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
     HttpRequest<Buffer> request = WebClientFactory.getWebClient().putAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)

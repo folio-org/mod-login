@@ -12,8 +12,6 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,6 +61,7 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
+import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
@@ -158,18 +157,15 @@ public class LoginAPI implements Authn {
   }
 
   private String buildUserLookupURL(String okapiURL, String username, String userId) {
-    String requestURL = null;
-    try {
-      if(username != null) {
-        requestURL = String.format("%s/users?query=username==%s", okapiURL,
-            URLEncoder.encode(username, "UTF-8"));
-      } else {
-        requestURL = String.format("%s/users?query=id==%s", okapiURL,
-            URLEncoder.encode(userId, "UTF-8"));
-      }
-    } catch (UnsupportedEncodingException e) {
-      // Should never happen - UTF-8 is supported
+    String requestURL;
+    if(username != null) {
+      requestURL = String.format("%s/users?query=username==%s", okapiURL,
+          StringUtil.urlEncode(username));
+    } else {
+      requestURL = String.format("%s/users?query=id==%s", okapiURL,
+          StringUtil.urlEncode(userId));
     }
+
     return requestURL;
   }
 
