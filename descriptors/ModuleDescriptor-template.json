@@ -35,6 +35,7 @@
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
+          "permissionsRequired" : [ ],
           "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
             "users.collection.get", "users.item.put", "users.item.get",
             "configuration.entries.collection.get" ]
@@ -72,6 +73,7 @@
         {
           "methods": [ "POST" ],
           "pathPattern" : "/authn/update",
+          "permissionsRequired" : [ ],
           "modulePermissions" : [ "users.collection.get", "configuration.entries.collection.get" ]
         },
         {
