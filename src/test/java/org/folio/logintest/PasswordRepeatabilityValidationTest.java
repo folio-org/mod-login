@@ -166,7 +166,7 @@ public class PasswordRepeatabilityValidationTest {
   }
 
   private static Future<Void> fillInCredentialsHistory() {
-    Promise<Void> promise = Promise.promise();
+    Promise<CompositeFuture> promise = Promise.promise();
 
     //add ten passwords
     List<Future> list = IntStream.range(0, PASSWORDS_HISTORY_NUMBER - 1)
@@ -180,43 +180,31 @@ public class PasswordRepeatabilityValidationTest {
     list.add(saveCredentialsHistoryObject(buildCredentialsHistoryObject(
       OLD_PASSWORD, new Date(new Date().getTime() - hourMillis))));
 
-    CompositeFuture.all(list).onComplete(event -> {
-      if (event.succeeded()) {
-        promise.complete();
-      } else {
-        promise.fail(event.cause());
-      }
-    });
+    CompositeFuture.all(list).onComplete(promise);
 
-    return promise.future();
+    return promise.future().map(s -> null);
   }
 
   private static Future<Void> saveCredential() {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
     credential.setHash(authUtil.calculateHash(CURRENT_PASSWORD, salt));
     credential.setUserId(USER_ID);
-    PostgresClient.getInstance(vertx, TENANT).save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(),
-      credential, done -> promise.complete());
-    return promise.future();
+    PostgresClient.getInstance(vertx, TENANT)
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
+    return promise.future().map(s -> null);
   }
 
   private static Future<Void> saveCredentialsHistoryObject(CredentialsHistory obj) {
-    Promise<Void> promise = Promise.promise();
+    Promise<String> promise = Promise.promise();
 
     PostgresClient client = PostgresClient.getInstance(vertx, TENANT);
-    client.save(TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), obj, event -> {
-      if (event.failed()) {
-        promise.fail(event.cause());
-      } else {
-        promise.complete();
-      }
-    });
+    client.save(TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), obj, promise);
 
-    return promise.future();
+    return promise.future().map(s -> null);
   }
 
   private static CredentialsHistory buildCredentialsHistoryObject(String password) {

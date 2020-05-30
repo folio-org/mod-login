@@ -48,7 +48,10 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
   private final Logger logger = LoggerFactory.getLogger(ConfigurationServiceImpl.class);
 
+  private Vertx vertx;
+
   public ConfigurationServiceImpl(Vertx vertx) {
+    this.vertx = vertx;
   }
 
   @Override
@@ -106,7 +109,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
     String okapiToken = headers.getString(OKAPI_HEADER_TOKEN);
     String requestUrl = String.format(REQUEST_URL_TEMPLATE, okapiUrl, REQUEST_URI_PATH, EVENT_LOG_API_MODULE);
 
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(requestUrl);
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestUrl);
     request.putHeader(OKAPI_HEADER_TOKEN, okapiToken)
       .putHeader(OKAPI_HEADER_TENANT, tenantId)
       .putHeader(HTTP_HEADER_CONTENT_TYPE, MediaType.APPLICATION_JSON)

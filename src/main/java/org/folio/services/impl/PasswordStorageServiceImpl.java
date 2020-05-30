@@ -37,6 +37,7 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Order;
 import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
@@ -52,6 +53,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -117,12 +120,12 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   public PasswordStorageService getPasswordExistence(String userId, String tenantId, Handler<AsyncResult<JsonObject>> asyncHandler) {
     Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Promise<JsonObject> promise = Promise.promise();
-    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false,
-        reply -> promise.complete(JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(reply.result()
-          .getResultInfo()
-          .getTotalRecords() == 1))));
-    promise.future().onComplete(asyncHandler);
+    Promise<Results<Credential>> promise = Promise.promise();
+    pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false, promise);
+    promise.future().map(credentialResults -> {
+      boolean credentialFound = credentialResults.getResults().size() == 1;
+      return JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(credentialFound));
+    }).onComplete(asyncHandler);
     return this;
   }
 
@@ -483,7 +486,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Future<Credential> updateCred(AsyncResult<SQLConnection> conn, String tenantId,
                                         Credential newCred, Credential oldCred) {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Promise<Credential> promise = Promise.promise();
+    Promise<RowSet<Row>> promise = Promise.promise();
     CQL2PgJSON field = null;
     try {
       field = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
@@ -491,9 +494,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
       promise.fail(e);
     }
     CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + newCred.getId());
-    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, reply -> promise.complete(oldCred));
-
-    return promise.future();
+    pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, promise);
+    return promise.future().map(updated -> oldCred);
   }
 
   private Future<Void> updateCredHistory(AsyncResult<SQLConnection> conn, Credential cred,
@@ -504,7 +506,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         .map(number -> count - number + 2))
       .compose(count -> deleteOldCredHistoryRecords(tenant, cred.getUserId(), count))
       .compose(v -> {
-        Promise<Void> promise = Promise.promise();
+        Promise<String> promise = Promise.promise();
         CredentialsHistory credHistory = new CredentialsHistory();
         credHistory.setId(UUID.randomUUID().toString());
         credHistory.setUserId(cred.getUserId());
@@ -513,10 +515,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         credHistory.setDate(new Date());
 
         PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
-        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(),
-          credHistory, done -> promise.complete());
-
-        return promise.future();
+        pgClient.save(conn, TABLE_NAME_CREDENTIALS_HISTORY, UUID.randomUUID().toString(), credHistory, promise);
+        return promise.future().map(s -> null);
       });
   }
 
@@ -524,10 +524,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
-    Promise<Integer> promise = Promise.promise();
+    Promise<RowSet<Row>> promise = Promise.promise();
     String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
-    pgClient.select(query, reply -> promise.complete(reply.result().iterator().next().getInteger(0)));
-    return promise.future();
+    pgClient.select(query, promise);
+    return promise.future().map(resultSet -> resultSet.iterator().next().getInteger(0));
   }
 
   private Future<Void> deleteOldCredHistoryRecords(String tenantId, String userId, Integer count) {
@@ -536,16 +536,15 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     }
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Promise<Void> promise = Promise.promise();
+    Promise<RowSet<Row>> promise = Promise.promise();
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
 
     String query = String.format("DELETE FROM %s WHERE id IN " +
         "(SELECT id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
       tableName, tableName, userId, count);
-    pgClient.execute(query, done -> promise.complete());
-
-    return promise.future();
+    pgClient.execute(query, promise);
+    return promise.future().map(s -> null);
   }
 
   private Future<Boolean> isPresentInCredHistory(String tenantId, String userId,
@@ -582,7 +581,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
     Promise<Integer> promise = Promise.promise();
 
-    WebClientFactory.getWebClient().getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
+    WebClientFactory.getWebClient(vertx).getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
       .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
       .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)

@@ -12,8 +12,6 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,6 +61,7 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
+import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
@@ -127,7 +126,10 @@ public class LoginAPI implements Authn {
   private PasswordStorageService passwordStorageService;
   private LoginAttemptsHelper loginAttemptsHelper;
 
+  private Vertx vertx;
+
   public LoginAPI(Vertx vertx, String tenantId) {
+    this.vertx = vertx;
     this.vTenantId = tenantId;
     initService(vertx);
   }
@@ -157,15 +159,16 @@ public class LoginAPI implements Authn {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   }
 
-  private String buildUserLookupURL(String okapiURL, String username, String userId) throws UnsupportedEncodingException {
+  private String buildUserLookupURL(String okapiURL, String username, String userId) {
     String requestURL;
     if(username != null) {
       requestURL = String.format("%s/users?query=username==%s", okapiURL,
-          URLEncoder.encode(username, "UTF-8"));
+          StringUtil.urlEncode(username));
     } else {
       requestURL = String.format("%s/users?query=id==%s", okapiURL,
-          URLEncoder.encode(userId, "UTF-8"));
+          StringUtil.urlEncode(userId));
     }
+
     return requestURL;
   }
 
@@ -174,20 +177,19 @@ public class LoginAPI implements Authn {
       String message = "Error looking up user at url '" + requestURL + "' Expected status code 200, got '" + res.statusCode()
           + "' :" + res.bodyAsString();
       throw new UserLookupException(message);
-    } else {
-      JsonObject lookupResult = res.bodyAsJsonObject();
-      if (!lookupResult.containsKey("totalRecords") || !lookupResult.containsKey("users")) {
-        throw new UserLookupException("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
-      } else {
-        int recordCount = lookupResult.getInteger("totalRecords");
-        if (recordCount > 1) {
-          throw new UserLookupException("Bad results from username");
-        } else if (recordCount == 0) {
-          throw new UserLookupException("No user found by username " + username);
-        }
-      }
-      return lookupResult.getJsonArray("users").getJsonObject(0);
     }
+    JsonObject lookupResult = res.bodyAsJsonObject();
+    if (!lookupResult.containsKey("totalRecords") || !lookupResult.containsKey("users")) {
+      throw new UserLookupException("Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+    }
+    int recordCount = lookupResult.getInteger("totalRecords");
+    if (recordCount > 1) {
+      throw new UserLookupException("Bad results from username");
+    }
+    if (recordCount == 0) {
+      throw new UserLookupException("No user found by username " + username);
+    }
+    return lookupResult.getJsonArray("users").getJsonObject(0);
   }
 
   /*
@@ -199,39 +201,34 @@ public class LoginAPI implements Authn {
     Promise<JsonObject> promise = Promise.promise();
     String requestURL = null;
 
-    try {
-      requestURL = buildUserLookupURL(okapiURL, username, userId);
-      final String finalRequestURL = requestURL;
-      HttpRequest<Buffer> request = WebClientFactory.getWebClient().getAbs(finalRequestURL);
-      request.putHeader(OKAPI_TENANT_HEADER, tenant)
-        .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-        .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
-        .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
-      request.send(ar -> {
-        if (ar.failed()) {
-          promise.fail(ar.cause());
-        } else {
-          HttpResponse<Buffer> res = ar.result();
-          try {
-            promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
-          } catch (Exception e) {
-            logger.error(e.getMessage());
-            promise.fail(e);
-          }
+    requestURL = buildUserLookupURL(okapiURL, username, userId);
+    final String finalRequestURL = requestURL;
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(finalRequestURL);
+    request.putHeader(OKAPI_TENANT_HEADER, tenant)
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
+      .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
+      .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
+    request.send(ar -> {
+      if (ar.failed()) {
+        promise.fail(ar.cause());
+      } else {
+        HttpResponse<Buffer> res = ar.result();
+        try {
+          promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
+        } catch (Exception e) {
+          logger.error(e.getMessage());
+          promise.fail(e);
         }
-      });
-    } catch (Exception e) {
-      String message = "User lookup failed at url '" + requestURL + "': " + e.getLocalizedMessage();
-      logger.error(message, e);
-      promise.fail(message);
-    }
+      }
+    });
+
     return promise.future();
   }
 
   private Future<String> fetchToken(JsonObject payload, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/token");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/token");
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
@@ -272,7 +269,7 @@ public class LoginAPI implements Authn {
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
       String okapiURL, String requestToken) {
     Promise<String> promise = Promise.promise();
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient().postAbs(okapiURL + "/refreshtoken");
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
       .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)

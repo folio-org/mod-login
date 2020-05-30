@@ -66,7 +66,7 @@ public class TestUtil {
           HttpMethod method, MultiMap headers, String payload,
           Integer expectedCode, String explanation) {
     Promise<WrappedResponse> promise = Promise.promise();
-    WebClient client = WebClientFactory.getWebClient();
+    WebClient client = WebClientFactory.getWebClient(vertx);
     HttpRequest<Buffer> request = client.requestAbs(method, url);
     //Add standard headers
     request.putHeader("X-Okapi-Tenant", "diku")
