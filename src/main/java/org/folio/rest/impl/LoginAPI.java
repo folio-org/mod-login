@@ -26,8 +26,6 @@ import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.folio.cql2pgjson.CQL2PgJSON;
-import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Credential;
@@ -50,9 +48,6 @@ import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.services.ConfigurationService;
@@ -145,13 +140,6 @@ public class LoginAPI implements Authn {
       return "Internal Server Error: Please contact Admin";
     }
     return response;
-  }
-
-  private CQLWrapper getCQL(String query, int limit, int offset)
-      throws FieldException {
-    CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
-    return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(
-        new Offset(offset));
   }
 
   private String getTenant(Map<String, String> headers) {
