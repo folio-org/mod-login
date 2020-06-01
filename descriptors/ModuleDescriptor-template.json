@@ -46,11 +46,6 @@
         },
         {
           "methods" : [ "GET" ],
-          "pathPattern" : "/authn/credentials",
-          "permissionsRequired" : [ "login.collection.get", "users.collection.get" ]
-        },
-        {
-          "methods" : [ "GET" ],
           "pathPattern" : "/authn/credentials/{id}",
           "permissionsRequired" : [ "login.item.get" ]
         },
@@ -122,11 +117,6 @@
   ],
   "permissionSets" : [
     {
-      "permissionName" : "login.collection.get",
-      "displayName" : "login collection get",
-      "description" : "Get a list of logins"
-    },
-    {
       "permissionName" : "login.item.get",
       "displayName" : "login item get",
       "description" : "Read a single login"
@@ -197,7 +187,6 @@
       "description" : "All permissions for login credentials",
       "subPermissions" : [
         "login.item.get",
-        "login.collection.get",
         "login.item.post",
         "login.item.put",
         "login.item.delete",

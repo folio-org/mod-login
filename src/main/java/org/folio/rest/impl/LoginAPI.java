@@ -31,7 +31,6 @@ import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.CredentialsListObject;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -540,45 +539,6 @@ public class LoginAPI implements Authn {
     } catch(Exception e) {
       logger.debug("Error running on verticle for postAuthnLogin: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
-  }
-
-  @Override
-  public void getAuthnCredentials(int length, int start, String sortBy, String query,
-      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
-    try {
-       vertxContext.runOnContext(v -> {
-         String tenantId = getTenant(okapiHeaders);
-         String[] fieldList = {"*"};
-         try {
-           CQLWrapper cql = getCQL(query, length, start - 1);
-           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                   TABLE_NAME_CREDENTIALS, Credential.class, fieldList, cql, true, false, getReply -> {
-             if(getReply.failed()) {
-               logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-             } else {
-               CredentialsListObject credentialsListObject = new CredentialsListObject();
-               List<Credential> credentialList = getReply.result().getResults();
-               credentialsListObject.setCredentials(credentialList);
-               credentialsListObject.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
-               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond200WithApplicationJson(credentialsListObject)));
-             }
-           });
-         } catch(Exception e) {
-           logger.debug("Error invoking Postgresclient: "+ e.getLocalizedMessage());
-           asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-         }
-       });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      if(e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond400WithTextPlain("CQL Parsing Error for '" + query + "': " +
-                e.getLocalizedMessage())));
-      } else {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-      }
     }
   }
 

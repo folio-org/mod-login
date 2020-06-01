@@ -9,7 +9,6 @@ documentation:
 
 types:
   credential: !include credentials.json
-  credentialsListObject: !include credentialsListObject.json
   loginCredentials: !include loginCredentials.json
   updateCredentials: !include updateCredentials.json
   loginAttempts: !include loginAttempts.json
@@ -144,28 +143,6 @@ traits:
             text/plain:
               example: "Internal server error"
   /credentials:
-    get:
-      description: Get a list of user credentials
-      is: [
-        pageable,
-        sortable,
-        queryable
-      ]
-      responses:
-        200:
-          body:
-            application/json:
-              type: credentialsListObject
-        400:
-          description: "Bad request"
-          body:
-            text/plain:
-              example: "Bad request"
-        500:
-          description: "Internal server error"
-          body:
-            text/plain:
-              example: "Internal server error"
     post:
       description: Add a new login to the system
       is: [validate]
