@@ -123,8 +123,18 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     Promise<Results<Credential>> promise = Promise.promise();
     pgClient.get(SNAPSHOTS_TABLE_CREDENTIALS, Credential.class, criterion, true, false, promise);
     promise.future().map(credentialResults -> {
-      boolean credentialFound = credentialResults.getResults().size() == 1;
-      return JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(credentialFound));
+      List<Credential> results = credentialResults.getResults();
+      boolean exist = results.size() == 1;
+      boolean placeholder = false;
+      if (exist) {
+        Credential creds = results.get(0);
+        if (creds.getHash()
+          .equals(authUtil.calculateHash("", creds.getSalt()))) {
+          placeholder = true;
+        }
+      }
+      return JsonObject.mapFrom(new CredentialsExistence().withCredentialsExist(exist)
+        .withIsPlaceholder(placeholder));
     }).onComplete(asyncHandler);
     return this;
   }

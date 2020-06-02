@@ -4,6 +4,7 @@ import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -40,10 +41,13 @@ public class CredentialExistenceTest {
 
   private static final String EXISTING_CREDENTIALS_USER_ID = "e341d8bb-5d5d-4ce8-808c-b2e9bbfb4a1a";
   private static final String NOT_EXISTING_CREDENTIALS_USER_ID = "6b1492f0-9c6f-4d51-bfdc-6c7fc53a80f3";
+  private static final String EXISTING_EMPTY_CREDENTIALS_USER_ID = "f67c2ff6-444a-4e44-9f7b-06ae94690275";
+
   private static final String TENANT = "diku";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String CREDENTIALS_EXISTENCE_PATH = "/authn/credentials-existence";
   private static final String CREDENTIALS_EXIST = "credentialsExist";
+  private static final String IS_PLACEHOLDER = "isPlaceholder";
 
   @BeforeClass
   public static void setup(final TestContext context) {
@@ -65,12 +69,17 @@ public class CredentialExistenceTest {
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
       try {
         TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        tenantClient.postTenant(ta, handler -> saveCredential()
-          .onComplete(v -> {
-            if (v.succeeded()) {
-              async.complete();
-            }
-          }));
+        tenantClient.postTenant(ta, handler -> {
+          Future<Void> f1 = saveCredential(EXISTING_CREDENTIALS_USER_ID, "password");
+          Future<Void> f2 = saveCredential(EXISTING_EMPTY_CREDENTIALS_USER_ID, "");
+
+          CompositeFuture.all(f1, f2)
+            .onComplete(v -> {
+              if (v.succeeded()) {
+                async.complete();
+              }
+            });
+          });
       } catch (Exception e) {
         context.fail(e);
       }
@@ -122,14 +131,37 @@ public class CredentialExistenceTest {
       .body(CREDENTIALS_EXIST, Matchers.is(false));
   }
 
-  private static Future<Void> saveCredential() {
+  @Test
+  public void testPlaceholder() {
+    RestAssured.given()
+      .spec(spec)
+      .param(USER_ID_PARAM, EXISTING_EMPTY_CREDENTIALS_USER_ID)
+      .when()
+      .get(CREDENTIALS_EXISTENCE_PATH)
+      .then()
+      .log().all()
+      .statusCode(HttpStatus.SC_OK)
+      .body(IS_PLACEHOLDER, Matchers.is(true));
+
+    RestAssured.given()
+      .spec(spec)
+      .param(USER_ID_PARAM, EXISTING_CREDENTIALS_USER_ID)
+      .when()
+      .get(CREDENTIALS_EXISTENCE_PATH)
+      .then()
+      .log().all()
+      .statusCode(HttpStatus.SC_OK)
+      .body(IS_PLACEHOLDER, Matchers.is(false));
+  }
+
+  private static Future<Void> saveCredential(String userId, String password) {
     Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
-    credential.setHash(authUtil.calculateHash("password", salt));
-    credential.setUserId(EXISTING_CREDENTIALS_USER_ID);
+    credential.setHash(authUtil.calculateHash(password, salt));
+    credential.setUserId(userId);
     PostgresClient.getInstance(vertx, TENANT)
       .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
     return promise.future().map(s -> null);
