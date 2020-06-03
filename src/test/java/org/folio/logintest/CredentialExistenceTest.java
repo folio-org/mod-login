@@ -73,12 +73,7 @@ public class CredentialExistenceTest {
           Future<Void> f1 = saveCredential(EXISTING_CREDENTIALS_USER_ID, "password");
           Future<Void> f2 = saveCredential(EXISTING_EMPTY_CREDENTIALS_USER_ID, "");
 
-          CompositeFuture.all(f1, f2)
-            .onComplete(v -> {
-              if (v.succeeded()) {
-                async.complete();
-              }
-            });
+          CompositeFuture.all(f1, f2).onComplete(context.asyncAssertSuccess(done -> async.complete()));
           });
       } catch (Exception e) {
         context.fail(e);
