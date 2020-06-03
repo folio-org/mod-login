@@ -59,10 +59,10 @@ import io.vertx.sqlclient.RowSet;
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   private static final String ID_FIELD = "'id'";
-  private static final String USER_ID_FIELD = "'userId'";
+  public static final String USER_ID_FIELD = "'userId'";
   private static final String PW_ACTION_ID = "id";
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
-  private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
+  public static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String PW_HISTORY_NUMBER_CONF_PATH =
@@ -461,7 +461,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     return this;
   }
 
-  private Future<Credential> getCredByUserId(String tenantId, String userId) {
+  protected Future<Credential> getCredByUserId(String tenantId, String userId) {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
 
     Promise<Credential> promise = Promise.promise();

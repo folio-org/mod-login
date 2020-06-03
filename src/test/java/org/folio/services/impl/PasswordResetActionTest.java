@@ -1,4 +1,4 @@
-package org.folio.logintest;
+package org.folio.services.impl;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
@@ -21,6 +21,7 @@ import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -67,7 +68,6 @@ public class PasswordResetActionTest {
   private static RequestSpecification request;
   private static String restPathPasswordAction;
   private static String restPathResetPassword;
-  private static String restPathGetUserCredential;
   private static Vertx vertx;
 
   @Rule
@@ -90,7 +90,6 @@ public class PasswordResetActionTest {
       new Header(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime())));
     restPathPasswordAction = System.getProperty("org.folio.password.action.path", "/authn/password-reset-action");
     restPathResetPassword = System.getProperty("org.folio.password.reset.path", "/authn/reset-password");
-    restPathGetUserCredential = System.getProperty("org.folio.password.get.credential", "/authn/credentials/");
     request = RestAssured.given()
       .port(port)
       .contentType(MediaType.APPLICATION_JSON)
@@ -232,11 +231,10 @@ public class PasswordResetActionTest {
   }
 
   @Test
-  public void testResetPasswordWhenUserIsExist() {
+  public void testResetPasswordWhenUserIsExist(TestContext context) {
     String id = UUID.randomUUID().toString();
     JsonObject userCred = getUserCredentials();
     String userId = userCred.getString("userId");
-    String credId = userCred.getString("id");
     JsonObject passwordAction = createPasswordAction(id, userId, new Date());
 
     // create a new password action
@@ -268,16 +266,11 @@ public class PasswordResetActionTest {
       .statusCode(HttpStatus.SC_NOT_FOUND);
 
     // check new user's password
-    response = requestGetUserCredential(credId)
-      .then()
-      .statusCode(HttpStatus.SC_OK)
-      .extract()
-      .response();
-
-    JsonObject userCredentials = new JsonObject(response.getBody().prettyPrint());
-    String hash = userCredentials.getString("hash");
-    String salt = userCredentials.getString("salt");
-    assertEquals(new AuthUtil().calculateHash(newPassword, salt), hash);
+    new PasswordStorageServiceImpl(vertx).getCredByUserId(TENANT_ID, userId)
+      .onComplete(context.asyncAssertSuccess(v -> {
+        Credential cred = (Credential) v;
+        assertEquals(new AuthUtil().calculateHash(newPassword, cred.getSalt()), cred.getHash());
+      }));
   }
 
   @Test
@@ -352,13 +345,6 @@ public class PasswordResetActionTest {
     return request.body(expectedEntity.toString())
       .when()
       .post(restPathResetPassword);
-  }
-
-  // Request GET: "/authn/credentials/{id}"
-  private Response requestGetUserCredential(String id) {
-    return request
-      .when()
-      .get(restPathGetUserCredential + id);
   }
 
   // Request POST: "/authn/credentials"

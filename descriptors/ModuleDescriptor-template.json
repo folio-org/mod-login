@@ -46,11 +46,6 @@
           "permissionsRequired" : [ "login.attempts.item.get" ]
         },
         {
-          "methods" : [ "GET" ],
-          "pathPattern" : "/authn/credentials/{id}",
-          "permissionsRequired" : [ "login.item.get" ]
-        },
-        {
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/credentials",
           "permissionsRequired" : [ "login.item.post" ]
@@ -119,11 +114,6 @@
   ],
   "permissionSets" : [
     {
-      "permissionName" : "login.item.get",
-      "displayName" : "login item get",
-      "description" : "Read a single login"
-    },
-    {
       "permissionName" : "login.item.post",
       "displayName" : "login item post",
       "description" : "Add New Login"
@@ -188,7 +178,6 @@
       "displayName" : "login credentials",
       "description" : "All permissions for login credentials",
       "subPermissions" : [
-        "login.item.get",
         "login.item.post",
         "login.item.put",
         "login.item.delete",

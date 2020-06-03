@@ -692,43 +692,6 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = getTenant(okapiHeaders);
-        try {
-          Criteria idCrit = new Criteria();
-          idCrit.addField(CREDENTIAL_ID_FIELD);
-          idCrit.setOperation("=");
-          idCrit.setVal(id);
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
-            if(getReply.failed()) {
-              logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-            } else {
-              List<Credential> credList = getReply.result().getResults();
-              if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond404WithTextPlain("No credentials found for id " + id)));
-              } else {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond200WithApplicationJson(credList.get(0))));
-              }
-            }
-          });
-        } catch(Exception e) {
-          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-        }
-      });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
-  }
-
-
-  @Override
   public void deleteAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {

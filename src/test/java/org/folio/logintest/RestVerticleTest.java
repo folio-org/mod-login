@@ -206,6 +206,29 @@ public class RestVerticleTest {
     }));
   }
 
+  /**
+   * GET /authn/credentials and GET /authn/credentials/<id> were both removed in MODLOGIN-128
+   */
+  @Test
+  public void testGetCredentials(TestContext context) {
+    Async async = context.async();
+    String[] credsObject1Id = new String[1];
+    Future<WrappedResponse> chainedFuture = postNewCredentials(context, credsObject1).compose(w -> {
+      credsObject1Id[0] = w.getJson().getString("id");
+      return getCredentialsById(context, credsObject1Id[0]);
+    })
+      .compose(w -> getCredentials(context));
+
+    chainedFuture.onComplete(chainedRes -> {
+      if (chainedRes.failed()) {
+        logger.error("Test failed: " + chainedRes.cause().getLocalizedMessage());
+        context.fail(chainedRes.cause());
+      } else {
+        async.complete();
+      }
+    });
+  }
+
   @Test
   public void testPermsSeq(TestContext context) {
     Async async = context.async();
@@ -215,7 +238,6 @@ public class RestVerticleTest {
         credsObject1Id[0] = w.getJson().getString("id");
         return postDuplicateCredentials(context, credsObject1);
       })
-        .compose(w -> getCredentials(context, credsObject1Id[0]))
         .compose(w -> testMockUser(context, "gollum", null))
         .compose(w -> testMockUser(context, null, gollumId))
         .compose(w -> failMockUser(context, "yomomma", null))
@@ -304,9 +326,22 @@ public class RestVerticleTest {
       422, "Try to add a duplicate credential object");
   }
 
-  private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {
+  /**
+   * GET /authn/credentials/<id> was removed as part of MODLOGIN-128
+   * Expect 400 here (API resource does not support this HTTP method), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> getCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.GET, null, null,
-      200, "Retrieve an existing credential by id");
+      400, "Retrieve an existing credential by id");
+  }
+
+  /**
+   * GET /authn/credentials was removed as part of MODLOGIN-128
+   * Expect 400 here (API resource does not support this HTTP method), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> getCredentials(TestContext context) {
+    return doRequest(vertx, credentialsUrl, HttpMethod.GET, null, null,
+      400, "Retrieve credentials by query");
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
