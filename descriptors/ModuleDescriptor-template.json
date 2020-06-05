@@ -51,13 +51,8 @@
           "permissionsRequired" : [ "login.item.post" ]
         },
         {
-          "methods" : [ "PUT" ],
-          "pathPattern" : "/authn/credentials/{id}",
-          "permissionsRequired" : [ "login.item.put" ]
-        },
-        {
           "methods" : [ "DELETE" ],
-          "pathPattern" : "/authn/credentials/{id}",
+          "pathPattern" : "/authn/credentials",
           "permissionsRequired" : [ "login.item.delete" ]
         },
         {
@@ -119,11 +114,6 @@
       "description" : "Add New Login"
     },
     {
-      "permissionName" : "login.item.put",
-      "displayName" : "login item put",
-      "description" : "Modify login info"
-    },
-    {
       "permissionName" : "login.item.delete",
       "displayName" : "login item delete",
       "description" : "Remove existing login credentials"
@@ -179,7 +169,6 @@
       "description" : "All permissions for login credentials",
       "subPermissions" : [
         "login.item.post",
-        "login.item.put",
         "login.item.delete",
         "login.attempts.item.get",
         "login.password.validate",
