@@ -638,48 +638,36 @@ public class LoginAPI implements Authn {
   @Override
   public void deleteAuthnCredentials(String userId, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = getTenant(okapiHeaders);
-        Criteria crit = new Criteria();
-        crit.addField(USER_ID_FIELD);
-        crit.setOperation("=");
-        crit.setVal(userId);
-        try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(crit), true, getReply -> {
-            if(getReply.failed()) {
-              logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-            } else {
-              List<Credential> credList = getReply.result().getResults();
-              if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond404WithTextPlain("No credentials for userId " + userId + " found")));
-              } else {
-                try {
-                  PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(crit), deleteReply-> {
-                    if(deleteReply.failed()) {
-                      logger.debug(POSTGRES_ERROR_GET + deleteReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                    } else {
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond204()));
-                    }
-                   });
-                } catch(Exception e) {
-                  logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                }
-              }
-            }
-          });
-        } catch(Exception e) {
-          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
+    vertxContext.runOnContext(v -> {
+      String tenantId = getTenant(okapiHeaders);
+      Criteria crit = new Criteria();
+      crit.addField(USER_ID_FIELD);
+      crit.setOperation("=");
+      crit.setVal(userId);
+
+      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(crit), true, getReply -> {
+        if(getReply.failed()) {
+          logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+          return;
         }
+
+        List<Credential> credList = getReply.result().getResults();
+        if(credList.isEmpty()) {
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond404WithTextPlain("No credentials for userId " + userId + " found")));
+          return;
+        }
+
+        PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(crit), deleteReply-> {
+          if(deleteReply.failed()) {
+            logger.debug(POSTGRES_ERROR_GET + deleteReply.cause().getLocalizedMessage());
+            asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+            return;
+          }
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond204()));
+         });
       });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
+    });
   }
 
   /**

@@ -237,6 +237,7 @@ public class RestVerticleTest {
     postNewCredentials(context, credsObject1)
       .compose(w -> deleteCredentialsById(context, credsObject1.getString("id")))
       .compose(w -> deleteCredentialsByUserId(context, credsObject1.getString("userId")))
+      .compose(w -> deleteCredentialsByUserIdNotFound(context, "nobody"))
       .onComplete(context.asyncAssertSuccess());
   }
 
@@ -373,6 +374,11 @@ public class RestVerticleTest {
   private Future<WrappedResponse> deleteCredentialsByUserId(TestContext context, String userId) {
     return doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
       204, "Delete credentials by user id");
+  }
+
+  private Future<WrappedResponse> deleteCredentialsByUserIdNotFound(TestContext context, String userId) {
+    return doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+      404, "Delete credentials by user id - user not found");
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
