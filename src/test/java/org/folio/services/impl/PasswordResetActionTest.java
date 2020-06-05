@@ -167,10 +167,10 @@ public class PasswordResetActionTest {
 
   @Test
   public void testCreateNewPasswordActionWhenUserIsExist() {
-    String id = UUID.randomUUID().toString();
-    JsonObject userCred = getUserCredentials();
-    String userId = userCred.getString("userId");
-    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+    String actionId = UUID.randomUUID().toString();
+    String userId = UUID.randomUUID().toString();
+    postUserCredentials(userId);
+    JsonObject passwordAction = createPasswordAction(actionId, userId, new Date());
     JsonObject expectedJson = new JsonObject().put("passwordExists", true);
 
     Response response = requestPostCreatePasswordAction(passwordAction)
@@ -232,10 +232,10 @@ public class PasswordResetActionTest {
 
   @Test
   public void testResetPasswordWhenUserIsExist(TestContext context) {
-    String id = UUID.randomUUID().toString();
-    JsonObject userCred = getUserCredentials();
-    String userId = userCred.getString("userId");
-    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+    String actionId = UUID.randomUUID().toString();
+    String userId = UUID.randomUUID().toString();
+    postUserCredentials(userId);
+    JsonObject passwordAction = createPasswordAction(actionId, userId, new Date());
 
     // create a new password action
     Response response = requestPostCreatePasswordAction(passwordAction)
@@ -249,7 +249,7 @@ public class PasswordResetActionTest {
 
     // reset password action
     String newPassword = UUID.randomUUID().toString();
-    JsonObject passwordReset = createPasswordReset(id, newPassword);
+    JsonObject passwordReset = createPasswordReset(actionId, newPassword);
     response = requestPostResetPassword(passwordReset)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -261,7 +261,7 @@ public class PasswordResetActionTest {
     assertFalse(respActionJson.getBoolean("isNewPassword"));
 
     // check by id
-    requestGetCreatePasswordAction(id)
+    requestGetCreatePasswordAction(actionId)
       .then()
       .statusCode(HttpStatus.SC_NOT_FOUND);
 
@@ -348,21 +348,18 @@ public class PasswordResetActionTest {
   }
 
   // Request POST: "/authn/credentials"
-  private JsonObject getUserCredentials() {
+  private void postUserCredentials(String userId) {
     JsonObject userCredentials = new JsonObject()
       .put("username", "user")
-      .put("userId", UUID.randomUUID().toString())
+      .put("userId", userId)
       .put("password", USER_PW);
 
-    String body = request
+    request
       .body(userCredentials.encode())
       .when()
       .post("/authn/credentials") //
       .then()
-      .extract()
-      .response()
-      .getBody().prettyPrint();
-    return new JsonObject(body);
+      .log().all();
   }
 
   private JsonObject createPasswordAction(String id, String userId, Date date) {

@@ -151,9 +151,7 @@ traits:
           type: loginCredentials
       responses:
         201:
-          body:
-            application/json:
-              type: credential
+          description: "Success"
         400:
           description: "Bad request"
           body:
@@ -164,44 +162,27 @@ traits:
           body:
             text/plain:
               example: "Internal server error"
-    /{id}:
-      put:
-        description: Modify a user's login credentials
-        body:
-          application/json:
-            type: loginCredentials
-        responses:
-          200:
-            body:
-              application/json:
-                type: loginCredentials
-          404:
-            description: "User not found"
-            body:
-              text/plain:
-                example: "User not found"
-          500:
-            description: "Internal server error"
-            body:
-              text/plain:
-                example: "Internal server error"
-      delete:
-        description: Remove a user's login credentials from the system
-        responses:
-          204:
-            body:
-              text/plain: !!null
-          404:
-            description: "User not found"
-            body:
-              text/plain:
-                example: "User not found"
-          500:
-            description:
-              "Internal server error"
-            body:
-              text/plain:
-                example: "Internal server error"
+    delete:
+      description: Remove a user's login credentials from the system
+      is: [validate]
+      queryParameters:
+        userId:
+          description: "User Id"
+          pattern: "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"
+          required: true
+      responses:
+        204:
+          description: "Success"
+        404:
+          description: "User not found"
+          body:
+            text/plain:
+              example: "User not found"
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
   /password:
     /repeatable:
           post:
