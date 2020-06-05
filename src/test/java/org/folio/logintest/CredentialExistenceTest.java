@@ -41,13 +41,11 @@ public class CredentialExistenceTest {
 
   private static final String EXISTING_CREDENTIALS_USER_ID = "e341d8bb-5d5d-4ce8-808c-b2e9bbfb4a1a";
   private static final String NOT_EXISTING_CREDENTIALS_USER_ID = "6b1492f0-9c6f-4d51-bfdc-6c7fc53a80f3";
-  private static final String EXISTING_EMPTY_CREDENTIALS_USER_ID = "f67c2ff6-444a-4e44-9f7b-06ae94690275";
 
   private static final String TENANT = "diku";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String CREDENTIALS_EXISTENCE_PATH = "/authn/credentials-existence";
   private static final String CREDENTIALS_EXIST = "credentialsExist";
-  private static final String IS_PLACEHOLDER = "isPlaceholder";
 
   @BeforeClass
   public static void setup(final TestContext context) {
@@ -70,11 +68,9 @@ public class CredentialExistenceTest {
       try {
         TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
         tenantClient.postTenant(ta, handler -> {
-          Future<Void> f1 = saveCredential(EXISTING_CREDENTIALS_USER_ID, "password");
-          Future<Void> f2 = saveCredential(EXISTING_EMPTY_CREDENTIALS_USER_ID, "");
-
-          CompositeFuture.all(f1, f2).onComplete(context.asyncAssertSuccess(done -> async.complete()));
-          });
+          saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
+            .onComplete(context.asyncAssertSuccess(done -> async.complete()));
+        });
       } catch (Exception e) {
         context.fail(e);
       }
@@ -124,29 +120,6 @@ public class CredentialExistenceTest {
       .then()
       .statusCode(HttpStatus.SC_OK)
       .body(CREDENTIALS_EXIST, Matchers.is(false));
-  }
-
-  @Test
-  public void testPlaceholder() {
-    RestAssured.given()
-      .spec(spec)
-      .param(USER_ID_PARAM, EXISTING_EMPTY_CREDENTIALS_USER_ID)
-      .when()
-      .get(CREDENTIALS_EXISTENCE_PATH)
-      .then()
-      .log().all()
-      .statusCode(HttpStatus.SC_OK)
-      .body(IS_PLACEHOLDER, Matchers.is(true));
-
-    RestAssured.given()
-      .spec(spec)
-      .param(USER_ID_PARAM, EXISTING_CREDENTIALS_USER_ID)
-      .when()
-      .get(CREDENTIALS_EXISTENCE_PATH)
-      .then()
-      .log().all()
-      .statusCode(HttpStatus.SC_OK)
-      .body(IS_PLACEHOLDER, Matchers.is(false));
   }
 
   private static Future<Void> saveCredential(String userId, String password) {
