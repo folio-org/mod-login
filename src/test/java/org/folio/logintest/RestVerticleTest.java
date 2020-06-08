@@ -19,6 +19,8 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.folio.services.PasswordStorageService;
+import org.folio.services.impl.PasswordStorageServiceImpl;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -31,6 +33,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
@@ -108,6 +111,7 @@ public class RestVerticleTest {
   private static String loginUrl;
   private static String updateUrl;
   private static String okapiUrl;
+  private static TenantClient tenantClient;
 
   @Rule
   public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
@@ -117,7 +121,7 @@ public class RestVerticleTest {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
+    tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     credentialsUrl = "http://localhost:" + port + "/authn/credentials";
     loginUrl = "http://localhost:" + port + "/authn/login";
@@ -238,6 +242,7 @@ public class RestVerticleTest {
       .compose(w -> deleteCredentialsById(context, credsObject1.getString("id")))
       .compose(w -> deleteCredentialsByUserId(context, credsObject1.getString("userId")))
       .compose(w -> deleteCredentialsByUserIdNotFound(context, "nobody"))
+      .compose(w -> deleteCredentialsByUserIdPgError(context, "anything"))
       .onComplete(context.asyncAssertSuccess());
   }
 
@@ -379,6 +384,28 @@ public class RestVerticleTest {
   private Future<WrappedResponse> deleteCredentialsByUserIdNotFound(TestContext context, String userId) {
     return doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
       404, "Delete credentials by user id - user not found");
+  }
+
+  private Future<WrappedResponse> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    PostgresClient.getInstance(vertx, "diku").execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE", ar -> {
+      doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+        500, "Postgres Error on Delete credentials by userId")
+      .onComplete(r -> {
+        try {
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+          List<Parameter> parameters = new LinkedList<>();
+          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+          ta.setParameters(parameters);
+          tenantClient.postTenant(ta, res2 -> {
+            promise.complete(r.result());
+          });
+        } catch (Exception e) {
+          e.printStackTrace();
+        };
+      });
+    });
+    return promise.future();
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
