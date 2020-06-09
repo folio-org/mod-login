@@ -96,6 +96,16 @@ public class RestVerticleTest {
       .put("username", "strider")
       .put("password", "54321");
 
+  private JsonObject credsEmptyStringPassword = new JsonObject()
+      .put("username", "saruman")
+      .put("userId", sarumanId)
+      .put("password", "");
+
+  private JsonObject newCredsEmptyPassword = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345")
+      .put("newPassword", "");
+
   private static Vertx vertx;
   private static int port;
   private static int mockPort;
@@ -229,7 +239,9 @@ public class RestVerticleTest {
         .compose(w -> doLoginNoUserId(context, credsUserWithNoId))
         .compose(w -> doLogin(context, credsObject1))
         .compose(w -> doLogin(context, credsObject2))
+        .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsEmptyStringPassword))
         .compose(w -> postNewCredentials(context, credsObject3))
+        .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsEmptyPassword))
         .compose(w -> doInactiveLogin(context, credsObject3))
         .compose(w -> doBadPasswordLogin(context, credsObject4))
         .compose(w -> doBadPasswordLogin(context, credsObject5))
@@ -302,6 +314,11 @@ public class RestVerticleTest {
                                                            JsonObject newCredentials) {
     return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
       422, "Try to add a duplicate credential object");
+  }
+
+  private Future<WrappedResponse> postNewCredentialsWithEmptyStringPassword(TestContext context, JsonObject updateCredentials) {
+    return doRequest(vertx, credentialsUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+      422, "Attempt to create credentials with an empty string password");
   }
 
   private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {
@@ -403,6 +420,11 @@ public class RestVerticleTest {
   private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context, JsonObject updateCredentials) {
     return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
       400, "Attempt to update password with bad data");
+  }
+
+  private Future<WrappedResponse> doUpdatePasswordWithEmptyString(TestContext context, JsonObject updateCredentials) {
+    return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+      400, "Attempt to update password with an empty string password");
   }
 }
 
