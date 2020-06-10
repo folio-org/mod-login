@@ -547,11 +547,11 @@ public class LoginAPI implements Authn {
           userVerifyFuture = lookupUser(entity.getUsername(), null,
             tenantId, okapiURL, requestToken);
         }
-        if (entity.getPassword() == null) {
+        if (entity.getPassword() == null || entity.getPassword().trim().isEmpty()) {
           asyncResultHandler.handle(Future.succeededFuture(
             PostAuthnCredentialsResponse.respond422WithApplicationJson(
               ValidationHelper.createValidationErrorMessage(
-                CREDENTIAL_USERID_FIELD, entity.getUserId(), "Password is missing"))));
+                CREDENTIAL_USERID_FIELD, entity.getUserId(), "Password is missing or empty"))));
           return;
         }
         userVerifyFuture.onComplete(verifyRes -> {
@@ -1006,9 +1006,9 @@ public class LoginAPI implements Authn {
               .respond400WithTextPlain("You must provide a username or userId")));
           return;
         }
-        if(entity.getNewPassword() == null) {
+        if(entity.getNewPassword() == null || entity.getNewPassword().trim().isEmpty()) {
           asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
-              .respond400WithTextPlain("You must provide a new password")));
+              .respond400WithTextPlain("You must provide a new password that isn't empty")));
           return;
         }
         if(entity.getUserId() != null && !requireActiveUser) {
