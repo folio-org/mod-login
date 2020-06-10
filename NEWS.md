@@ -1,3 +1,20 @@
+## 2020-06-10 v7.0.0
+The main focus of this release is to address several security issues.
+
+[Full Changelog](https://github.com/folio-org/mod-login/compare/v6.2.0...v7.0.0)
+
+### Stories
+* [MODLOGIN-127](https://issues.folio.org/browse/MODLOGIN-127) - Upgrade to RMB 30.0.0
+* [MODLOGIN-130](https://issues.folio.org/browse/MODLOGIN-130) - Provide permissionsRequired property
+* [MODLOGIN-132](https://issues.folio.org/browse/MODLOGIN-132) - Do not return credential hash/salt when posting credentials
+* [MODLOGIN-133](https://issues.folio.org/browse/MODLOGIN-133) - Remove PUT /authn/credentials/{id}
+* [MODLOGIN-134](https://issues.folio.org/browse/MODLOGIN-134) - Refactor DELETE /authn/credentials/{id}
+
+### Bugs
+* [MODLOGIN-128](https://issues.folio.org/browse/MODLOGIN-128) - It is possible to fetch password hashes for all users
+* [MODLOGIN-129](https://issues.folio.org/browse/MODLOGIN-129) - POST to /authn/credentials accepts empty string for password
+* [MODLOGIN-131](https://issues.folio.org/browse/MODLOGIN-131) - Reset password fails if credentials record does not already exist
+
 ## 2019-12-04 v6.2.0
  * MODLOGIN-122 Upgrade to RMB 29
 
