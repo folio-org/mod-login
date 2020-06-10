@@ -391,6 +391,6 @@ public class LoginAttemptsTest {
       .post(CRED_PATH)
       .then()
       .statusCode(422)
-      .body("errors[0].message", equalTo("Password is missing"));
+      .body("errors[0].message", equalTo("Password is missing or empty"));
   }
 }

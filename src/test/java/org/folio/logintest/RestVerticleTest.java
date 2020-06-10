@@ -19,7 +19,6 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
-import org.folio.services.PasswordStorageService;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -100,6 +99,26 @@ public class RestVerticleTest {
   private JsonObject credsUserWithNoId = new JsonObject()
       .put("username", "strider")
       .put("password", "54321");
+
+  private JsonObject credsEmptyStringPassword = new JsonObject()
+      .put("username", "saruman")
+      .put("userId", sarumanId)
+      .put("password", "");
+
+  private JsonObject newCredsEmptyPassword = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345")
+      .put("newPassword", "");
+
+  private JsonObject newCredsWhitespacePassword = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345")
+      .put("newPassword", " \t\r\n");
+
+  private JsonObject credsWhitespacePassword = new JsonObject()
+      .put("username", "saruman")
+      .put("userId", sarumanId)
+      .put("password", " \t\r\n");
 
   private static Vertx vertx;
   private static int port;
@@ -265,7 +284,11 @@ public class RestVerticleTest {
         .compose(w -> doLoginNoUserId(context, credsUserWithNoId))
         .compose(w -> doLogin(context, credsObject1))
         .compose(w -> doLogin(context, credsObject2))
+        .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsEmptyStringPassword))
+        .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsWhitespacePassword))
         .compose(w -> postNewCredentials(context, credsObject3))
+        .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsEmptyPassword))
+        .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsWhitespacePassword))
         .compose(w -> doInactiveLogin(context, credsObject3))
         .compose(w -> doBadPasswordLogin(context, credsObject4))
         .compose(w -> doBadPasswordLogin(context, credsObject5))
@@ -338,6 +361,11 @@ public class RestVerticleTest {
                                                            JsonObject newCredentials) {
     return doRequest(vertx, credentialsUrl, HttpMethod.POST, null, newCredentials.encode(),
       422, "Try to add a duplicate credential object");
+  }
+
+  private Future<WrappedResponse> postNewCredentialsWithEmptyStringPassword(TestContext context, JsonObject updateCredentials) {
+    return doRequest(vertx, credentialsUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+      422, "Attempt to create credentials with an empty string password");
   }
 
   /**
@@ -502,6 +530,11 @@ public class RestVerticleTest {
   private Future<WrappedResponse> doBadInputUpdatePassword(TestContext context, JsonObject updateCredentials) {
     return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
       400, "Attempt to update password with bad data");
+  }
+
+  private Future<WrappedResponse> doUpdatePasswordWithEmptyString(TestContext context, JsonObject updateCredentials) {
+    return doRequest(vertx, updateUrl, HttpMethod.POST, headers, updateCredentials.encode(),
+      400, "Attempt to update password with an empty string password");
   }
 }
 
