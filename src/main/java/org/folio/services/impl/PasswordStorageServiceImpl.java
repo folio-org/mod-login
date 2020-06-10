@@ -431,7 +431,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
 
     getCredByUserId(tenant, userId)
-      .map(credential ->
+      .map(credential -> credential != null &&
         credential.getHash().equals(authUtil.calculateHash(password, credential.getSalt())))
       .compose(used -> {
         if (used) {
@@ -463,14 +463,14 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     pgClient.get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(criteria), false, false, get -> {
       if (get.failed()) {
         promise.fail(get.cause());
-      } else {
-        List<Credential> credList = get.result().getResults();
-        if(credList.isEmpty()) {
-          promise.fail("No credential found with that userId");
-        } else {
-          promise.complete(credList.get(0));
-        }
+        return;
       }
+      List<Credential> credList = get.result().getResults();
+      if(credList.isEmpty()) {
+        promise.complete(null);
+        return;
+      }
+      promise.complete(credList.get(0));
     });
     return promise.future();
   }

@@ -165,6 +165,21 @@ public class PasswordRepeatabilityValidationTest {
       .body(RESULT_JSON_PATH, is(INVALID));
   }
 
+  @Test
+  public void testNoCredentialsFound() {
+    String userId = UUID.randomUUID().toString();
+    RestAssured.given()
+      .spec(spec)
+      .header(RestVerticle.OKAPI_USERID_HEADER, userId)
+      .body(buildPasswordEntity(CURRENT_PASSWORD, userId))
+      .when()
+      .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
+      .then()
+      .log().all()
+      .statusCode(200)
+      .body(RESULT_JSON_PATH, is(VALID));
+  }
+
   private static Future<Void> fillInCredentialsHistory() {
     Promise<CompositeFuture> promise = Promise.promise();
 
@@ -224,8 +239,12 @@ public class PasswordRepeatabilityValidationTest {
   }
 
   private Password buildPasswordEntity(String password) {
+    return buildPasswordEntity(password, USER_ID);
+  }
+
+  private Password buildPasswordEntity(String password, String userId) {
     return new Password()
       .withPassword(password)
-      .withUserId(USER_ID);
+      .withUserId(userId);
   }
 }
