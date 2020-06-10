@@ -112,7 +112,7 @@ traits:
               example: "Internal server error"
   /update:
     post:
-      description: Self-update existing credentials.  N.B. A non-empty password must be provided.
+      description: Self-update existing credentials.  N.B. A non-empty password must be provided and may not contain only whitespace.
       headers:
         User-Agent:
         X-Forwarded-For:
@@ -144,7 +144,7 @@ traits:
               example: "Internal server error"
   /credentials:
     post:
-      description: Add a new login to the system. N.B. A non-empty password must be provided.
+      description: Add a new login to the system. N.B. A non-empty password must be provided and may not contain only whitespace.
       is: [validate]
       body:
         application/json:
