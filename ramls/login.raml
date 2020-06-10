@@ -1,6 +1,6 @@
 #%RAML 1.0
 title: Login
-version: v6.0
+version: v7.0
 baseUri: http://github.com/org/folio/mod-auth/login_module
 
 documentation:
@@ -9,7 +9,6 @@ documentation:
 
 types:
   credential: !include credentials.json
-  credentialsListObject: !include credentialsListObject.json
   loginCredentials: !include loginCredentials.json
   updateCredentials: !include updateCredentials.json
   loginAttempts: !include loginAttempts.json
@@ -144,39 +143,15 @@ traits:
             text/plain:
               example: "Internal server error"
   /credentials:
-    get:
-      description: Get a list of user credentials
-      is: [
-        pageable,
-        sortable,
-        queryable
-      ]
-      responses:
-        200:
-          body:
-            application/json:
-              type: credentialsListObject
-        400:
-          description: "Bad request"
-          body:
-            text/plain:
-              example: "Bad request"
-        500:
-          description: "Internal server error"
-          body:
-            text/plain:
-              example: "Internal server error"
     post:
-      description: Add a new login to the system.  N.B. A non-empty password must be provided.
+      description: Add a new login to the system. N.B. A non-empty password must be provided.
       is: [validate]
       body:
         application/json:
           type: loginCredentials
       responses:
         201:
-          body:
-            application/json:
-              type: credential
+          description: "Success"
         400:
           description: "Bad request"
           body:
@@ -187,61 +162,27 @@ traits:
           body:
             text/plain:
               example: "Internal server error"
-    /{id}:
-      get:
-        description: Get login credentials for a single user
-        responses:
-          200:
-            body:
-              application/json:
-                type: credential
-          404:
-            description: "User not found"
-            body:
-              text/plain:
-                example: "User not found"
-          500:
-            description: "Internal server error"
-            body:
-              text/plain:
-                example: "Internal server error"
-      put:
-        description: Modify a user's login credentials
-        body:
-          application/json:
-            type: loginCredentials
-        responses:
-          200:
-            body:
-              application/json:
-                type: loginCredentials
-          404:
-            description: "User not found"
-            body:
-              text/plain:
-                example: "User not found"
-          500:
-            description: "Internal server error"
-            body:
-              text/plain:
-                example: "Internal server error"
-      delete:
-        description: Remove a user's login credentials from the system
-        responses:
-          204:
-            body:
-              text/plain: !!null
-          404:
-            description: "User not found"
-            body:
-              text/plain:
-                example: "User not found"
-          500:
-            description:
-              "Internal server error"
-            body:
-              text/plain:
-                example: "Internal server error"
+    delete:
+      description: Remove a user's login credentials from the system
+      is: [validate]
+      queryParameters:
+        userId:
+          description: "User Id"
+          pattern: "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"
+          required: true
+      responses:
+        204:
+          description: "Success"
+        404:
+          description: "User not found"
+          body:
+            text/plain:
+              example: "User not found"
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
   /password:
     /repeatable:
           post:

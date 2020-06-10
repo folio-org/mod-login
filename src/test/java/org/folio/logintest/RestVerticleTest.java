@@ -7,6 +7,7 @@ import static org.folio.logintest.UserMock.sarumanId;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import org.folio.logintest.TestUtil.WrappedResponse;
@@ -18,6 +19,8 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.folio.services.PasswordStorageService;
+import org.folio.services.impl.PasswordStorageServiceImpl;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -30,6 +33,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
@@ -44,6 +48,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 public class RestVerticleTest {
 
   private JsonObject credsObject1 = new JsonObject()
+    .put("id", UUID.randomUUID().toString())
     .put("username", "gollum")
     .put("userId", gollumId)
     .put("password", "12345");
@@ -116,6 +121,7 @@ public class RestVerticleTest {
   private static String loginUrl;
   private static String updateUrl;
   private static String okapiUrl;
+  private static TenantClient tenantClient;
 
   @Rule
   public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
@@ -125,7 +131,7 @@ public class RestVerticleTest {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
+    tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     credentialsUrl = "http://localhost:" + port + "/authn/credentials";
     loginUrl = "http://localhost:" + port + "/authn/login";
@@ -216,16 +222,46 @@ public class RestVerticleTest {
     }));
   }
 
+  /**
+   * GET /authn/credentials and GET /authn/credentials/<id> were both removed in MODLOGIN-128
+   */
+  @Test
+  public void testGetCredentials(TestContext context) {
+    postNewCredentials(context, credsObject1)
+      .compose(w -> getCredentialsById(context, credsObject1.getString("id")))
+      .compose(w -> getCredentials(context))
+      .onComplete(context.asyncAssertSuccess());
+  }
+
+  /**
+   * PUT /authn/credentials/<id> was removed in MODLOGIN-133
+   */
+  @Test
+  public void testPutCredentials(TestContext context) {
+    postNewCredentials(context, credsObject1)
+      .compose(w -> putCredentialsById(context, credsObject1.getString("id"), credsObject5))
+      .onComplete(context.asyncAssertSuccess());
+  }
+
+  /**
+   * DELETE /authn/credentials/<id> was replaced by DELETE /authn/credentials?userId=<userId> in MODLOGIN-134
+   */
+  @Test
+  public void testDeleteCredentials(TestContext context) {
+    postNewCredentials(context, credsObject1)
+      .compose(w -> deleteCredentialsById(context, credsObject1.getString("id")))
+      .compose(w -> deleteCredentialsByUserId(context, credsObject1.getString("userId")))
+      .compose(w -> deleteCredentialsByUserIdNotFound(context, "nobody"))
+      .compose(w -> deleteCredentialsByUserIdPgError(context, "anything"))
+      .onComplete(context.asyncAssertSuccess());
+  }
+
   @Test
   public void testPermsSeq(TestContext context) {
     Async async = context.async();
-    String[] credsObject1Id = new String[1];
     Future<WrappedResponse> chainedFuture =
-      postNewCredentials(context, credsObject1).compose(w -> {
-        credsObject1Id[0] = w.getJson().getString("id");
-        return postDuplicateCredentials(context, credsObject1);
-      })
-        .compose(w -> getCredentials(context, credsObject1Id[0]))
+      postNewCredentials(context, credsObject1)
+        .compose(w -> postDuplicateCredentials(context, credsObject1))
         .compose(w -> testMockUser(context, "gollum", null))
         .compose(w -> testMockUser(context, null, gollumId))
         .compose(w -> failMockUser(context, "yomomma", null))
@@ -321,9 +357,72 @@ public class RestVerticleTest {
       422, "Attempt to create credentials with an empty string password");
   }
 
-  private Future<WrappedResponse> getCredentials(TestContext context, String credsId) {
+  /**
+   * GET /authn/credentials/<id> was removed as part of MODLOGIN-128
+   * Expect 400 here (API resource does not support this HTTP method), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> getCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.GET, null, null,
-      200, "Retrieve an existing credential by id");
+      400, "Retrieve an existing credential by id");
+  }
+
+  /**
+   * GET /authn/credentials was removed as part of MODLOGIN-128
+   * Expect 400 here (API resource does not support this HTTP method), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> getCredentials(TestContext context) {
+    return doRequest(vertx, credentialsUrl, HttpMethod.GET, null, null,
+      400, "Retrieve credentials by query");
+  }
+
+  /**
+   * PUT /authn/credentials/<id> was removed as part of MODLOGIN-133.
+   * Expect 400 here (API resource does not support this HTTP mothod), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> putCredentialsById(TestContext context, String credsId, JsonObject creds) {
+    return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.PUT, null, creds.encode(),
+        400, "Update credentials by id");
+  }
+
+  /**
+   * DELETE /authn/credentials/<id> was removed as part of MODLOGIN-134.
+   * Expect 400 here (API resource does not support this HTTP method), but OKAPI will return a 404.
+   */
+  private Future<WrappedResponse> deleteCredentialsById(TestContext context, String credsId) {
+    return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.DELETE, null, null,
+      400, "Delete credentials by id");
+  }
+
+  private Future<WrappedResponse> deleteCredentialsByUserId(TestContext context, String userId) {
+    return doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+      204, "Delete credentials by user id");
+  }
+
+  private Future<WrappedResponse> deleteCredentialsByUserIdNotFound(TestContext context, String userId) {
+    return doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+      404, "Delete credentials by user id - user not found");
+  }
+
+  private Future<WrappedResponse> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    PostgresClient.getInstance(vertx, "diku").execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE", ar -> {
+      doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+        500, "Postgres Error on Delete credentials by userId")
+      .onComplete(r -> {
+        try {
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+          List<Parameter> parameters = new LinkedList<>();
+          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+          ta.setParameters(parameters);
+          tenantClient.postTenant(ta, res2 -> {
+            promise.complete(r.result());
+          });
+        } catch (Exception e) {
+          e.printStackTrace();
+        };
+      });
+    });
+    return promise.future();
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
