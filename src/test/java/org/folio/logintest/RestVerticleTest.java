@@ -110,16 +110,6 @@ public class RestVerticleTest {
       .put("password", "12345")
       .put("newPassword", "");
 
-  private JsonObject newCredsWhitespacePassword = new JsonObject()
-      .put("username", "gollum")
-      .put("password", "12345")
-      .put("newPassword", " \t\r\n");
-
-  private JsonObject credsWhitespacePassword = new JsonObject()
-      .put("username", "saruman")
-      .put("userId", sarumanId)
-      .put("password", " \t\r\n");
-
   private static Vertx vertx;
   private static int port;
   private static int mockPort;
@@ -285,10 +275,8 @@ public class RestVerticleTest {
         .compose(w -> doLogin(context, credsObject1))
         .compose(w -> doLogin(context, credsObject2))
         .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsEmptyStringPassword))
-        .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsWhitespacePassword))
         .compose(w -> postNewCredentials(context, credsObject3))
         .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsEmptyPassword))
-        .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsWhitespacePassword))
         .compose(w -> doInactiveLogin(context, credsObject3))
         .compose(w -> doBadPasswordLogin(context, credsObject4))
         .compose(w -> doBadPasswordLogin(context, credsObject5))
