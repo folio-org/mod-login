@@ -4,6 +4,7 @@ import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -40,6 +41,7 @@ public class CredentialExistenceTest {
 
   private static final String EXISTING_CREDENTIALS_USER_ID = "e341d8bb-5d5d-4ce8-808c-b2e9bbfb4a1a";
   private static final String NOT_EXISTING_CREDENTIALS_USER_ID = "6b1492f0-9c6f-4d51-bfdc-6c7fc53a80f3";
+
   private static final String TENANT = "diku";
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
   private static final String CREDENTIALS_EXISTENCE_PATH = "/authn/credentials-existence";
@@ -65,12 +67,10 @@ public class CredentialExistenceTest {
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
       try {
         TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        tenantClient.postTenant(ta, handler -> saveCredential()
-          .onComplete(v -> {
-            if (v.succeeded()) {
-              async.complete();
-            }
-          }));
+        tenantClient.postTenant(ta, handler -> {
+          saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
+            .onComplete(context.asyncAssertSuccess(done -> async.complete()));
+        });
       } catch (Exception e) {
         context.fail(e);
       }
@@ -122,14 +122,14 @@ public class CredentialExistenceTest {
       .body(CREDENTIALS_EXIST, Matchers.is(false));
   }
 
-  private static Future<Void> saveCredential() {
+  private static Future<Void> saveCredential(String userId, String password) {
     Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
-    credential.setHash(authUtil.calculateHash("password", salt));
-    credential.setUserId(EXISTING_CREDENTIALS_USER_ID);
+    credential.setHash(authUtil.calculateHash(password, salt));
+    credential.setUserId(userId);
     PostgresClient.getInstance(vertx, TENANT)
       .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
     return promise.future().map(s -> null);

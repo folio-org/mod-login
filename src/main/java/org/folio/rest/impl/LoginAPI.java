@@ -26,12 +26,9 @@ import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.folio.cql2pgjson.CQL2PgJSON;
-import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.jaxrs.model.CredentialsListObject;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -51,9 +48,6 @@ import org.folio.rest.jaxrs.resource.Authn;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 import org.folio.services.ConfigurationService;
@@ -92,7 +86,7 @@ public class LoginAPI implements Authn {
   public static final String OKAPI_REQUEST_IP_HEADER = "x-okapi-request-ip";
   public static final String X_FORWARDED_FOR_HEADER = "X-Forwarded-For";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
-  private static final String CREDENTIAL_ID_FIELD = "'id'";
+  private static final String USER_ID_FIELD = "'userId'";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
   private static final String APPLICATION_JSON_CONTENT_TYPE = "application/json";
@@ -146,13 +140,6 @@ public class LoginAPI implements Authn {
       return "Internal Server Error: Please contact Admin";
     }
     return response;
-  }
-
-  private CQLWrapper getCQL(String query, int limit, int offset)
-      throws FieldException {
-    CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_CREDENTIALS + ".jsonb");
-    return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(
-        new Offset(offset));
   }
 
   private String getTenant(Map<String, String> headers) {
@@ -544,45 +531,6 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void getAuthnCredentials(int length, int start, String sortBy, String query,
-      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
-    try {
-       vertxContext.runOnContext(v -> {
-         String tenantId = getTenant(okapiHeaders);
-         String[] fieldList = {"*"};
-         try {
-           CQLWrapper cql = getCQL(query, length, start - 1);
-           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                   TABLE_NAME_CREDENTIALS, Credential.class, fieldList, cql, true, false, getReply -> {
-             if(getReply.failed()) {
-               logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-             } else {
-               CredentialsListObject credentialsListObject = new CredentialsListObject();
-               List<Credential> credentialList = getReply.result().getResults();
-               credentialsListObject.setCredentials(credentialList);
-               credentialsListObject.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
-               asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond200WithApplicationJson(credentialsListObject)));
-             }
-           });
-         } catch(Exception e) {
-           logger.debug("Error invoking Postgresclient: "+ e.getLocalizedMessage());
-           asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-         }
-       });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      if(e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond400WithTextPlain("CQL Parsing Error for '" + query + "': " +
-                e.getLocalizedMessage())));
-      } else {
-        asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-      }
-    }
-  }
-
-  @Override
   public void postAuthnCredentials(LoginCredentials entity,
       Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -657,12 +605,10 @@ public class LoginAPI implements Authn {
                                 + saveReply.cause().getLocalizedMessage();
                             logger.error(message, saveReply.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
-                                PostAuthnCredentialsResponse
-                                .respond500WithTextPlain(message)));
+                                PostAuthnCredentialsResponse.respond500WithTextPlain(message)));
                           } else {
                             asyncResultHandler.handle(Future.succeededFuture(
-                                PostAuthnCredentialsResponse
-                                  .respond201WithApplicationJson(credential)));
+                                PostAuthnCredentialsResponse.respond201()));
                           }
                         });
                       }
@@ -690,141 +636,38 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void putAuthnCredentialsById(String id, LoginCredentials entity,
-      Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = getTenant(okapiHeaders);
-        Criteria idCrit = new Criteria();
-        idCrit.addField(CREDENTIAL_ID_FIELD);
-        idCrit.setOperation("=");
-        idCrit.setVal(id);
-        try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit),true, getReply -> {
-            if(getReply.failed()) {
-              logger.debug("PostgresClient get operation failed: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-            } else {
-              List<Credential> credList = getReply.result().getResults();
-              if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond404WithTextPlain("No credentials found")));
-              } else {
-                Credential cred = credList.get(0);
-                String newSalt = authUtil.getSalt();
-                String newHash = authUtil.calculateHash(entity.getPassword(), newSalt);
-                cred.setHash(newHash);
-                cred.setSalt(newSalt);
-                try {
-                  PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_CREDENTIALS, cred, new Criterion(idCrit), true, putReply -> {
-                    if(putReply.failed()) {
-                      logger.debug("Error with PostgresClient update operation: " + putReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                    } else {
-                     asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond200WithApplicationJson(entity)));
-                    }
-                  });
-                } catch(Exception e) {
-                  logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                }
-              }
-            }
-          });
-        } catch(Exception e) {
-          logger.debug("Error with PostgresClient: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-        }
-      });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PutAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
-  }
-
-  @Override
-  public void getAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler,
-      Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = getTenant(okapiHeaders);
-        try {
-          Criteria idCrit = new Criteria();
-          idCrit.addField(CREDENTIAL_ID_FIELD);
-          idCrit.setOperation("=");
-          idCrit.setVal(id);
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(idCrit), true, false, getReply -> {
-            if(getReply.failed()) {
-              logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-            } else {
-              List<Credential> credList = getReply.result().getResults();
-              if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond404WithTextPlain("No credentials found for id " + id)));
-              } else {
-                asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond200WithApplicationJson(credList.get(0))));
-              }
-            }
-          });
-        } catch(Exception e) {
-          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-        }
-      });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
-  }
-
-
-  @Override
-  public void deleteAuthnCredentialsById(String id, Map<String, String> okapiHeaders,
+  public void deleteAuthnCredentials(String userId, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = getTenant(okapiHeaders);
-        Criteria nameCrit = new Criteria();
-        nameCrit.addField(CREDENTIAL_ID_FIELD);
-        nameCrit.setOperation("=");
-        nameCrit.setVal(id);
-        try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(nameCrit), true, getReply -> {
-            if(getReply.failed()) {
-              logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-            } else {
-              List<Credential> credList = getReply.result().getResults();
-              if(credList.isEmpty()) {
-                asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond404WithTextPlain("No credentials for id " + id + " found")));
-              } else {
-                try {
-                  PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(nameCrit), deleteReply-> {
-                    if(deleteReply.failed()) {
-                      logger.debug(POSTGRES_ERROR_GET + deleteReply.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                    } else {
-                      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond204WithTextPlain("")));
-                    }
-                   });
-                } catch(Exception e) {
-                  logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-                }
-              }
-            }
-          });
-        } catch(Exception e) {
-          logger.debug(POSTGRES_ERROR + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    vertxContext.runOnContext(v -> {
+      String tenantId = getTenant(okapiHeaders);
+      Criteria crit = new Criteria();
+      crit.addField(USER_ID_FIELD);
+      crit.setOperation("=");
+      crit.setVal(userId);
+
+      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(crit), true, getReply -> {
+        if(getReply.failed()) {
+          logger.debug(POSTGRES_ERROR_GET + getReply.cause().getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+          return;
         }
+
+        List<Credential> credList = getReply.result().getResults();
+        if(credList.isEmpty()) {
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond404WithTextPlain("No credentials for userId " + userId + " found")));
+          return;
+        }
+
+        PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_CREDENTIALS, new Criterion(crit), deleteReply-> {
+          if(deleteReply.failed()) {
+            logger.debug(POSTGRES_ERROR_GET + deleteReply.cause().getLocalizedMessage());
+            asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+            return;
+          }
+          asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsResponse.respond204()));
+         });
       });
-    } catch(Exception e) {
-      logger.debug(VERTX_CONTEXT_ERROR + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnCredentialsByIdResponse.respond500WithTextPlain(INTERNAL_ERROR)));
-    }
+    });
   }
 
   /**
