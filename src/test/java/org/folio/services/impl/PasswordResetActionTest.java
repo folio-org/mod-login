@@ -1,4 +1,4 @@
-package org.folio.logintest;
+package org.folio.services.impl;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
@@ -21,6 +21,7 @@ import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -67,7 +68,6 @@ public class PasswordResetActionTest {
   private static RequestSpecification request;
   private static String restPathPasswordAction;
   private static String restPathResetPassword;
-  private static String restPathGetUserCredential;
   private static Vertx vertx;
 
   @Rule
@@ -90,7 +90,6 @@ public class PasswordResetActionTest {
       new Header(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime())));
     restPathPasswordAction = System.getProperty("org.folio.password.action.path", "/authn/password-reset-action");
     restPathResetPassword = System.getProperty("org.folio.password.reset.path", "/authn/reset-password");
-    restPathGetUserCredential = System.getProperty("org.folio.password.get.credential", "/authn/credentials/");
     request = RestAssured.given()
       .port(port)
       .contentType(MediaType.APPLICATION_JSON)
@@ -168,10 +167,10 @@ public class PasswordResetActionTest {
 
   @Test
   public void testCreateNewPasswordActionWhenUserIsExist() {
-    String id = UUID.randomUUID().toString();
-    JsonObject userCred = getUserCredentials();
-    String userId = userCred.getString("userId");
-    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+    String actionId = UUID.randomUUID().toString();
+    String userId = UUID.randomUUID().toString();
+    postUserCredentials(userId);
+    JsonObject passwordAction = createPasswordAction(actionId, userId, new Date());
     JsonObject expectedJson = new JsonObject().put("passwordExists", true);
 
     Response response = requestPostCreatePasswordAction(passwordAction)
@@ -232,12 +231,11 @@ public class PasswordResetActionTest {
   }
 
   @Test
-  public void testResetPasswordWhenUserIsExist() {
-    String id = UUID.randomUUID().toString();
-    JsonObject userCred = getUserCredentials();
-    String userId = userCred.getString("userId");
-    String credId = userCred.getString("id");
-    JsonObject passwordAction = createPasswordAction(id, userId, new Date());
+  public void testResetPasswordWhenUserIsExist(TestContext context) {
+    String actionId = UUID.randomUUID().toString();
+    String userId = UUID.randomUUID().toString();
+    postUserCredentials(userId);
+    JsonObject passwordAction = createPasswordAction(actionId, userId, new Date());
 
     // create a new password action
     Response response = requestPostCreatePasswordAction(passwordAction)
@@ -251,7 +249,7 @@ public class PasswordResetActionTest {
 
     // reset password action
     String newPassword = UUID.randomUUID().toString();
-    JsonObject passwordReset = createPasswordReset(id, newPassword);
+    JsonObject passwordReset = createPasswordReset(actionId, newPassword);
     response = requestPostResetPassword(passwordReset)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -263,21 +261,16 @@ public class PasswordResetActionTest {
     assertFalse(respActionJson.getBoolean("isNewPassword"));
 
     // check by id
-    requestGetCreatePasswordAction(id)
+    requestGetCreatePasswordAction(actionId)
       .then()
       .statusCode(HttpStatus.SC_NOT_FOUND);
 
     // check new user's password
-    response = requestGetUserCredential(credId)
-      .then()
-      .statusCode(HttpStatus.SC_OK)
-      .extract()
-      .response();
-
-    JsonObject userCredentials = new JsonObject(response.getBody().prettyPrint());
-    String hash = userCredentials.getString("hash");
-    String salt = userCredentials.getString("salt");
-    assertEquals(new AuthUtil().calculateHash(newPassword, salt), hash);
+    new PasswordStorageServiceImpl(vertx).getCredByUserId(TENANT_ID, userId)
+      .onComplete(context.asyncAssertSuccess(v -> {
+        Credential cred = (Credential) v;
+        assertEquals(new AuthUtil().calculateHash(newPassword, cred.getSalt()), cred.getHash());
+      }));
   }
 
   @Test
@@ -354,29 +347,19 @@ public class PasswordResetActionTest {
       .post(restPathResetPassword);
   }
 
-  // Request GET: "/authn/credentials/{id}"
-  private Response requestGetUserCredential(String id) {
-    return request
-      .when()
-      .get(restPathGetUserCredential + id);
-  }
-
   // Request POST: "/authn/credentials"
-  private JsonObject getUserCredentials() {
+  private void postUserCredentials(String userId) {
     JsonObject userCredentials = new JsonObject()
       .put("username", "user")
-      .put("userId", UUID.randomUUID().toString())
+      .put("userId", userId)
       .put("password", USER_PW);
 
-    String body = request
+    request
       .body(userCredentials.encode())
       .when()
       .post("/authn/credentials") //
       .then()
-      .extract()
-      .response()
-      .getBody().prettyPrint();
-    return new JsonObject(body);
+      .log().all();
   }
 
   private JsonObject createPasswordAction(String id, String userId, Date date) {
