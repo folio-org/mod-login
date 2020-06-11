@@ -11,6 +11,7 @@ The main focus of this release is to address several security issues.
 * [MODLOGIN-134](https://issues.folio.org/browse/MODLOGIN-134) - Refactor DELETE /authn/credentials/{id}
 
 ### Bugs
+* [MODLOGIN-24](https://issues.folio.org/brows/MODLOGIN-24) - POST /authn/credentials returns 500 when password is missing
 * [MODLOGIN-128](https://issues.folio.org/browse/MODLOGIN-128) - It is possible to fetch password hashes for all users
 * [MODLOGIN-129](https://issues.folio.org/browse/MODLOGIN-129) - POST to /authn/credentials accepts empty string for password
 * [MODLOGIN-131](https://issues.folio.org/browse/MODLOGIN-131) - Reset password fails if credentials record does not already exist
