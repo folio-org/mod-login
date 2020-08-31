@@ -1,3 +1,6 @@
+## 2020-08-28 v7.0.1
+* [MODLOGIN-135](https://issues.folio.org/browse/MODLOGIN-135) Upgrade raml-module-builder (RMB) from 30.0.0 to 30.2.6
+
 ## 2020-06-10 v7.0.0
 The main focus of this release is to address several security issues.
 
