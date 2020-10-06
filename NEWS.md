@@ -1,3 +1,7 @@
+## 2020-10-06 v7.1.0
+
+* [MODLOGIN-137](https://issues.folio.org/browse/MODLOGIN-137) Upgrade to RMB 31.x and JDK 11
+
 ## 2020-08-28 v7.0.1
 * [MODLOGIN-135](https://issues.folio.org/browse/MODLOGIN-135) Upgrade raml-module-builder (RMB) from 30.0.0 to 30.2.6
 
