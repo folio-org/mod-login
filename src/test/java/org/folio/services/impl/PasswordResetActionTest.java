@@ -363,7 +363,7 @@ public class PasswordResetActionTest {
   }
 
   private JsonObject createPasswordAction(String id, String userId, Date date) {
-    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS+00:00");
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     String dateOffsetUtc = df.format(date);
     return new JsonObject()
