@@ -1,3 +1,7 @@
+## 2020-11-02 v7.1.1
+
+* [MODLOGIN-140](https://issues.folio.org/browse/MODLOGIN-140) Upgrade to RMB 31.1.5
+
 ## 2020-10-06 v7.1.0
 
 * [MODLOGIN-137](https://issues.folio.org/browse/MODLOGIN-137) Upgrade to RMB 31.x and JDK 11
