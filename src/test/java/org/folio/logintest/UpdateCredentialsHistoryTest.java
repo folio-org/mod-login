@@ -207,9 +207,6 @@ public class UpdateCredentialsHistoryTest {
       TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
       new TenantClient("http://localhost:" + port, TENANT, TOKEN, false)
         .postTenant(ta, resp -> {
-          if (resp.statusCode() != HttpStatus.SC_CREATED) {
-            promise.fail(resp.statusMessage());
-          }
           promise.complete();
         });
     } catch (Exception e) {

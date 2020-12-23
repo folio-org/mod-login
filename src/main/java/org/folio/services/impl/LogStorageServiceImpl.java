@@ -5,8 +5,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LogEvents;
@@ -20,6 +18,8 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.util.EventLogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
 
@@ -40,7 +40,7 @@ public class LogStorageServiceImpl implements LogStorageService {
   private static final String ERROR_MESSAGE_STORAGE_SERVICE = "Error while %s | message: %s";
   private static final String EVENT_CONFIG_CRITERIA_ID = "userId==%s";
 
-  private final Logger logger = LoggerFactory.getLogger(LogStorageServiceImpl.class);
+  private final Logger logger = LogManager.getLogger(LogStorageServiceImpl.class);
   private final Vertx vertx;
 
   private ConfigurationService configurationService;

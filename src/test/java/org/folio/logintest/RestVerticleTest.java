@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -37,8 +39,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -115,7 +115,7 @@ public class RestVerticleTest {
   private static int mockPort;
   private static MultiMap headers;
 
-  private final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
+  private static final Logger logger = LogManager.getLogger(RestVerticleTest.class);
   private static String credentialsUrl;
   private static String loginUrl;
   private static String updateUrl;
@@ -148,7 +148,7 @@ public class RestVerticleTest {
     );
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
-        .put("port", mockPort)).setWorker(true);
+        .put("port", mockPort));
 
 
     try {

@@ -15,6 +15,8 @@ import java.util.UUID;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.RestVerticle;
@@ -50,8 +52,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
@@ -70,7 +70,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   public static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
 
-  private final Logger logger = LoggerFactory.getLogger(PasswordStorageServiceImpl.class);
+  private static final Logger logger = LogManager.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
   private AuthUtil authUtil = new AuthUtil();
   private LogStorageService logStorageService;

@@ -71,11 +71,8 @@ public class WebClientFactoryTest {
 
     WebClientFactory.init(vertx);
     WebClient client = WebClientFactory.getWebClient(vertx);
-    Context ctx = vertx.getOrCreateContext();
 
     vertx.executeBlocking(promise -> {
-      Context anotherCtx = vertx.getOrCreateContext();
-      assertNotEquals(ctx, anotherCtx);
       promise.complete(WebClientFactory.getWebClient(vertx));
     }, res -> {
       assertEquals(client, res.result());

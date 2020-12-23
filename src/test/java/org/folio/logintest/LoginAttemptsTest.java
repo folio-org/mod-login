@@ -93,7 +93,7 @@ public class LoginAttemptsTest {
 
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
-        .put("port", mockPort)).setWorker(true);
+        .put("port", mockPort));
 
     try {
       PostgresClient.setIsEmbedded(true);
@@ -186,6 +186,8 @@ public class LoginAttemptsTest {
       PostgresClient.stopEmbeddedPostgres();
       async.complete();
     }));
+    
+    async.await();
   }
 
   @Test

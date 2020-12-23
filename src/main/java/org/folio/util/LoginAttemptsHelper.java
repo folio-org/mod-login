@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Error;
@@ -29,8 +31,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
@@ -44,7 +44,7 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_TO_WARN_CODE = "login.fail.to.warn.attempts";
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
-  public static final Logger logger = LoggerFactory.getLogger(LoginAttemptsHelper.class);
+  public static final Logger logger = LogManager.getLogger(LoginAttemptsHelper.class);
   private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
 

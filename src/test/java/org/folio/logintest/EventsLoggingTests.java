@@ -9,6 +9,7 @@ import io.restassured.specification.RequestSpecification;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -361,15 +362,15 @@ public class EventsLoggingTests {
   }
 
   private Future<String> deployVerticle() {
-    Future<String> future = Future.future();
+    Promise<String> future = Promise.promise();
     DeploymentOptions options = new DeploymentOptions()
       .setConfig(new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class.getName(), options, future.completer());
-    return future;
+    vertx.deployVerticle(RestVerticle.class.getName(), options, future);
+    return future.future();
   }
 
   private Future<Void> postTenant() {
-    Future<Void> future = Future.future();
+    Promise<Void> future = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     try {
       new TenantClient("http://localhost:" + port, TENANT, "token")
@@ -377,11 +378,11 @@ public class EventsLoggingTests {
     } catch (Exception e) {
       e.printStackTrace();
     }
-    return future;
+    return future.future();
   }
 
   private Future<String> persistCredentials() {
-    Future<String> future = Future.future();
+    Promise<String> future = Promise.promise();
     AuthUtil authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -392,14 +393,14 @@ public class EventsLoggingTests {
       .withUserId(USER_ID);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
-    pgClient.save("auth_credentials", id, cred, future.completer());
+    pgClient.save("auth_credentials", id, cred, future);
 
-    return future;
+    return future.future();
   }
 
   private CompositeFuture persistPasswordResetActions() {
-    Future<String> existingUserFuture = Future.future();
-    Future<String> newUserFuture = Future.future();
+    Promise<String> existingUserFuture = Promise.promise();
+    Promise<String> newUserFuture = Promise.promise();
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
 
@@ -407,15 +408,15 @@ public class EventsLoggingTests {
     existingUserAction.setId(RESET_PASSWORD_ACTION_ID);
     existingUserAction.setUserId(USER_ID);
     existingUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserFuture.completer());
+    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserFuture);
 
     PasswordCreate newUserAction = new PasswordCreate();
     newUserAction.setId(CREATE_PASSWORD_ACTION_ID);
     newUserAction.setUserId(NEW_USER_ID);
     newUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserFuture.completer());
+    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserFuture);
 
-    return CompositeFuture.all(existingUserFuture, newUserFuture);
+    return CompositeFuture.all(existingUserFuture.future(), newUserFuture.future());
   }
 
   private Callable<Boolean> isEventSuccessfullyLogged(LogEvent.EventType eventType, String userId) {
