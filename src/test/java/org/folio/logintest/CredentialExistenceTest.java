@@ -87,15 +87,8 @@ public class CredentialExistenceTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_CREDENTIALS, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      }
-    });
-
-    vertx.close(context.asyncAssertSuccess(res -> {
-      PostgresClient.stopEmbeddedPostgres();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

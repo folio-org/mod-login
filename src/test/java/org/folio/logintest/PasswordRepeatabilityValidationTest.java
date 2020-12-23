@@ -102,18 +102,8 @@ public class PasswordRepeatabilityValidationTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_CREDENTIALS_HISTORY, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      }
-    });
-
-    vertx.close(context.asyncAssertSuccess( res-> {
-      PostgresClient.stopEmbeddedPostgres();
-      async.complete();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

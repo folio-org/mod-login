@@ -165,29 +165,8 @@ public class LoginAttemptsTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-
-    PostgresClient.getInstance(vertx, TENANT_DIKU).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      } else {
-        try {
-          PostgresClient.getInstance(vertx, TENANT_DIKU).delete("auth_credentials", new Criterion(), r -> {
-            if (r.failed()) {
-              context.fail(r.cause());
-            }
-          });
-        } catch (Exception e) {
-          context.fail(e);
-        }
-      }
-    });
-    vertx.close(context.asyncAssertSuccess(res -> {
-      PostgresClient.stopEmbeddedPostgres();
-      async.complete();
-    }));
-    
-    async.await();
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test
