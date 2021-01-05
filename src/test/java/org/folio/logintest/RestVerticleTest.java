@@ -153,7 +153,7 @@ public class RestVerticleTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       e.printStackTrace();
       context.fail(e);

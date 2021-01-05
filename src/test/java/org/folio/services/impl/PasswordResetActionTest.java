@@ -97,7 +97,7 @@ public class PasswordResetActionTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
