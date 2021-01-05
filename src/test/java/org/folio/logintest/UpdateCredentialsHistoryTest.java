@@ -216,19 +216,15 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private static Future<Void> deployUserMockVerticle() {
-    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(UserMock.class, options, promise);
-    return promise.future().map(s -> null);
+    return vertx.deployVerticle(UserMock.class, options).mapEmpty();
   }
 
   private static Future<Void> deployRestVerticle() {
-    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class, options, promise);
-    return promise.future().map(s -> null);
+    return vertx.deployVerticle(RestVerticle.class, options).mapEmpty();
   }
 
   private static Future<Void> persistCredentials() {

@@ -362,27 +362,26 @@ public class EventsLoggingTests {
   }
 
   private Future<String> deployVerticle() {
-    Promise<String> future = Promise.promise();
     DeploymentOptions options = new DeploymentOptions()
       .setConfig(new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class.getName(), options, future);
-    return future.future();
+    return vertx.deployVerticle(RestVerticle.class.getName(), options);
   }
 
   private Future<Void> postTenant() {
-    Promise<Void> future = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     try {
       new TenantClient("http://localhost:" + port, TENANT, "token")
-        .postTenant(ta, resp -> future.complete());
+        .postTenant(ta, resp -> promise.complete());
     } catch (Exception e) {
       e.printStackTrace();
+      promise.fail(e);
     }
-    return future.future();
+    return promise.future();
   }
 
   private Future<String> persistCredentials() {
-    Promise<String> future = Promise.promise();
+    Promise<String> promise = Promise.promise();
     AuthUtil authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -393,14 +392,14 @@ public class EventsLoggingTests {
       .withUserId(USER_ID);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
-    pgClient.save("auth_credentials", id, cred, future);
+    pgClient.save("auth_credentials", id, cred, promise);
 
-    return future.future();
+    return promise.future();
   }
 
   private CompositeFuture persistPasswordResetActions() {
-    Promise<String> existingUserFuture = Promise.promise();
-    Promise<String> newUserFuture = Promise.promise();
+    Promise<String> existingUserPromise = Promise.promise();
+    Promise<String> newUserPromise = Promise.promise();
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
 
@@ -408,15 +407,15 @@ public class EventsLoggingTests {
     existingUserAction.setId(RESET_PASSWORD_ACTION_ID);
     existingUserAction.setUserId(USER_ID);
     existingUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserFuture);
+    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserPromise);
 
     PasswordCreate newUserAction = new PasswordCreate();
     newUserAction.setId(CREATE_PASSWORD_ACTION_ID);
     newUserAction.setUserId(NEW_USER_ID);
     newUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserFuture);
+    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserPromise);
 
-    return CompositeFuture.all(existingUserFuture.future(), newUserFuture.future());
+    return CompositeFuture.all(existingUserPromise.future(), newUserPromise.future());
   }
 
   private Callable<Boolean> isEventSuccessfullyLogged(LogEvent.EventType eventType, String userId) {
