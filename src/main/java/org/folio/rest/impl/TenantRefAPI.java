@@ -30,13 +30,6 @@ public class TenantRefAPI extends TenantAPI {
 
   @Validate
   @Override
-  public void postTenant(TenantAttributes tenantAttributes, Map<String, String> headers,
-      Handler<AsyncResult<Response>> handler, Context context) {
-    super.postTenantSync(tenantAttributes, headers, handler, context);
-  }
-  
-  @Validate
-  @Override
   Future<Integer> loadData(TenantAttributes attributes, String tenantId,
                            Map<String, String> headers, Context vertxContext) {
     log.info("load sample");

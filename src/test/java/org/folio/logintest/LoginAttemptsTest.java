@@ -9,13 +9,11 @@ import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -46,7 +44,6 @@ public class LoginAttemptsTest {
   private static RequestSpecification spec;
 
   private static final String TENANT_DIKU = "diku";
-  private static final String TABLE_NAME_ATTEMPTS = "auth_attempts";
   private static final String CRED_PATH = "/authn/credentials";
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
   private static final String LOGIN_PATH = "/authn/login";
@@ -79,12 +76,10 @@ public class LoginAttemptsTest {
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
     moduleArgs = new HashMap<String,String>(MODULE_SPECIFIC_ARGS);
-    Async async = context.async();
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
     int mockPort = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, TENANT_DIKU, "diku", false);
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -111,9 +106,11 @@ public class LoginAttemptsTest {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
           try {
             TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-            tenantClient.postTenant(ta, res2 -> {
-              async.complete();
-            });
+            TenantAPI tenantAPI = new TenantAPI();
+            Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+                "x-okapi-tenant", TENANT_DIKU);
+            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> context.asyncAssertSuccess(),
+                vertx.getOrCreateContext());
           } catch (Exception e) {
             e.printStackTrace();
           }

@@ -5,6 +5,7 @@ import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWOR
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -12,8 +13,8 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -205,10 +206,11 @@ public class UpdateCredentialsHistoryTest {
     Promise<Void> promise = Promise.promise();
     try {
       TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      new TenantClient("http://localhost:" + port, TENANT, TOKEN, false)
-        .postTenant(ta, resp -> {
-          promise.complete();
-        });
+      TenantAPI tenantAPI = new TenantAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", TENANT);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+          vertx.getOrCreateContext());
     } catch (Exception e) {
       promise.fail(e);
     }

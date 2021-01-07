@@ -17,8 +17,8 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
 import org.awaitility.Awaitility;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -371,8 +372,11 @@ public class EventsLoggingTests {
     Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     try {
-      new TenantClient("http://localhost:" + port, TENANT, "token")
-        .postTenant(ta, resp -> promise.complete());
+      TenantAPI tenantAPI = new TenantAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", TENANT);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+          vertx.getOrCreateContext());
     } catch (Exception e) {
       e.printStackTrace();
       promise.fail(e);

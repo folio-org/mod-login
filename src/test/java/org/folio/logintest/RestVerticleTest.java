@@ -7,6 +7,7 @@ import static org.folio.logintest.UserMock.sarumanId;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -14,8 +15,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -120,7 +121,6 @@ public class RestVerticleTest {
   private static String loginUrl;
   private static String updateUrl;
   private static String okapiUrl;
-  private static TenantClient tenantClient;
 
   @Rule
   public Timeout rule = Timeout.seconds(200);  // 3 minutes for loading embedded postgres
@@ -130,7 +130,6 @@ public class RestVerticleTest {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
-    tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     credentialsUrl = "http://localhost:" + port + "/authn/credentials";
     loginUrl = "http://localhost:" + port + "/authn/login";
@@ -171,9 +170,11 @@ public class RestVerticleTest {
             List<Parameter> parameters = new LinkedList<>();
             parameters.add(new Parameter().withKey("loadSample").withValue("true"));
             ta.setParameters(parameters);
-            tenantClient.postTenant(ta, res2 -> {
-              async.complete();
-            });
+            TenantAPI tenantAPI = new TenantAPI();
+            Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+                "x-okapi-tenant", "diku");
+            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+                vertx.getOrCreateContext());
           } catch (Exception e) {
             e.printStackTrace();
           }
@@ -410,9 +411,11 @@ public class RestVerticleTest {
           List<Parameter> parameters = new LinkedList<>();
           parameters.add(new Parameter().withKey("loadSample").withValue("true"));
           ta.setParameters(parameters);
-          tenantClient.postTenant(ta, res2 -> {
-            promise.complete(r.result());
-          });
+          TenantAPI tenantAPI = new TenantAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", "diku");
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+              vertx.getOrCreateContext());
         } catch (Exception e) {
           e.printStackTrace();
         };

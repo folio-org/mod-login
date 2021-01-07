@@ -19,7 +19,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -36,6 +36,7 @@ import org.junit.runner.RunWith;
 import javax.ws.rs.core.MediaType;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,7 +68,6 @@ public class LogEventsApiTest {
 
   @BeforeClass
   public static void setUpClass(final TestContext context) {
-    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
@@ -86,14 +86,17 @@ public class LogEventsApiTest {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT_ID, OKAPI_TOKEN_VAL);
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
       res -> {
         try {
           TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          tenantClient.postTenant(ta, handler -> async.complete());
+          TenantAPI tenantAPI = new TenantAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", TENANT_ID);
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> context.asyncAssertSuccess(),
+              vertx.getOrCreateContext());
         } catch (Exception e) {
           context.fail(e);
         }

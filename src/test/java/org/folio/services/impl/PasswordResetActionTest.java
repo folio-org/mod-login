@@ -12,6 +12,7 @@ import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
 
@@ -19,8 +20,8 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -102,7 +103,6 @@ public class PasswordResetActionTest {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT_ID, OKAPI_TOKEN_VAL);
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
 
@@ -111,7 +111,11 @@ public class PasswordResetActionTest {
       {
         try {
           TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          tenantClient.postTenant(ta, handler -> async.complete());
+          TenantAPI tenantAPI = new TenantAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", TENANT_ID);
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+              vertx.getOrCreateContext());
         } catch (Exception e) {
           context.fail(e);
         }
