@@ -48,6 +48,7 @@ public class CredentialExistenceTest {
 
   @BeforeClass
   public static void setup(final TestContext context) {
+    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     String okapiUrl = "http://localhost:" + port;
@@ -69,7 +70,7 @@ public class CredentialExistenceTest {
             "x-okapi-tenant", TENANT);
         tenantAPI.postTenantSync(ta, okapiHeaders, handler -> {
           saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
-            .onComplete(context.asyncAssertSuccess());
+            .onComplete(context.asyncAssertSuccess(done -> async.complete()));
         }, vertx.getOrCreateContext());
       } catch (Exception e) {
         context.fail(e);

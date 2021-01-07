@@ -76,6 +76,7 @@ public class LoginAttemptsTest {
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
     moduleArgs = new HashMap<String,String>(MODULE_SPECIFIC_ARGS);
+    Async async = context.async();
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -109,7 +110,7 @@ public class LoginAttemptsTest {
             TenantAPI tenantAPI = new TenantAPI();
             Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
                 "x-okapi-tenant", TENANT_DIKU);
-            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> context.asyncAssertSuccess(),
+            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
                 vertx.getOrCreateContext());
           } catch (Exception e) {
             e.printStackTrace();

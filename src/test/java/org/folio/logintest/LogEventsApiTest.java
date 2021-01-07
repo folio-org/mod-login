@@ -68,6 +68,7 @@ public class LogEventsApiTest {
 
   @BeforeClass
   public static void setUpClass(final TestContext context) {
+    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
@@ -95,7 +96,7 @@ public class LogEventsApiTest {
           TenantAPI tenantAPI = new TenantAPI();
           Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
               "x-okapi-tenant", TENANT_ID);
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> context.asyncAssertSuccess(),
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
               vertx.getOrCreateContext());
         } catch (Exception e) {
           context.fail(e);
