@@ -17,6 +17,7 @@ import org.folio.logintest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -170,7 +171,7 @@ public class RestVerticleTest {
             List<Parameter> parameters = new LinkedList<>();
             parameters.add(new Parameter().withKey("loadSample").withValue("true"));
             ta.setParameters(parameters);
-            TenantAPI tenantAPI = new TenantAPI();
+            TenantAPI tenantAPI = new TenantRefAPI();
             Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
                 "x-okapi-tenant", "diku");
             tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
@@ -411,7 +412,7 @@ public class RestVerticleTest {
           List<Parameter> parameters = new LinkedList<>();
           parameters.add(new Parameter().withKey("loadSample").withValue("true"));
           ta.setParameters(parameters);
-          TenantAPI tenantAPI = new TenantAPI();
+          TenantAPI tenantAPI = new TenantRefAPI();
           Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
               "x-okapi-tenant", "diku");
           tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),

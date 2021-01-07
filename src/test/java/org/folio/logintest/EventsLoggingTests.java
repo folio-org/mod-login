@@ -19,6 +19,7 @@ import org.awaitility.Awaitility;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -372,7 +373,7 @@ public class EventsLoggingTests {
     Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     try {
-      TenantAPI tenantAPI = new TenantAPI();
+      TenantAPI tenantAPI = new TenantRefAPI();
       Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
           "x-okapi-tenant", TENANT);
       tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),

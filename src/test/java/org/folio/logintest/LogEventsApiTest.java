@@ -20,6 +20,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -93,7 +94,7 @@ public class LogEventsApiTest {
       res -> {
         try {
           TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TenantAPI tenantAPI = new TenantAPI();
+          TenantAPI tenantAPI = new TenantRefAPI();
           Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
               "x-okapi-tenant", TENANT_ID);
           tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
