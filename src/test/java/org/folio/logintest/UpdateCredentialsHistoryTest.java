@@ -5,6 +5,7 @@ import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWOR
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -12,8 +13,9 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -86,7 +88,7 @@ public class UpdateCredentialsHistoryTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
@@ -203,35 +205,25 @@ public class UpdateCredentialsHistoryTest {
 
   private static Future<Void> postTenant() {
     Promise<Void> promise = Promise.promise();
-    try {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      new TenantClient("http://localhost:" + port, TENANT, TOKEN, false)
-        .postTenant(ta, resp -> {
-          if (resp.statusCode() != HttpStatus.SC_CREATED) {
-            promise.fail(resp.statusMessage());
-          }
-          promise.complete();
-        });
-    } catch (Exception e) {
-      promise.fail(e);
-    }
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+    TenantAPI tenantAPI = new TenantRefAPI();
+    Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+        "x-okapi-tenant", TENANT);
+    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+        vertx.getOrCreateContext());
     return promise.future();
   }
 
   private static Future<Void> deployUserMockVerticle() {
-    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(UserMock.class, options, promise);
-    return promise.future().map(s -> null);
+    return vertx.deployVerticle(UserMock.class, options).mapEmpty();
   }
 
   private static Future<Void> deployRestVerticle() {
-    Promise<String> promise = Promise.promise();
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class, options, promise);
-    return promise.future().map(s -> null);
+    return vertx.deployVerticle(RestVerticle.class, options).mapEmpty();
   }
 
   private static Future<Void> persistCredentials() {

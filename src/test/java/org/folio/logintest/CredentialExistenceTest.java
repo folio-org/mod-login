@@ -4,7 +4,6 @@ import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -15,10 +14,10 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
-import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
@@ -28,6 +27,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Map;
 import java.util.UUID;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 
@@ -56,24 +56,22 @@ public class CredentialExistenceTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient(okapiUrl, TENANT, "token");
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        tenantClient.postTenant(ta, handler -> {
-          saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
-            .onComplete(context.asyncAssertSuccess(done -> async.complete()));
-        });
-      } catch (Exception e) {
-        context.fail(e);
-      }
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", okapiUrl,
+          "x-okapi-tenant", TENANT);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> {
+        saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
+          .onComplete(context.asyncAssertSuccess(done -> async.complete()));
+      }, vertx.getOrCreateContext());
     });
 
     spec = new RequestSpecBuilder()
@@ -87,15 +85,8 @@ public class CredentialExistenceTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_CREDENTIALS, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      }
-    });
-
-    vertx.close(context.asyncAssertSuccess(res -> {
-      PostgresClient.stopEmbeddedPostgres();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

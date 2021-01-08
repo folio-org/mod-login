@@ -12,6 +12,7 @@ import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
 
@@ -19,8 +20,9 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -97,25 +99,22 @@ public class PasswordResetActionTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT_ID, OKAPI_TOKEN_VAL);
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
 
-    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
-      res ->
-      {
-        try {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          tenantClient.postTenant(ta, handler -> async.complete());
-        } catch (Exception e) {
-          context.fail(e);
-        }
-      });
+    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions, res -> {
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", TENANT_ID);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+          vertx.getOrCreateContext());
+    });
   }
 
   @AfterClass

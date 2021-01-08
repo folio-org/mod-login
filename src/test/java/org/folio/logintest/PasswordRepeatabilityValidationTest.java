@@ -4,19 +4,20 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
 import org.junit.AfterClass;
@@ -68,27 +69,25 @@ public class PasswordRepeatabilityValidationTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT, "diku");
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        tenantClient.postTenant(ta, handler -> fillInCredentialsHistory()
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", "diku");
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> fillInCredentialsHistory()
           .compose(v -> saveCredential())
           .onComplete(v -> {
             if (v.succeeded()) {
               async.complete();
             }
-          }));
-      } catch (Exception e) {
-        context.fail(e);
-      }
+          }), vertx.getOrCreateContext());
     });
 
     spec = new RequestSpecBuilder()
@@ -102,18 +101,8 @@ public class PasswordRepeatabilityValidationTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-
-    PostgresClient.getInstance(vertx, TENANT).delete(TABLE_NAME_CREDENTIALS_HISTORY, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      }
-    });
-
-    vertx.close(context.asyncAssertSuccess( res-> {
-      PostgresClient.stopEmbeddedPostgres();
-      async.complete();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

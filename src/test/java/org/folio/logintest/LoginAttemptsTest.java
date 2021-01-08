@@ -9,13 +9,12 @@ import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -46,7 +45,6 @@ public class LoginAttemptsTest {
   private static RequestSpecification spec;
 
   private static final String TENANT_DIKU = "diku";
-  private static final String TABLE_NAME_ATTEMPTS = "auth_attempts";
   private static final String CRED_PATH = "/authn/credentials";
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
   private static final String LOGIN_PATH = "/authn/login";
@@ -84,7 +82,6 @@ public class LoginAttemptsTest {
 
     int port = NetworkUtils.nextFreePort();
     int mockPort = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, TENANT_DIKU, "diku", false);
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -93,11 +90,11 @@ public class LoginAttemptsTest {
 
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
-        .put("port", mockPort)).setWorker(true);
+        .put("port", mockPort));
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
       return;
@@ -109,14 +106,12 @@ public class LoginAttemptsTest {
         context.fail(mockRes.cause());
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          try {
-            TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-            tenantClient.postTenant(ta, res2 -> {
-              async.complete();
-            });
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+          TenantAPI tenantAPI = new TenantRefAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", TENANT_DIKU);
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+              vertx.getOrCreateContext());
         });
       }
     });
@@ -165,27 +160,8 @@ public class LoginAttemptsTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-
-    PostgresClient.getInstance(vertx, TENANT_DIKU).delete(TABLE_NAME_ATTEMPTS, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      } else {
-        try {
-          PostgresClient.getInstance(vertx, TENANT_DIKU).delete("auth_credentials", new Criterion(), r -> {
-            if (r.failed()) {
-              context.fail(r.cause());
-            }
-          });
-        } catch (Exception e) {
-          context.fail(e);
-        }
-      }
-    });
-    vertx.close(context.asyncAssertSuccess(res -> {
-      PostgresClient.stopEmbeddedPostgres();
-      async.complete();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

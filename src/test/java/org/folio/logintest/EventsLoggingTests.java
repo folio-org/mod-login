@@ -9,6 +9,7 @@ import io.restassured.specification.RequestSpecification;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -16,8 +17,9 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
 import org.awaitility.Awaitility;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.LoginAPI;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -45,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -95,7 +98,7 @@ public class EventsLoggingTests {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
@@ -361,27 +364,24 @@ public class EventsLoggingTests {
   }
 
   private Future<String> deployVerticle() {
-    Future<String> future = Future.future();
     DeploymentOptions options = new DeploymentOptions()
       .setConfig(new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class.getName(), options, future.completer());
-    return future;
+    return vertx.deployVerticle(RestVerticle.class.getName(), options);
   }
 
   private Future<Void> postTenant() {
-    Future<Void> future = Future.future();
+    Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    try {
-      new TenantClient("http://localhost:" + port, TENANT, "token")
-        .postTenant(ta, resp -> future.complete());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return future;
+    TenantAPI tenantAPI = new TenantRefAPI();
+    Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+        "x-okapi-tenant", TENANT);
+    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+        vertx.getOrCreateContext());
+    return promise.future();
   }
 
   private Future<String> persistCredentials() {
-    Future<String> future = Future.future();
+    Promise<String> promise = Promise.promise();
     AuthUtil authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -392,14 +392,14 @@ public class EventsLoggingTests {
       .withUserId(USER_ID);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
-    pgClient.save("auth_credentials", id, cred, future.completer());
+    pgClient.save("auth_credentials", id, cred, promise);
 
-    return future;
+    return promise.future();
   }
 
   private CompositeFuture persistPasswordResetActions() {
-    Future<String> existingUserFuture = Future.future();
-    Future<String> newUserFuture = Future.future();
+    Promise<String> existingUserPromise = Promise.promise();
+    Promise<String> newUserPromise = Promise.promise();
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
 
@@ -407,15 +407,15 @@ public class EventsLoggingTests {
     existingUserAction.setId(RESET_PASSWORD_ACTION_ID);
     existingUserAction.setUserId(USER_ID);
     existingUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserFuture.completer());
+    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserPromise);
 
     PasswordCreate newUserAction = new PasswordCreate();
     newUserAction.setId(CREATE_PASSWORD_ACTION_ID);
     newUserAction.setUserId(NEW_USER_ID);
     newUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserFuture.completer());
+    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserPromise);
 
-    return CompositeFuture.all(existingUserFuture, newUserFuture);
+    return CompositeFuture.all(existingUserPromise.future(), newUserPromise.future());
   }
 
   private Callable<Boolean> isEventSuccessfullyLogged(LogEvent.EventType eventType, String userId) {

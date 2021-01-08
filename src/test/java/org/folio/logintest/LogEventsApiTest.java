@@ -19,7 +19,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -36,6 +37,7 @@ import org.junit.runner.RunWith;
 import javax.ws.rs.core.MediaType;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -81,32 +83,27 @@ public class LogEventsApiTest {
 
     try {
       PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
+      PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
     }
 
-    TenantClient tenantClient = new TenantClient("localhost", port, TENANT_ID, OKAPI_TOKEN_VAL);
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
-    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
-      res -> {
-        try {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          tenantClient.postTenant(ta, handler -> async.complete());
-        } catch (Exception e) {
-          context.fail(e);
-        }
-      });
+    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions, res -> {
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", TENANT_ID);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+          vertx.getOrCreateContext());
+    });
   }
 
   @AfterClass
   public static void tearDownClass(final TestContext context) {
-    Async async = context.async();
-    vertx.close(context.asyncAssertSuccess(res -> {
-      PostgresClient.stopEmbeddedPostgres();
-      async.complete();
-    }));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Before

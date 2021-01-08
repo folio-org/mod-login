@@ -26,6 +26,8 @@ import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Credential;
@@ -67,8 +69,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
@@ -112,7 +112,7 @@ public class LoginAPI implements Authn {
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
       .getOrDefault("require.active", "true"));
 
-  private final Logger logger = LoggerFactory.getLogger(LoginAPI.class);
+  private static final Logger logger = LogManager.getLogger(LoginAPI.class);
 
   private String vTenantId;
   private LogStorageService logStorageService;

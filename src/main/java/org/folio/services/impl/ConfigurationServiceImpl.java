@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import javax.ws.rs.core.MediaType;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Configurations;
@@ -27,8 +29,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
@@ -46,7 +46,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
   private static final String ERROR_LOOKING_UP_MOD_CONFIG = "Error looking up config at url=%s | Expected status code 200, got %s | error message: %s";
 
-  private final Logger logger = LoggerFactory.getLogger(ConfigurationServiceImpl.class);
+  private static final Logger logger = LogManager.getLogger(ConfigurationServiceImpl.class);
 
   private Vertx vertx;
 
