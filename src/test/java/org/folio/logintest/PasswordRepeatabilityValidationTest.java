@@ -77,21 +77,17 @@ public class PasswordRepeatabilityValidationTest {
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        TenantAPI tenantAPI = new TenantRefAPI();
-        Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-            "x-okapi-tenant", "diku");
-        tenantAPI.postTenantSync(ta, okapiHeaders, handler -> fillInCredentialsHistory()
-            .compose(v -> saveCredential())
-            .onComplete(v -> {
-              if (v.succeeded()) {
-                async.complete();
-              }
-            }), vertx.getOrCreateContext());
-      } catch (Exception e) {
-        context.fail(e);
-      }
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", "diku");
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> fillInCredentialsHistory()
+          .compose(v -> saveCredential())
+          .onComplete(v -> {
+            if (v.succeeded()) {
+              async.complete();
+            }
+          }), vertx.getOrCreateContext());
     });
 
     spec = new RequestSpecBuilder()

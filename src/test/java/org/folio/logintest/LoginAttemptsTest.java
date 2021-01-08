@@ -106,16 +106,12 @@ public class LoginAttemptsTest {
         context.fail(mockRes.cause());
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          try {
-            TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-            TenantAPI tenantAPI = new TenantRefAPI();
-            Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-                "x-okapi-tenant", TENANT_DIKU);
-            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-                vertx.getOrCreateContext());
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+          TenantAPI tenantAPI = new TenantRefAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", TENANT_DIKU);
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+              vertx.getOrCreateContext());
         });
       }
     });

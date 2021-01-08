@@ -107,20 +107,14 @@ public class PasswordResetActionTest {
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
 
-    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions,
-      res ->
-      {
-        try {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TenantAPI tenantAPI = new TenantRefAPI();
-          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-              "x-okapi-tenant", TENANT_ID);
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-              vertx.getOrCreateContext());
-        } catch (Exception e) {
-          context.fail(e);
-        }
-      });
+    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions, res -> {
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+          "x-okapi-tenant", TENANT_ID);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+          vertx.getOrCreateContext());
+    });
   }
 
   @AfterClass

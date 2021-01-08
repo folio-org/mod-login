@@ -372,16 +372,11 @@ public class EventsLoggingTests {
   private Future<Void> postTenant() {
     Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    try {
-      TenantAPI tenantAPI = new TenantRefAPI();
-      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-          "x-okapi-tenant", TENANT);
-      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-          vertx.getOrCreateContext());
-    } catch (Exception e) {
-      e.printStackTrace();
-      promise.fail(e);
-    }
+    TenantAPI tenantAPI = new TenantRefAPI();
+    Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+        "x-okapi-tenant", TENANT);
+    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+        vertx.getOrCreateContext());
     return promise.future();
   }
 

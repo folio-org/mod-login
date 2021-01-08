@@ -166,19 +166,15 @@ public class RestVerticleTest {
         context.fail(mockRes.cause());
       } else {
         vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          try {
-            TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-            List<Parameter> parameters = new LinkedList<>();
-            parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-            ta.setParameters(parameters);
-            TenantAPI tenantAPI = new TenantRefAPI();
-            Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-                "x-okapi-tenant", "diku");
-            tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-                vertx.getOrCreateContext());
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+          List<Parameter> parameters = new LinkedList<>();
+          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+          ta.setParameters(parameters);
+          TenantAPI tenantAPI = new TenantRefAPI();
+          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+              "x-okapi-tenant", "diku");
+          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
+              vertx.getOrCreateContext());
         });
       }
     });
@@ -407,19 +403,15 @@ public class RestVerticleTest {
       doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
         500, "Postgres Error on Delete credentials by userId")
       .onComplete(r -> {
-        try {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-          List<Parameter> parameters = new LinkedList<>();
-          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-          ta.setParameters(parameters);
-          TenantAPI tenantAPI = new TenantRefAPI();
-          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-              "x-okapi-tenant", "diku");
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-              vertx.getOrCreateContext());
-        } catch (Exception e) {
-          e.printStackTrace();
-        };
+        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+        List<Parameter> parameters = new LinkedList<>();
+        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+        ta.setParameters(parameters);
+        TenantAPI tenantAPI = new TenantRefAPI();
+        Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
+            "x-okapi-tenant", "diku");
+        tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
+            vertx.getOrCreateContext());
       });
     });
     return promise.future();

@@ -64,18 +64,14 @@ public class CredentialExistenceTest {
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-        TenantAPI tenantAPI = new TenantRefAPI();
-        Map<String, String> okapiHeaders = Map.of("x-okapi-url", okapiUrl,
-            "x-okapi-tenant", TENANT);
-        tenantAPI.postTenantSync(ta, okapiHeaders, handler -> {
-          saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
-            .onComplete(context.asyncAssertSuccess(done -> async.complete()));
-        }, vertx.getOrCreateContext());
-      } catch (Exception e) {
-        context.fail(e);
-      }
+      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+      TenantAPI tenantAPI = new TenantRefAPI();
+      Map<String, String> okapiHeaders = Map.of("x-okapi-url", okapiUrl,
+          "x-okapi-tenant", TENANT);
+      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> {
+        saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
+          .onComplete(context.asyncAssertSuccess(done -> async.complete()));
+      }, vertx.getOrCreateContext());
     });
 
     spec = new RequestSpecBuilder()
