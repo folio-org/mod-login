@@ -1,3 +1,7 @@
+## 2021-01-14 v7.2.0
+
+* [MODLOGIN-146](https://issues.folio.org/browse/MODLOGIN-146) Upgrade mod-login to RMB v32.x
+
 ## 2020-10-06 v7.1.0
 
 * [MODLOGIN-137](https://issues.folio.org/browse/MODLOGIN-137) Upgrade to RMB 31.x and JDK 11
