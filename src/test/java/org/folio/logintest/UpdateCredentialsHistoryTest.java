@@ -87,7 +87,7 @@ public class UpdateCredentialsHistoryTest {
       .build();
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -106,7 +106,7 @@ public class UpdateCredentialsHistoryTest {
 
   @AfterClass
   public static void tearDown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 

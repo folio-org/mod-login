@@ -97,7 +97,7 @@ public class EventsLoggingTests {
     vertx = Vertx.vertx();
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -124,7 +124,7 @@ public class EventsLoggingTests {
 
   @After
   public void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 

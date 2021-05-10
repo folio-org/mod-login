@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -152,7 +153,7 @@ public class RestVerticleTest {
 
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       e.printStackTrace();
@@ -212,7 +213,7 @@ public class RestVerticleTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 

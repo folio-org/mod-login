@@ -19,6 +19,7 @@ import java.util.UUID;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -98,7 +99,7 @@ public class PasswordResetActionTest {
       .headers(headers);
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -123,7 +124,7 @@ public class PasswordResetActionTest {
     vertx.close(context.asyncAssertSuccess(
       res ->
       {
-        PostgresClient.stopEmbeddedPostgres();
+
         async.complete();
       }));
   }

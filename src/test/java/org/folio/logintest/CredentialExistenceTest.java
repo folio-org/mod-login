@@ -55,7 +55,7 @@ public class CredentialExistenceTest {
     String okapiUrl = "http://localhost:" + port;
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -85,7 +85,7 @@ public class CredentialExistenceTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 

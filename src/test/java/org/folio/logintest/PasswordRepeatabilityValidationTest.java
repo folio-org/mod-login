@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -68,7 +69,7 @@ public class PasswordRepeatabilityValidationTest {
     int port = NetworkUtils.nextFreePort();
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -101,7 +102,7 @@ public class PasswordRepeatabilityValidationTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 

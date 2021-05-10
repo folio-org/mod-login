@@ -93,7 +93,7 @@ public class LoginAttemptsTest {
         .put("port", mockPort));
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -160,7 +160,7 @@ public class LoginAttemptsTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
+
     vertx.close(context.asyncAssertSuccess());
   }
 
