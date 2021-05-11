@@ -361,7 +361,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> getCredentials(TestContext context) {
     return doRequest(vertx, credentialsUrl, HttpMethod.GET, null, null,
-      404, "Retrieve credentials by query");
+      405, "Retrieve credentials by query");
   }
 
   /**
