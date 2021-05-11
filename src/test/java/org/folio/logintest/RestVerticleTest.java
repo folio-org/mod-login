@@ -211,12 +211,6 @@ public class RestVerticleTest {
       }));
   }
 
-  @AfterClass
-  public static void teardown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   /**
    * GET /authn/credentials and GET /authn/credentials/<id> were both removed in MODLOGIN-128
    */
@@ -358,7 +352,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> getCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.GET, null, null,
-      400, "Retrieve an existing credential by id");
+      404, "Retrieve an existing credential by id");
   }
 
   /**
@@ -367,7 +361,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> getCredentials(TestContext context) {
     return doRequest(vertx, credentialsUrl, HttpMethod.GET, null, null,
-      400, "Retrieve credentials by query");
+      404, "Retrieve credentials by query");
   }
 
   /**
@@ -376,7 +370,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> putCredentialsById(TestContext context, String credsId, JsonObject creds) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.PUT, null, creds.encode(),
-        400, "Update credentials by id");
+        404, "Update credentials by id");
   }
 
   /**
@@ -385,7 +379,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> deleteCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.DELETE, null, null,
-      400, "Delete credentials by id");
+      404, "Delete credentials by id");
   }
 
   private Future<WrappedResponse> deleteCredentialsByUserId(TestContext context, String userId) {

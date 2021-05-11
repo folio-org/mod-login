@@ -84,12 +84,6 @@ public class CredentialExistenceTest {
       .build();
   }
 
-  @AfterClass
-  public static void teardown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @Test
   public void shouldReturnTrueWhenCredentialForUserExists() {
     RestAssured.given()

@@ -159,12 +159,6 @@ public class LoginAttemptsTest {
       }));
   }
 
-  @AfterClass
-  public static void teardown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @Test
   public void testAttempts(final TestContext context) throws UnsupportedEncodingException {
     RestAssured.given()

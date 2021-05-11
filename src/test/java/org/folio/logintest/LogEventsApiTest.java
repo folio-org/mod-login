@@ -101,12 +101,6 @@ public class LogEventsApiTest {
     });
   }
 
-  @AfterClass
-  public static void tearDownClass(final TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @Before
   public void setUp(TestContext context) {
     Async async = context.async();

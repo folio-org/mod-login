@@ -123,12 +123,6 @@ public class EventsLoggingTests {
       .onComplete(context.asyncAssertSuccess());
   }
 
-  @After
-  public void teardown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @Test
   public void testSuccessfulLoginAttempt() {
     LoginCredentials body = new LoginCredentials();

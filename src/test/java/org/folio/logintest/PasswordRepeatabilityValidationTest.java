@@ -100,12 +100,6 @@ public class PasswordRepeatabilityValidationTest {
       .build();
   }
 
-  @AfterClass
-  public static void teardown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @Test
   public void testNewPassword() {
     RestAssured.given()

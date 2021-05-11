@@ -118,17 +118,6 @@ public class PasswordResetActionTest {
     });
   }
 
-  @AfterClass
-  public static void tearDownClass(final TestContext context) {
-    Async async = context.async();
-    vertx.close(context.asyncAssertSuccess(
-      res ->
-      {
-
-        async.complete();
-      }));
-  }
-
   @Before
   public void before(TestContext context) {
     Async async = context.async();

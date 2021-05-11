@@ -105,12 +105,6 @@ public class UpdateCredentialsHistoryTest {
 
   }
 
-  @AfterClass
-  public static void tearDown(TestContext context) {
-
-    vertx.close(context.asyncAssertSuccess());
-  }
-
   @After
   public void cleanUp(TestContext context) {
 
