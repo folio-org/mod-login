@@ -13,6 +13,7 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -55,7 +56,7 @@ public class CredentialExistenceTest {
     String okapiUrl = "http://localhost:" + port;
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -81,12 +82,6 @@ public class CredentialExistenceTest {
       .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken")
       .addHeader(LoginAPI.OKAPI_URL_HEADER, okapiUrl)
       .build();
-  }
-
-  @AfterClass
-  public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
-    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

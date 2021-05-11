@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -152,7 +153,7 @@ public class RestVerticleTest {
 
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       e.printStackTrace();
@@ -208,12 +209,6 @@ public class RestVerticleTest {
           });
         }
       }));
-  }
-
-  @AfterClass
-  public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
-    vertx.close(context.asyncAssertSuccess());
   }
 
   /**
@@ -357,7 +352,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> getCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.GET, null, null,
-      400, "Retrieve an existing credential by id");
+      404, "Retrieve an existing credential by id");
   }
 
   /**
@@ -366,7 +361,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> getCredentials(TestContext context) {
     return doRequest(vertx, credentialsUrl, HttpMethod.GET, null, null,
-      400, "Retrieve credentials by query");
+      405, "Retrieve credentials by query");
   }
 
   /**
@@ -375,7 +370,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> putCredentialsById(TestContext context, String credsId, JsonObject creds) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.PUT, null, creds.encode(),
-        400, "Update credentials by id");
+        404, "Update credentials by id");
   }
 
   /**
@@ -384,7 +379,7 @@ public class RestVerticleTest {
    */
   private Future<WrappedResponse> deleteCredentialsById(TestContext context, String credsId) {
     return doRequest(vertx, credentialsUrl + "/" + credsId, HttpMethod.DELETE, null, null,
-      400, "Delete credentials by id");
+      404, "Delete credentials by id");
   }
 
   private Future<WrappedResponse> deleteCredentialsByUserId(TestContext context, String userId) {

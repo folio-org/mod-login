@@ -12,6 +12,7 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -87,7 +88,7 @@ public class UpdateCredentialsHistoryTest {
       .build();
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -102,12 +103,6 @@ public class UpdateCredentialsHistoryTest {
       .compose(v -> persistCredentials())
       .onComplete(context.asyncAssertSuccess());
 
-  }
-
-  @AfterClass
-  public static void tearDown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
-    vertx.close(context.asyncAssertSuccess());
   }
 
   @After

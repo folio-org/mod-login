@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -93,7 +94,7 @@ public class LoginAttemptsTest {
         .put("port", mockPort));
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -156,12 +157,6 @@ public class LoginAttemptsTest {
           });
         }
       }));
-  }
-
-  @AfterClass
-  public static void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
-    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

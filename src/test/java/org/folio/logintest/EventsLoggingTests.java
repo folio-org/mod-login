@@ -16,6 +16,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
 import org.awaitility.Awaitility;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
@@ -97,7 +98,7 @@ public class EventsLoggingTests {
     vertx = Vertx.vertx();
 
     try {
-      PostgresClient.setIsEmbedded(true);
+      PostgresClient.setPostgresTester(new PostgresTesterContainer());
       PostgresClient.getInstance(vertx);
     } catch (Exception e) {
       context.fail(e);
@@ -120,12 +121,6 @@ public class EventsLoggingTests {
       .compose(v -> persistCredentials())
       .compose(v -> persistPasswordResetActions())
       .onComplete(context.asyncAssertSuccess());
-  }
-
-  @After
-  public void teardown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
-    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test
