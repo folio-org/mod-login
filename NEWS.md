@@ -1,3 +1,7 @@
+## 2021-06-2 v7.3.0
+
+* [MODLOGIN-142](https://issues.folio.org/browse/MODLOGIN-142) Add personal data disclosure form
+
 ## 2021-01-14 v7.2.0
 
 * [MODLOGIN-146](https://issues.folio.org/browse/MODLOGIN-146) Upgrade mod-login to RMB v32.x
