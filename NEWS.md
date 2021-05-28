@@ -1,4 +1,8 @@
-## 2021-06-2 v7.3.0
+## 2021-05-28 v7.3.4
+
+* [MODLOGIN-158](https://issues.folio.org/browse/MODLOGIN-158) RMB 33.0.0, Vert.x 4.1.0.CR1
+
+## 2021-05-24 v7.3.0
 
 * [MODLOGIN-142](https://issues.folio.org/browse/MODLOGIN-142) Add personal data disclosure form
 
@@ -32,43 +36,43 @@ The main focus of this release is to address several security issues.
 * [MODLOGIN-131](https://issues.folio.org/browse/MODLOGIN-131) - Reset password fails if credentials record does not already exist
 
 ## 2019-12-04 v6.2.0
- * MODLOGIN-122 Upgrade to RMB 29
+ * [MODLOGIN-122](https://issues.folio.org/browse/MODLOGIN-122) Upgrade to RMB 29
 
 ## 2019-09-24 v6.1.0
- * MODLOGIN-116 Fix "Multiple HttpClient objects are created for every
+ * [MODLOGIN-116](https://issues.folio.org/browse/MODLOGIN-116) Fix "Multiple HttpClient objects are created for every
    login attempt causing CPU usages to spike"
 
 ## 2019-07-24 v6.0.0
- * MODLOGIN-112 update RMB version to 25.0.1
- * MODLOGIN-114 Change the implementation of password checking for repeatability
+ * [MODLOGIN-112](https://issues.folio.org/browse/MODLOGIN-112) update RMB version to 25.0.1
+ * [MODLOGIN-114](https://issues.folio.org/browse/MODLOGIN-114) Change the implementation of password checking for repeatability
 
 ## 2019-06-11 v5.3.0
- * MODLOGIN-111 mod-login requires users interface
+ * [MODLOGIN-111](https://issues.folio.org/browse/MODLOGIN-111) mod-login requires users interface
    (how on earth would it valudate a user anyway?)
 
 ## 2019-05-10 v5.2.0
- * MODLOGIN-110 Update to RMB 24 / CQLPG 4.0.0
- * MODLOGIN-108 Change limit from 1000 to 2147483647 (login.raml)
+ * [MODLOGIN-110](https://issues.folio.org/browse/MODLOGIN-110) Update to RMB 24 / CQLPG 4.0.0
+ * [MODLOGIN-108](https://issues.folio.org/browse/MODLOGIN-108) Change limit from 1000 to 2147483647 (login.raml)
 
 ## 2019-03-15 v5.1.0
  * MODLOGIN-105	use loadSample to load sample data
 
 ## 2019-03-05 v5.0.0
- * Update to RMB 23.9.0 (MODLOGIN-106)
+ * Update to RMB 23.9.0 ([MODLOGIN-106](https://issues.folio.org/browse/MODLOGIN-106))
  * Use `x-okapi-requet-ip` header if `X-Forwarded-For` is not present
-   (MODLOGIN-104)
- * Use EventsLogAPI (MODLOGIN-77)
+   ([MODLOGIN-104](https://issues.folio.org/browse/MODLOGIN-104))
+ * Use EventsLogAPI ([MODLOGIN-77](https://issues.folio.org/browse/MODLOGIN-77))
  * Handle failed login attempts. This changes provided login interface
-   from 4.7 to 5.0 (MODLOGIN-103).
- * Implementing endpoint for checking credentials existence (UIU-758)
+   from 4.7 to 5.0 ([MODLOGIN-103](https://issues.folio.org/browse/MODLOGIN-103)).
+ * Implementing endpoint for checking credentials existence ([UIU-758](https://issues.folio.org/browse/UIU-758))
  * Create/Extend password storage to support retaining last 10 changed
-   passwords a user has saved (MODLOGIN-86)
- * Add and Implement new "EventsLogApi" component (MODLOGIN-75)
- * Fix user blocking (MODLOGIN-89)
+   passwords a user has saved ([MODLOGIN-86](https://issues.folio.org/browse/MODLOGIN-86))
+ * Add and Implement new "EventsLogApi" component ([MODLOGIN-75](https://issues.folio.org/browse/MODLOGIN-75))
+ * Fix user blocking ([MODLOGIN-89](https://issues.folio.org/browse/MODLOGIN-89))
 
 ## 2018-12-03 v4.6.0
- * Set Content-Type and Accept headers for outgoing requests (MODLOGIN-92)
- * Update to RAML 1.0 (MODLOGIN-80)
+ * Set Content-Type and Accept headers for outgoing requests ([MODLOGIN-92](https://issues.folio.org/browse/MODLOGIN-92))
+ * Update to RAML 1.0 ([MODLOGIN-80](https://issues.folio.org/browse/MODLOGIN-80))
 
 ## 2018-11-19 v4.6.0
  * Add implementation /authn/password-reset-action which is accessible through OKAPI
