@@ -1,4 +1,4 @@
-## 2021-05-28 v7.3.4
+## 2021-05-28 v7.4.0
 
 * [MODLOGIN-158](https://issues.folio.org/browse/MODLOGIN-158) RMB 33.0.0, Vert.x 4.1.0.CR1
 
