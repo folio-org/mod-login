@@ -34,9 +34,9 @@
     <release>11</release>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>4.1.0.Beta1</vertx.version>
-    <vertx.clients.version>4.1.0.Beta1-FOLIO</vertx.clients.version>
-    <raml-module-builder-version>33.0.0-pre4</raml-module-builder-version>
+    <vertx.version>4.1.0.CR1</vertx.version>
+    <vertx.clients.version>4.1.0.CR1</vertx.clients.version>
+    <raml-module-builder-version>33.0.0</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
