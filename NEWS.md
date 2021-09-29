@@ -1,3 +1,7 @@
+## 2021-09-29 v7.5.0
+
+* [MODLOGIN-159](https://issues.folio.org/browse/MODLOGIN-159) RMB 33.1.1, Vert.x 4.1.4
+
 ## 2021-05-28 v7.4.0
 
 * [MODLOGIN-158](https://issues.folio.org/browse/MODLOGIN-158) RMB 33.0.0, Vert.x 4.1.0.CR1
