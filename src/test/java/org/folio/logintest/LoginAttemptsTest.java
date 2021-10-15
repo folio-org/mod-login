@@ -196,8 +196,10 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(201)
-      .body("token", is("dummytoken"))
-      .body("refreshToken", is("dummyrefreshtoken"));
+      .body("okapiToken", is("dummytoken"))
+      .body("refreshToken", is("dummyrefreshtoken"))
+      .header("x-okapi-token", is("dummytoken"))
+      .header("refreshtoken", is("dummyrefreshtoken"));
 
     RestAssured.given()
       .spec(spec)

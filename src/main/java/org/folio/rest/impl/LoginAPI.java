@@ -481,7 +481,7 @@ public class LoginAPI implements Authn {
                                   //Append token as header to result
                                   String authToken = fetchTokenFuture.result();
                                   LoginResponse response = new LoginResponse()
-                                    .withToken(authToken)
+                                    .withOkapiToken(authToken)
                                     .withRefreshToken(finalRefreshToken);
                                   asyncResultHandler.handle(Future.succeededFuture(
                                     PostAuthnLoginResponse.respond201WithApplicationJson(response,

@@ -3,8 +3,8 @@
   "description": "Object returned on successful login",
   "type": "object",
   "properties": {
-    "token": {
-      "description": "user token (X-Okapi-Token format)",
+    "okapiToken": {
+      "description": "session token (X-Okapi-Token format)",
       "type": "string"
     },
     "refreshToken": {
@@ -13,6 +13,6 @@
     }
   },
   "required": [
-    "token"
+    "okapiToken"
   ]
 }
