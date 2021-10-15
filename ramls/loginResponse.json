@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Object returned on successful login",
+  "type": "object",
+  "properties": {
+    "token": {
+      "description": "user token (X-Okapi-Token format)",
+      "type": "string"
+    },
+    "refreshToken": {
+      "description": "refresh token",
+      "type": "string"
+    }
+  },
+  "required": [
+    "token"
+  ]
+}

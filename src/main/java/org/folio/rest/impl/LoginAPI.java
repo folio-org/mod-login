@@ -38,6 +38,7 @@ import org.folio.rest.jaxrs.model.LogEvents;
 import org.folio.rest.jaxrs.model.LogResponse;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
+import org.folio.rest.jaxrs.model.LoginResponse;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
@@ -479,9 +480,13 @@ public class LoginAPI implements Authn {
                                 } else {
                                   //Append token as header to result
                                   String authToken = fetchTokenFuture.result();
+                                  LoginResponse response = new LoginResponse()
+                                    .withToken(authToken)
+                                    .withRefreshToken(finalRefreshToken);
                                   asyncResultHandler.handle(Future.succeededFuture(
-                                    PostAuthnLoginResponse.respond201WithApplicationJson(entity,
-                                      PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken)
+                                    PostAuthnLoginResponse.respond201WithApplicationJson(response,
+                                      PostAuthnLoginResponse.headersFor201()
+                                        .withXOkapiToken(authToken)
                                         .withRefreshtoken(finalRefreshToken))));
                                 }
                               });
