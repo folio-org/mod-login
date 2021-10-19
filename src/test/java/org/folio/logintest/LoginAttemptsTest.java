@@ -21,7 +21,6 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -196,7 +195,11 @@ public class LoginAttemptsTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(201);
+      .statusCode(201)
+      .body("okapiToken", is("dummytoken"))
+      .body("refreshToken", is("dummyrefreshtoken"))
+      .header("x-okapi-token", is("dummytoken"))
+      .header("refreshtoken", is("dummyrefreshtoken"));
 
     RestAssured.given()
       .spec(spec)

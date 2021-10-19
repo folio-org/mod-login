@@ -25,6 +25,7 @@ types:
   logEvent: !include logEvent.json
   logEvents: !include logEventCollection.json
   logResponse: !include logResponse.json
+  loginResponse: !include loginResponse.json
   credentialsExistence: !include credentialsExistence.json
 
 traits:
@@ -94,7 +95,7 @@ traits:
             refreshtoken:
           body:
             application/json:
-              type: loginCredentials
+              type: loginResponse
         400:
           description: "Bad request"
           body:
