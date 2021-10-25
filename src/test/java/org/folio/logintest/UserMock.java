@@ -65,7 +65,7 @@ public class UserMock extends AbstractVerticle {
       JsonObject userOb;
       JsonObject responseOb;
       switch (query) {
-        case "username==gollum":
+        case "username==\"gollum\"":
           userOb = new JsonObject()
             .put("username", "gollum")
             .put("id", gollumId)
@@ -78,7 +78,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==bombadil":
+        case "username==\"bombadil\"":
           sleep(500); //Bombadil gets delayed on purpose
 
           userOb = new JsonObject()
@@ -93,13 +93,13 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==gimli":
+        case "username==\"gimli\"":
           userOb = new JsonObject();
           context.response()
             .setStatusCode(200)
             .end(userOb.encode());
           break;
-        case "username==mrunderhill":
+        case "username==\"mrunderhill\"":
           userOb = new JsonObject();
           responseOb = new JsonObject()
             .put("users", new JsonArray()
@@ -109,7 +109,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==gandalf":
+        case "username==\"gandalf\"":
           responseOb = new JsonObject()
             .put("users", new JsonArray()
               .add(new JsonObject()
@@ -125,7 +125,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==strider":
+        case "username==\"strider\"":
           userOb = new JsonObject()
             .put("username", "strider")
             .put("active", true);
@@ -137,7 +137,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==saruman":
+        case "username==\"saruman\"":
           userOb = new JsonObject()
             .put("username", "saruman")
             .put("id", sarumanId)
@@ -150,7 +150,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "id==" + sarumanId:
+        case "id==\"" + sarumanId + "\"":
           userOb = new JsonObject()
             .put("username", "saruman")
             .put("id", sarumanId)
@@ -163,7 +163,7 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "id==" + gollumId:
+        case "id==\"" + gollumId + "\"":
           userOb = new JsonObject()
             .put("username", "gollum")
             .put("id", gollumId)
@@ -176,12 +176,12 @@ public class UserMock extends AbstractVerticle {
             .setStatusCode(200)
             .end(responseOb.encode());
           break;
-        case "username==admin":
+        case "username==\"admin\"":
           context.response()
             .setStatusCode(200)
             .end(responseAdmin.encode());
           break;
-        case "id==" + adminId:
+        case "id==\"" + adminId + "\"":
           context.response()
             .setStatusCode(200)
             .end(responseAdmin.encode());
@@ -189,7 +189,7 @@ public class UserMock extends AbstractVerticle {
         default:
           context.response()
             .setStatusCode(404)
-            .end("Not found");
+            .end("Not found. Query: " + query);
           break;
       }
     } catch (Exception e) {

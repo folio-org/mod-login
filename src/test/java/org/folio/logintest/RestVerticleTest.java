@@ -25,7 +25,6 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.services.impl.PasswordStorageServiceImpl;
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -415,9 +414,9 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
     String url;
     if (username != null) {
-      url = okapiUrl + "/users?query=username==" + username;
+      url = okapiUrl + "/users?query=username==\"" + username + "\"";
     } else {
-      url = okapiUrl + "/users?query=id==" + userId;
+      url = okapiUrl + "/users?query=id==\"" + userId + "\"";
     }
     return doRequest(vertx, url, HttpMethod.GET, null, null, 200,
       "Test mock /user endpoint at url " + url);
@@ -426,9 +425,9 @@ public class RestVerticleTest {
   private Future<WrappedResponse> failMockUser(TestContext context, String username, String userId) {
     String url;
     if (username != null) {
-      url = okapiUrl + "/users?query=username==" + username;
+      url = okapiUrl + "/users?query=username==\"" + username + "\"";
     } else {
-      url = okapiUrl + "/users?query=id==" + userId;
+      url = okapiUrl + "/users?query=id==\"" + userId + "\"";
     }
     return doRequest(vertx, url, HttpMethod.GET, null, null, 404,
       "Fail nonexistent mock /user endpoint at url " + url);
