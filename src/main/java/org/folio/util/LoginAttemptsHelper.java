@@ -250,34 +250,22 @@ public class LoginAttemptsHelper {
    * @param okapiHeaders  - okapi headers
    */
   private Future<Void> updateUser(JsonObject user, Map<String, String> okapiHeaders) {
-    Promise<Void> promise = Promise.promise();
-    String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
-
-    requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
+    String requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", JSON_TYPE)
-      .putHeader("accept", "text/plain");
-    request.send(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<Buffer> res = ar.result();
-        if (res.statusCode() != 204) {
-          String body = res.bodyAsString();
-          String message = "Expected status code 204, got '" + res.statusCode() + "' :" + body;
-          promise.fail(message);
-        } else {
-          promise.complete();
-        }
+      .putHeader("Content-type", JSON_TYPE);
+    return request.sendJsonObject(user).compose(res -> {
+      if (res.statusCode() != 204) {
+        String body = res.bodyAsString();
+        String message = "Expected status code 204, got '" + res.statusCode() + "' :" + body;
+        return Future.failedFuture(message);
       }
+      return Future.succeededFuture();
     });
-
-    return promise.future();
   }
 
   /**

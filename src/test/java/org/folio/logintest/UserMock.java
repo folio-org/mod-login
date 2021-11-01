@@ -264,17 +264,31 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleUserPut(RoutingContext context) {
-    String id = context.request().getParam("id");
-    if(id.equals(adminId)) {
-      admin.put("active", false);
-      context.response()
-        .setStatusCode(204)
-        .end();
-    } else {
-      context.response()
-        .setStatusCode(204)
-        .end();
-    }
+    context.request().body().onSuccess(body -> {
+      try {
+        JsonObject userObject = new JsonObject(body);
+        String id = context.request().getParam("id");
+        if (!userObject.getString("id").equals(id)) {
+          context.response()
+            .setStatusCode(500);
+          return;
+        }
+        if (id.equals(adminId)) {
+          admin.put("active", false);
+          context.response()
+            .setStatusCode(204)
+            .end();
+        } else {
+          context.response()
+            .setStatusCode(204)
+            .end();
+        }
+      } catch (Exception e) {
+        context.response()
+          .setStatusCode(500)
+          .end(e.getMessage());
+      }
+    });
   }
 }
 
