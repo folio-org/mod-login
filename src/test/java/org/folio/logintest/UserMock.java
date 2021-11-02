@@ -270,7 +270,8 @@ public class UserMock extends AbstractVerticle {
         String id = context.request().getParam("id");
         if (!userObject.getString("id").equals(id)) {
           context.response()
-            .setStatusCode(500);
+            .setStatusCode(500)
+            .end("user.id != param.id");
           return;
         }
         if (id.equals(adminId)) {
