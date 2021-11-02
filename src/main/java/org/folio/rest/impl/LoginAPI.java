@@ -22,6 +22,7 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -181,15 +182,15 @@ public class LoginAPI implements Authn {
   */
   private Future<JsonObject> lookupUser(String username, String userId, String tenant,
       final String okapiURL, String requestToken) {
-    Promise<JsonObject> promise = Promise.promise();
-    String requestURL = null;
-
-    requestURL = buildUserLookupURL(okapiURL, username, userId);
+    String requestURL = buildUserLookupURL(okapiURL, username, userId);
     final String finalRequestURL = requestURL;
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(finalRequestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
       .putHeader(OKAPI_TOKEN_HEADER, requestToken);
-    return request.send().map(res -> extractUserFromLookupResponse(res, finalRequestURL, username));
+    return request
+      .expect(ResponsePredicate.JSON)
+      .send()
+      .map(res -> extractUserFromLookupResponse(res, finalRequestURL, username));
   }
 
   private Future<String> fetchToken(JsonObject payload, String tenant,
@@ -222,15 +223,12 @@ public class LoginAPI implements Authn {
       .putHeader(OKAPI_TOKEN_HEADER, requestToken);
 
     JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
-    return request.sendJsonObject(payload).map(response -> {
-      if (response.statusCode() != 201) {
-        String message = String.format("Expected code 201 from /refreshtoken, got %s",
-          response.statusCode());
-        throw new RuntimeException(message);
-
-      }
-      return response.bodyAsJsonObject().getString("refreshToken");
-    });
+    return request
+      .expect(ResponsePredicate.SC_CREATED)
+      .expect(ResponsePredicate.JSON)
+      .sendJsonObject(payload)
+      .map(response -> response.bodyAsJsonObject().getString("refreshToken")
+      );
   }
 
   @Override

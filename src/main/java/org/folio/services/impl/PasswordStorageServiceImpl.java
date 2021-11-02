@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -65,7 +66,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   private static final String TABLE_NAME_CREDENTIALS_HISTORY = "auth_credentials_history";
   private static final String CREDENTIALS_HISTORY_DATE_FIELD = "date";
   private static final String PW_HISTORY_NUMBER_CONF_PATH =
-    "/configurations/entries?query=configName==password.history.number";//NOSONAR
+    "/configurations/entries?query=configName==password.history.number";
 
   public static final int DEFAULT_PASSWORDS_HISTORY_NUMBER = 10;
 
