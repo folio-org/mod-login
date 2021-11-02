@@ -253,25 +253,23 @@ public class UserMock extends AbstractVerticle {
 
   private void handleConfig(RoutingContext context) {
     try {
-      JsonObject responseJson = null;
+      JsonObject responseJson;
       String queryString = "code==";
       String query = context.request().getParam("query");
       if (query.equals(queryString + LOGIN_ATTEMPTS_CODE)) {
         responseJson = configs.get(LOGIN_ATTEMPTS_CODE);
       } else if (query.equals(queryString + LOGIN_ATTEMPTS_TIMEOUT_CODE)) {
         responseJson = configs.get(LOGIN_ATTEMPTS_TIMEOUT_CODE);
-      }
-
-      if(responseJson != null) {
-        context.response()
-          .setStatusCode(200)
-          .putHeader("Content-Type", "application/json")
-          .end(responseJson.encode());
       } else {
-        context.response()
-          .setStatusCode(404)
-          .end("Not found");
+        responseJson = new JsonObject()
+          .put("configs", new JsonArray())
+          .put("totalRecords", 0);
       }
+      System.out.println("AD: returning " + responseJson.encodePrettily());
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(responseJson.encode());
     } catch (Exception e) {
       context.response()
         .setStatusCode(500)
