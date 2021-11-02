@@ -284,48 +284,16 @@ public class RestVerticleTest {
     });
   }
 
-  class HTTPResponseHandler implements Handler<HttpClientResponse> {
-
-    CompletableFuture<Response> event;
-
-    public HTTPResponseHandler(CompletableFuture<Response> cf) {
-      event = cf;
-    }
-
-    @Override
-    public void handle(HttpClientResponse hcr) {
-      hcr.bodyHandler(bh -> {
-        Response r = new Response();
-        r.code = hcr.statusCode();
-        try {
-          r.body = bh.toJsonObject();
-        } catch (Exception e) {
-          r.body = null;
-        }
-        event.complete(r);
-      });
-    }
-  }
-
-  class HTTPNoBodyResponseHandler implements Handler<HttpClientResponse> {
-
-    CompletableFuture<Response> event;
-
-    public HTTPNoBodyResponseHandler(CompletableFuture<Response> cf) {
-      event = cf;
-    }
-
-    @Override
-    public void handle(HttpClientResponse hcr) {
-      Response r = new Response();
-      r.code = hcr.statusCode();
-      event.complete(r);
-    }
-  }
-
-  class Response {
-    int code;
-    JsonObject body;
+  @Test
+  public void testNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, loginUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        500, // should be 400
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
   }
 
   private Future<WrappedResponse> postNewCredentials(TestContext context,
