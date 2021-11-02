@@ -252,7 +252,7 @@ public class RestVerticleTest {
         .compose(w -> postDuplicateCredentials(context, credsObject1))
         .compose(w -> testMockUser(context, "gollum", null))
         .compose(w -> testMockUser(context, null, gollumId))
-        .compose(w -> failMockUser(context, "yomomma", null))
+        .compose(w -> testMockUser(context, "yomomma", null))
         .compose(w -> doLoginNoToken(context, credsObject1))
         .compose(w -> doLoginNoPassword(context, credsNoPassword))
         .compose(w -> doLoginNoUsernameOrUserId(context, credsNoUsernameOrUserId))
@@ -420,17 +420,6 @@ public class RestVerticleTest {
     }
     return doRequest(vertx, url, HttpMethod.GET, null, null, 200,
       "Test mock /user endpoint at url " + url);
-  }
-
-  private Future<WrappedResponse> failMockUser(TestContext context, String username, String userId) {
-    String url;
-    if (username != null) {
-      url = okapiUrl + "/users?query=username==\"" + username + "\"";
-    } else {
-      url = okapiUrl + "/users?query=id==\"" + userId + "\"";
-    }
-    return doRequest(vertx, url, HttpMethod.GET, null, null, 404,
-      "Fail nonexistent mock /user endpoint at url " + url);
   }
 
   private Future<WrappedResponse> doLogin(TestContext context, JsonObject loginCredentials) {

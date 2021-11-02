@@ -76,6 +76,7 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"bombadil\"":
@@ -91,22 +92,23 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"gimli\"":
           userOb = new JsonObject();
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(userOb.encode());
           break;
         case "username==\"mrunderhill\"":
-          userOb = new JsonObject();
           responseOb = new JsonObject()
-            .put("users", new JsonArray()
-              .add(userOb))
+            .put("users", new JsonArray())
             .put("totalRecords", 0);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"gandalf\"":
@@ -123,6 +125,7 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 2);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"strider\"":
@@ -135,6 +138,7 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"saruman\"":
@@ -148,6 +152,7 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "id==\"" + sarumanId + "\"":
@@ -161,6 +166,7 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "id==\"" + gollumId + "\"":
@@ -174,22 +180,29 @@ public class UserMock extends AbstractVerticle {
             .put("totalRecords", 1);
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseOb.encode());
           break;
         case "username==\"admin\"":
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseAdmin.encode());
           break;
         case "id==\"" + adminId + "\"":
           context.response()
             .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
             .end(responseAdmin.encode());
           break;
         default:
+          responseOb = new JsonObject()
+            .put("users", new JsonArray())
+            .put("totalRecords", 0);
           context.response()
-            .setStatusCode(404)
-            .end("Not found. Query: " + query);
+            .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
+            .end(responseOb.encode());
           break;
       }
     } catch (Exception e) {
@@ -202,6 +215,7 @@ public class UserMock extends AbstractVerticle {
   private void handleToken(RoutingContext context) {
     context.response()
       .setStatusCode(201)
+      .putHeader("Content-Type", "application/json")
       .putHeader("X-Okapi-Token", "dummytoken")
       .end(new JsonObject().put("token", "dummytoken").encode());
   }
@@ -209,6 +223,7 @@ public class UserMock extends AbstractVerticle {
   private void handleRefreshToken(RoutingContext context) {
     context.response()
       .setStatusCode(201)
+      .putHeader("Content-Type", "application/json")
       .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
@@ -238,24 +253,23 @@ public class UserMock extends AbstractVerticle {
 
   private void handleConfig(RoutingContext context) {
     try {
-      JsonObject responseJson = null;
+      JsonObject responseJson;
       String queryString = "code==";
       String query = context.request().getParam("query");
       if (query.equals(queryString + LOGIN_ATTEMPTS_CODE)) {
         responseJson = configs.get(LOGIN_ATTEMPTS_CODE);
       } else if (query.equals(queryString + LOGIN_ATTEMPTS_TIMEOUT_CODE)) {
         responseJson = configs.get(LOGIN_ATTEMPTS_TIMEOUT_CODE);
-      }
-
-      if(responseJson != null) {
-        context.response()
-          .setStatusCode(200)
-          .end(responseJson.encode());
       } else {
-        context.response()
-          .setStatusCode(404)
-          .end("Not found");
+        responseJson = new JsonObject()
+          .put("configs", new JsonArray())
+          .put("totalRecords", 0);
       }
+      System.out.println("AD: returning " + responseJson.encodePrettily());
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(responseJson.encode());
     } catch (Exception e) {
       context.response()
         .setStatusCode(500)
@@ -264,17 +278,29 @@ public class UserMock extends AbstractVerticle {
   }
 
   private void handleUserPut(RoutingContext context) {
-    String id = context.request().getParam("id");
-    if(id.equals(adminId)) {
-      admin.put("active", false);
-      context.response()
-        .setStatusCode(204)
-        .end();
-    } else {
-      context.response()
-        .setStatusCode(204)
-        .end();
-    }
+    context.request().body().onSuccess(body -> {
+      try {
+        JsonObject userObject = new JsonObject(body);
+        String id = context.request().getParam("id");
+        if (!userObject.getString("id").equals(id)) {
+          context.response()
+            .setStatusCode(500)
+            .end("user.id != param.id");
+          return;
+        }
+        if (id.equals(adminId)) {
+          admin.put("active", false);
+        }
+        context.response()
+          .setStatusCode(204)
+          .putHeader("Content-Type", "application/json")
+          .end();
+      } catch (Exception e) {
+        context.response()
+          .setStatusCode(500)
+          .end(e.getMessage());
+      }
+    });
   }
 }
 

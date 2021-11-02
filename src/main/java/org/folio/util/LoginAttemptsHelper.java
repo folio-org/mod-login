@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import io.vertx.core.json.JsonArray;
+import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,7 +47,6 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   public static final Logger logger = LogManager.getLogger(LoginAttemptsHelper.class);
-  private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
 
   private Vertx vertx;
@@ -193,7 +194,6 @@ public class LoginAttemptsHelper {
    * @return - json object with configs
    */
   private Future<JsonObject> getLoginConfig(String configCode, Map<String, String> okapiHeaders) {
-    Promise<JsonObject> promise = Promise.promise();
     String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
@@ -202,45 +202,22 @@ public class LoginAttemptsHelper {
     requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", JSON_TYPE)
-      .putHeader("Accept", JSON_TYPE);
-    request.send(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<?> res = ar.result();
-        if (res.statusCode() != 200) {
-          String message = "Expected status code 200, got '" + res.statusCode() + "' :" + res.bodyAsString();
-          logger.warn(message);
-          promise.fail(message);
-        } else {
-          try {
-            JsonObject resultObject = res.bodyAsJsonObject();
-            if (!resultObject.containsKey("totalRecords") || !resultObject.containsKey("configs")) {
-              promise.fail("Error, missing field(s) 'totalRecords' and/or 'configs' in config response object");
-            } else {
-              int recordCount = resultObject.getInteger("totalRecords");
-              if (recordCount > 1) {
-                promise.fail("Bad results from configs");
-              } else if (recordCount == 0) {
-                String errorMessage = "No config found by code " + configCode;
-                logger.error(errorMessage);
-                promise.fail(errorMessage);
-              } else {
-                promise.complete(resultObject.getJsonArray("configs")
-                  .getJsonObject(0));
-              }
-            }
-          } catch (Exception e) {
-            logger.error(e);
-            promise.fail(e);
-          }
-        }
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    return request
+      .expect(ResponsePredicate.JSON)
+      .expect(ResponsePredicate.SC_OK)
+      .send().map(res -> {
+      JsonObject resultObject = res.bodyAsJsonObject();
+      JsonArray configs = resultObject.getJsonArray("configs");
+      if (configs.size() > 1) {
+        throw new RuntimeException("Bad results from configs");
+      } else if (configs.isEmpty()) {
+        String errorMessage = "No config found by code " + configCode;
+        logger.error(errorMessage);
+        throw new RuntimeException(errorMessage);
       }
+      return configs.getJsonObject(0);
     });
-
-    return promise.future();
   }
 
   /**
@@ -250,34 +227,16 @@ public class LoginAttemptsHelper {
    * @param okapiHeaders  - okapi headers
    */
   private Future<Void> updateUser(JsonObject user, Map<String, String> okapiHeaders) {
-    Promise<Void> promise = Promise.promise();
-    String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
     String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
-
-    requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
+    String requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", JSON_TYPE)
-      .putHeader("accept", "text/plain");
-    request.send(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<Buffer> res = ar.result();
-        if (res.statusCode() != 204) {
-          String body = res.bodyAsString();
-          String message = "Expected status code 204, got '" + res.statusCode() + "' :" + body;
-          promise.fail(message);
-        } else {
-          promise.complete();
-        }
-      }
-    });
-
-    return promise.future();
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    return request
+      .expect(ResponsePredicate.SC_NO_CONTENT)
+      .sendJsonObject(user).mapEmpty();
   }
 
   /**
