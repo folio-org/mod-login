@@ -45,7 +45,6 @@ public class LoginAttemptsHelper {
   public static final String LOGIN_ATTEMPTS_TIMEOUT_CODE = "login.fail.timeout";
   private static final String LOGIN_ATTEMPTS_USERID_FIELD = "'userId'";
   public static final Logger logger = LogManager.getLogger(LoginAttemptsHelper.class);
-  private static final String JSON_TYPE = "application/json";
   private static final String VALUE = "value";
 
   private Vertx vertx;
@@ -193,7 +192,6 @@ public class LoginAttemptsHelper {
    * @return - json object with configs
    */
   private Future<JsonObject> getLoginConfig(String configCode, Map<String, String> okapiHeaders) {
-    Promise<JsonObject> promise = Promise.promise();
     String requestURL;
     String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
     String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
@@ -202,45 +200,24 @@ public class LoginAttemptsHelper {
     requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", JSON_TYPE)
-      .putHeader("Accept", JSON_TYPE);
-    request.send(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<?> res = ar.result();
-        if (res.statusCode() != 200) {
-          String message = "Expected status code 200, got '" + res.statusCode() + "' :" + res.bodyAsString();
-          logger.warn(message);
-          promise.fail(message);
-        } else {
-          try {
-            JsonObject resultObject = res.bodyAsJsonObject();
-            if (!resultObject.containsKey("totalRecords") || !resultObject.containsKey("configs")) {
-              promise.fail("Error, missing field(s) 'totalRecords' and/or 'configs' in config response object");
-            } else {
-              int recordCount = resultObject.getInteger("totalRecords");
-              if (recordCount > 1) {
-                promise.fail("Bad results from configs");
-              } else if (recordCount == 0) {
-                String errorMessage = "No config found by code " + configCode;
-                logger.error(errorMessage);
-                promise.fail(errorMessage);
-              } else {
-                promise.complete(resultObject.getJsonArray("configs")
-                  .getJsonObject(0));
-              }
-            }
-          } catch (Exception e) {
-            logger.error(e);
-            promise.fail(e);
-          }
-        }
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    return request.send().map(res -> {
+      if (res.statusCode() != 200) {
+        String message = "Expected status code 200, got '" + res.statusCode() + "' :" + res.bodyAsString();
+        logger.warn(message);
+        throw new RuntimeException(message);
       }
+      JsonObject resultObject = res.bodyAsJsonObject();
+      int recordCount = resultObject.getInteger("totalRecords");
+      if (recordCount > 1) {
+        throw new RuntimeException("Bad results from configs");
+      } else if (recordCount == 0) {
+        String errorMessage = "No config found by code " + configCode;
+        logger.error(errorMessage);
+        throw new RuntimeException(errorMessage);
+      }
+      return resultObject.getJsonArray("configs").getJsonObject(0);
     });
-
-    return promise.future();
   }
 
   /**
@@ -256,15 +233,14 @@ public class LoginAttemptsHelper {
     String requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader("Content-type", JSON_TYPE);
-    return request.sendJsonObject(user).compose(res -> {
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    return request.sendJsonObject(user).map(res -> {
       if (res.statusCode() != 204) {
         String body = res.bodyAsString();
         String message = "Expected status code 204, got '" + res.statusCode() + "' :" + body;
-        return Future.failedFuture(message);
+        throw new RuntimeException(message);
       }
-      return Future.succeededFuture();
+      return null;
     });
   }
 

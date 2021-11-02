@@ -12,9 +12,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -578,30 +575,18 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
-    Promise<Integer> promise = Promise.promise();
-
-    WebClientFactory.getWebClient(vertx).getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
-      .putHeader(HttpHeaders.ACCEPT, MediaType.TEXT_PLAIN)
+    return WebClientFactory.getWebClient(vertx).getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
       .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
       .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
-      .send(ar -> {
-        if(ar.failed()) {
-          promise.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
-        } else {
-          HttpResponse<Buffer> resp = ar.result();
-          if (resp.statusCode() != 200) {
-            promise.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
-          } else {
-            Configurations conf = resp.bodyAsJson(Configurations.class);
-            if (conf.getConfigs().isEmpty()) {
-              promise.complete(DEFAULT_PASSWORDS_HISTORY_NUMBER);
-              return;
-            }
-            promise.complete(Integer.valueOf(conf.getConfigs().get(0).getValue()));
-          }
+      .send().map(resp -> {
+        if (resp.statusCode() != 200) {
+          return DEFAULT_PASSWORDS_HISTORY_NUMBER;
         }
+        Configurations conf = resp.bodyAsJson(Configurations.class);
+        if (conf.getConfigs().isEmpty()) {
+          return DEFAULT_PASSWORDS_HISTORY_NUMBER;
+        }
+        return Integer.valueOf(conf.getConfigs().get(0).getValue());
       });
-
-    return promise.future();
   }
 }

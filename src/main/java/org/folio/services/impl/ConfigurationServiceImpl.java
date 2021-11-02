@@ -104,28 +104,18 @@ public class ConfigurationServiceImpl implements ConfigurationService {
   }
 
   private Future<JsonObject> lookupConfig(JsonObject headers, String tenantId) {
-    Promise<JsonObject> promise = Promise.promise();
     String okapiUrl = headers.getString(OKAPI_URL_HEADER);
     String okapiToken = headers.getString(OKAPI_HEADER_TOKEN);
     String requestUrl = String.format(REQUEST_URL_TEMPLATE, okapiUrl, REQUEST_URI_PATH, EVENT_LOG_API_MODULE);
 
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestUrl);
-    request.putHeader(OKAPI_HEADER_TOKEN, okapiToken)
+    return request.putHeader(OKAPI_HEADER_TOKEN, okapiToken)
       .putHeader(OKAPI_HEADER_TENANT, tenantId)
-      .putHeader(HTTP_HEADER_CONTENT_TYPE, MediaType.APPLICATION_JSON)
-      .putHeader(HTTP_HEADER_ACCEPT, MediaType.APPLICATION_JSON)
-      .send(ar -> {
-        if (ar.failed()) {
-          promise.fail(ar.cause());
-        } else {
-          HttpResponse<Buffer> response = ar.result();
-          if (response.statusCode() != 200) {
-            promise.fail(String.format(ERROR_LOOKING_UP_MOD_CONFIG, requestUrl, response.statusCode(), response.bodyAsString()));
-          } else {
-            promise.complete(response.bodyAsJsonObject());
-          }
+      .send().map(response -> {
+        if (response.statusCode() != 200) {
+          throw new RuntimeException(String.format(ERROR_LOOKING_UP_MOD_CONFIG, requestUrl, response.statusCode(), response.bodyAsString()));
         }
+        return response.bodyAsJsonObject();
       });
-    return promise.future();
   }
 }

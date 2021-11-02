@@ -1,7 +1,5 @@
 package org.folio.rest.impl;
 
-import static javax.ws.rs.core.HttpHeaders.ACCEPT;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
@@ -91,7 +89,6 @@ public class LoginAPI implements Authn {
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ERROR_RUNNING_VERTICLE = "Error running on verticle for `%s`: %s";
   private static final String ERROR_PW_ACTION_ENTITY_NOT_FOUND = "Password action with ID: `%s` was not found in the db";
-  private static final String APPLICATION_JSON_CONTENT_TYPE = "application/json";
   private static final String POSTGRES_ERROR = "Error from PostgresClient: ";
   private static final String VERTX_CONTEXT_ERROR = "Error running on vertx context: ";
   private static final String POSTGRES_ERROR_GET = "Error in PostgresClient get operation: ";
@@ -191,99 +188,49 @@ public class LoginAPI implements Authn {
     final String finalRequestURL = requestURL;
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(finalRequestURL);
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
-      .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
-    request.send(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<Buffer> res = ar.result();
-        try {
-          promise.complete(extractUserFromLookupResponse(res, finalRequestURL, username));
-        } catch (Exception e) {
-          logger.error(e.getMessage());
-          promise.fail(e);
-        }
-      }
-    });
-
-    return promise.future();
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    return request.send().map(res -> extractUserFromLookupResponse(res, finalRequestURL, username));
   }
 
   private Future<String> fetchToken(JsonObject payload, String tenant,
-      String okapiURL, String requestToken) {
-    Promise<String> promise = Promise.promise();
+    String okapiURL, String requestToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/token");
 
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
-      .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
 
-    request.sendJson(new JsonObject().put("payload", payload), ar -> {
-      if(ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        try {
-          HttpResponse<Buffer> response = ar.result();
-          String token = null;
-          if(response.statusCode() == 200 || response.statusCode() == 201) {
-            if(response.statusCode() == 200) {
-              token = response.getHeader(OKAPI_TOKEN_HEADER);
-            } else if(response.statusCode() == 201) {
-              token = response.bodyAsJsonObject().getString("token");
-            }
-            if(token == null) {
-              promise.fail(String.format("Got response %s fetching token, but content is null",
-                  response.statusCode()));
-            } else {
-              logger.debug("Got token " + token + " from authz");
-              promise.complete(token);
-            }
-          } else {
-            promise.fail("Got response " + response.statusCode() + " fetching token");
-          }
-        } catch(Exception e) {
-          promise.fail(String.format("Error getting token: %s", e.getLocalizedMessage()));
-        }
+    return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
+      if (response.statusCode() != 200 && response.statusCode() != 201) {
+        throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
       }
+      String token = response.statusCode() == 200
+        ? response.getHeader(OKAPI_TOKEN_HEADER)
+        : response.bodyAsJsonObject().getString("token");
+      if (token == null) {
+        throw new RuntimeException(String.format("Got response %s fetching token, but content is null",
+          response.statusCode()));
+      }
+      logger.debug("Got token " + token + " from authz");
+      return token;
     });
-    return promise.future();
   }
 
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
-      String okapiURL, String requestToken) {
-    Promise<String> promise = Promise.promise();
+    String okapiURL, String requestToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/refreshtoken");
     request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken)
-      .putHeader(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)
-      .putHeader(ACCEPT, APPLICATION_JSON_CONTENT_TYPE);
+      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
 
     JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
-    request.sendJsonObject(payload, ar -> {
-      if(ar.failed()) {
-        promise.fail(ar.cause());
-      } else {
-        HttpResponse<Buffer> response = ar.result();
-        if(response.statusCode() != 201) {
-          String message = String.format("Expected code 201 from /refreshtoken, got %s",
-              response.statusCode());
-          promise.fail(message);
-        } else {
-          String refreshToken;
-          try {
-            refreshToken = response.bodyAsJsonObject().getString("refreshToken");
-          } catch(Exception e) {
-            promise.fail(e);
-            return;
-          }
-          promise.complete(refreshToken);
-        }
+    return request.sendJsonObject(payload).map(response -> {
+      if (response.statusCode() != 201) {
+        String message = String.format("Expected code 201 from /refreshtoken, got %s",
+          response.statusCode());
+        throw new RuntimeException(message);
+
       }
+      return response.bodyAsJsonObject().getString("refreshToken");
     });
-    return promise.future();
   }
 
   @Override
@@ -1169,7 +1116,7 @@ public class LoginAPI implements Authn {
     return error;
   }
 
-  public static class UserLookupException extends Exception {
+  public static class UserLookupException extends RuntimeException {
     private static final long serialVersionUID = 5473696882222270905L;
 
     public UserLookupException(String message) {
