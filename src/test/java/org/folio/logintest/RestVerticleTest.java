@@ -429,7 +429,7 @@ public class RestVerticleTest {
     } else {
       url = okapiUrl + "/users?query=id==\"" + userId + "\"";
     }
-    return doRequest(vertx, url, HttpMethod.GET, null, null, 404,
+    return doRequest(vertx, url, HttpMethod.GET, null, null, 200,
       "Fail nonexistent mock /user endpoint at url " + url);
   }
 
