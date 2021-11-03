@@ -112,6 +112,14 @@ public class LogEventsApiTest {
   }
 
   @Test
+  public void testMissingOkapiUrl() {
+    JsonObject logEven = getLogEven("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
+    requestPostLogEvent(logEven, null)
+        .then()
+        .statusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
   public void testRestAPIWhenLoggingOff() {
     // create mod-config
     int mockServerPort = userMockServer.port();
