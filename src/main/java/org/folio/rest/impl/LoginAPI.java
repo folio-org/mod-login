@@ -58,6 +58,7 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
+import org.folio.util.LoginConfigUtils;
 import org.folio.util.PercentCodec;
 import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
@@ -599,18 +600,6 @@ public class LoginAPI implements Authn {
     });
   }
 
-  public static JsonObject encodeJsonHeaders(Map<String,String> headers) {
-    return JsonObject.mapFrom(headers);
-  }
-
-  public static Map<String,String> decodeJsonHeaders(JsonObject obj) {
-    Map<String,String> map = new CaseInsensitiveMap<>();
-    for (String k : obj.fieldNames()) {
-      map.put(k, obj.getString(k));
-    }
-    return map;
-  }
-
   /**
    * This method is /authn/password/repeatable endpoint implementation
    * which is used by programmatic rule of mod-password-validator.
@@ -627,7 +616,7 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       passwordStorageService.isPasswordPreviouslyUsed(JsonObject.mapFrom(password),
-          encodeJsonHeaders(okapiHeaders), used -> {
+          LoginConfigUtils.encodeJsonHeaders(okapiHeaders), used -> {
         if (used.failed()) {
           asyncResultHandler.handle(
               Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
@@ -663,7 +652,7 @@ public class LoginAPI implements Authn {
     try {
       JsonObject passwordResetJson = JsonObject.mapFrom(entity);
       Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
-      passwordStorageService.resetPassword(encodeJsonHeaders(requestHeaders), passwordResetJson,
+      passwordStorageService.resetPassword(LoginConfigUtils.encodeJsonHeaders(requestHeaders), passwordResetJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
@@ -762,7 +751,7 @@ public class LoginAPI implements Authn {
       Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, LoginConfigUtils.encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -801,7 +790,7 @@ public class LoginAPI implements Authn {
   public void postAuthnLogEvents(LogEvent logEvent, Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, LoginConfigUtils.encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -848,7 +837,7 @@ public class LoginAPI implements Authn {
   public void deleteAuthnLogEventsById(String userId, Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, LoginConfigUtils.encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -985,7 +974,7 @@ public class LoginAPI implements Authn {
                   entity.getNewPassword());
 
               Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
-              passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), encodeJsonHeaders(requestHeaders),
+              passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), LoginConfigUtils.encodeJsonHeaders(requestHeaders),
                   updateCredResult -> {
                     if (updateCredResult.failed()) {
                       String message = updateCredResult.cause().getLocalizedMessage();
