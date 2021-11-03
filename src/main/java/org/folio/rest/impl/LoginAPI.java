@@ -256,7 +256,7 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnLogin(String userAgent, String xForwardedFor,//NOSONAR
+  public void postAuthnLogin(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
@@ -400,7 +400,7 @@ public class LoginAPI implements Authn {
                               PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesful login skip login attempts counter
                               String finalRefreshToken = refreshToken;
-                              Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+                              Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
                               loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                                   .compose(attempts ->
                                       loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, requestHeaders, attempts))
@@ -426,7 +426,7 @@ public class LoginAPI implements Authn {
                           });
                         } else {
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                          Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+                          Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
                           loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                               .compose(attempts ->
                                   loginAttemptsHelper.onLoginFailAttemptHandler(userObject, requestHeaders, attempts))
@@ -638,7 +638,7 @@ public class LoginAPI implements Authn {
     }
   }
 
-  static Map<String,String> copyHeaders(Map<String, String> okapiHeaders, String userAgent, String forwardedFor) {
+  static Map<String,String> createRequestHeader(Map<String, String> okapiHeaders, String userAgent, String forwardedFor) {
     Map<String,String> nMap = new CaseInsensitiveMap<>(okapiHeaders);
     nMap.put(HttpHeaders.USER_AGENT, userAgent);
     nMap.put(X_FORWARDED_FOR_HEADER, forwardedFor);
@@ -651,7 +651,7 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
       JsonObject passwordResetJson = JsonObject.mapFrom(entity);
-      Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+      Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
       passwordStorageService.resetPassword(LoginConfigUtils.encodeJsonHeaders(requestHeaders), passwordResetJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
@@ -909,7 +909,7 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnUpdate(String userAgent, String xForwardedFor, UpdateCredentials entity,//NOSONAR
+  public void postAuthnUpdate(String userAgent, String xForwardedFor, UpdateCredentials entity,
       Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
       Context vertxContext) {
     try {
@@ -973,7 +973,7 @@ public class LoginAPI implements Authn {
               Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                   entity.getNewPassword());
 
-              Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+              Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
               passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), LoginConfigUtils.encodeJsonHeaders(requestHeaders),
                   updateCredResult -> {
                     if (updateCredResult.failed()) {
