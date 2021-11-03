@@ -13,9 +13,9 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
@@ -23,7 +23,6 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
 import org.hamcrest.Matchers;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,9 +77,9 @@ public class CredentialExistenceTest {
     spec = new RequestSpecBuilder()
       .setContentType(ContentType.JSON)
       .setBaseUri(okapiUrl)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
-      .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken")
-      .addHeader(LoginAPI.OKAPI_URL_HEADER, okapiUrl)
+      .addHeader(XOkapiHeaders.TENANT, TENANT)
+      .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
+      .addHeader(XOkapiHeaders.URL, okapiUrl)
       .build();
   }
 

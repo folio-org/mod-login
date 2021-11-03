@@ -18,6 +18,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.TenantAPI;
@@ -28,7 +29,6 @@ import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -45,9 +45,8 @@ import java.util.stream.Collectors;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static junit.framework.TestCase.assertTrue;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
 import org.folio.rest.jaxrs.model.TenantAttributes;
+
 import static org.folio.util.LoginConfigUtils.*;
 
 @RunWith(VertxUnitRunner.class)
@@ -55,7 +54,6 @@ public class LogEventsApiTest {
 
   private static final String TENANT_ID = "diku";
   private static final String OKAPI_TOKEN_VAL = "test_token";
-  private static final String OKAPI_URL = "x-okapi-url";
   private static final String HTTP_PORT = "http.port";
 
   private static RequestSpecification request;
@@ -74,8 +72,8 @@ public class LogEventsApiTest {
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
-      new Header(OKAPI_HEADER_TENANT, TENANT_ID),
-      new Header(OKAPI_HEADER_TOKEN, OKAPI_TOKEN_VAL));
+      new Header(XOkapiHeaders.TENANT, TENANT_ID),
+      new Header(XOkapiHeaders.TOKEN, OKAPI_TOKEN_VAL));
     restPath = System.getProperty("org.folio.event.config.rest.path", "/authn/log/events");
     request = RestAssured.given()
       .port(port)
@@ -238,21 +236,21 @@ public class LogEventsApiTest {
 
   private Response requestPostLogEvent(JsonObject expectedEntity, String okapiUrl) {
     return request.body(expectedEntity.toString())
-      .header(new Header(OKAPI_URL, okapiUrl))
+      .header(new Header(XOkapiHeaders.URL, okapiUrl))
       .when()
       .post(restPath);
   }
 
   private Response requestGetLogEvent(String okapiUrl) {
     return request
-      .header(new Header(OKAPI_URL, okapiUrl))
+      .header(new Header(XOkapiHeaders.URL, okapiUrl))
       .when()
       .get(restPath);
   }
 
   private Response requestDeleteLogEventById(String userId, String okapiUrl) {
     return request
-      .header(new Header(OKAPI_URL, okapiUrl))
+      .header(new Header(XOkapiHeaders.URL, okapiUrl))
       .when()
       .delete(restPath + "/" + userId);
   }
@@ -263,8 +261,8 @@ public class LogEventsApiTest {
     MappingBuilder builder = get(urlPattern);
     stubFor(builder.willReturn(aResponse()
       .withHeader("Content-Type", "application/json")
-      .withHeader("x-okapi-token", "x-okapi-token-TEST")
-      .withHeader("x-okapi-url", "http://localhost:" + port)
+      .withHeader(XOkapiHeaders.TOKEN, "x-okapi-token-TEST")
+      .withHeader(XOkapiHeaders.URL, "http://localhost:" + port)
       .withBody(JsonObject.mapFrom(configurations).toString())));
   }
 

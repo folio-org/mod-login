@@ -1,12 +1,11 @@
 package org.folio.util;
 
-import io.vertx.core.json.JsonObject;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.jaxrs.model.LogEvent;
 
 import javax.ws.rs.core.HttpHeaders;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,19 +18,16 @@ public class EventLogUtils {
   }
 
   public static LogEvent createLogEventObject(LogEvent.EventType eventType, String userId,
-                                              JsonObject requestHeaders) {
-
-
-
+                                              Map<String,String> requestHeaders) {
     return new LogEvent()
       .withId(UUID.randomUUID().toString())
       .withEventType(eventType)
       .withUserId(userId)
-      .withTenant(requestHeaders.getString(RestVerticle.OKAPI_HEADER_TENANT))
-      .withBrowserInformation(requestHeaders.getString(HttpHeaders.USER_AGENT))
-      .withTimestamp(new Date(Long.parseLong(requestHeaders.getString(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER))))
-      .withIp(Optional.ofNullable(requestHeaders.getString(X_FORWARDED_FOR_HEADER))
-        .orElseGet(() -> requestHeaders.getString(LoginAPI.OKAPI_REQUEST_IP_HEADER)));
+      .withTenant(requestHeaders.get(XOkapiHeaders.TENANT))
+      .withBrowserInformation(requestHeaders.get(HttpHeaders.USER_AGENT))
+      .withTimestamp(new Date(Long.parseLong(requestHeaders.get(XOkapiHeaders.REQUEST_TIMESTAMP))))
+      .withIp(Optional.ofNullable(requestHeaders.get(X_FORWARDED_FOR_HEADER))
+        .orElseGet(() -> requestHeaders.get(XOkapiHeaders.REQUEST_IP)));
   }
 
 }

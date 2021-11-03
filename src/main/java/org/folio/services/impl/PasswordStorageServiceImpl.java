@@ -12,11 +12,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
-import org.folio.rest.RestVerticle;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -69,7 +70,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   private static final Logger logger = LogManager.getLogger(PasswordStorageServiceImpl.class);
   private final Vertx vertx;
-  private AuthUtil authUtil = new AuthUtil();
+  private final AuthUtil authUtil = new AuthUtil();
   private LogStorageService logStorageService;
 
   public PasswordStorageServiceImpl(Vertx vertx) {
@@ -167,7 +168,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               return;
             }
             Optional<PasswordCreate> passwordCreateOpt = getReply.result().getResults().stream().findFirst();
-            if (!passwordCreateOpt.isPresent()) {
+            if (passwordCreateOpt.isEmpty()) {
               asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT));
               return;
             }
@@ -185,16 +186,16 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService resetPassword(Map<String, String> requestHeaders, JsonObject resetActionEntity,
+  public PasswordStorageService resetPassword(JsonObject headers, JsonObject resetActionEntity,
                                               Handler<AsyncResult<JsonObject>> asyncHandler) {
-
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    Map<String,String> requestHeaders = LoginAPI.decodeJsonHeaders(headers);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
     try {
       PasswordReset passwordReset = resetActionEntity.mapTo(PasswordReset.class);
       PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
 
       pgClient.startTx(beginTx ->
-        findUserIdByActionId(requestHeaders, beginTx, passwordReset, asyncHandler));
+        findUserIdByActionId(requestHeaders, headers, beginTx, passwordReset, asyncHandler));
     } catch (Exception ex) {
       String errorMessage = String.format(ERROR_MESSAGE_STORAGE_SERVICE,
         "reset the password action", ex.getMessage());
@@ -207,9 +208,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   /**
    * Find user by id in `auth_password_action` table
    */
-  private void findUserIdByActionId(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
+  private void findUserIdByActionId(Map<String, String> requestHeaders, JsonObject headers, AsyncResult<SQLConnection> beginTx,
                                     PasswordReset passwordReset, Handler<AsyncResult<JsonObject>> asyncHandler) {
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
     String actionId = passwordReset.getPasswordResetActionId();
     Criterion criterionId = getCriterionId(actionId, ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
@@ -224,7 +225,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
           return;
         }
         Optional<PasswordCreate> passwordCreateOpt = reply.result().getResults().stream().findFirst();
-        if (!passwordCreateOpt.isPresent()) {
+        if (passwordCreateOpt.isEmpty()) {
           pgClient.rollbackTx(beginTx,
             rollbackTx ->
               asyncHandler.handle(Future.succeededFuture(EMPTY_JSON_OBJECT)));
@@ -232,20 +233,20 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         }
 
         String userId = passwordCreateOpt.get().getUserId();
-        findUserCredentialById(requestHeaders, beginTx, passwordReset, userId, asyncHandler);
+        findUserCredentialById(requestHeaders, headers, beginTx, passwordReset, userId, asyncHandler);
       });
   }
 
   /**
    * Find user's credential by userId in `auth_credentials` table
    */
-  private void findUserCredentialById(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
+  private void findUserCredentialById(Map<String, String> requestHeaders, JsonObject headers, AsyncResult<SQLConnection> beginTx,
                                       PasswordReset resetAction, String userId,
                                       Handler<AsyncResult<JsonObject>> asyncHandler) {
 
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String token = requestHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = requestHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    String token = requestHeaders.get(XOkapiHeaders.TOKEN);
+    String okapiUrl = requestHeaders.get(XOkapiHeaders.URL);
 
     Criterion criterion = getCriterionId(userId, USER_ID_FIELD);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
@@ -263,17 +264,16 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         String actionId = resetAction.getPasswordResetActionId();
         Optional<Credential> credentialOpt = getReply.result().getResults()
           .stream().findFirst();
-        if (!credentialOpt.isPresent()) {
+        if (credentialOpt.isEmpty()) {
           Credential userCredential = createNewCredential(newPassword, userId);
-          saveUserCredential(requestHeaders, beginTx, asyncHandler, actionId, userCredential);
+          saveUserCredential(requestHeaders, headers, beginTx, asyncHandler, actionId, userCredential);
         } else {
           Credential userCredential = createCredential(newPassword, credentialOpt.get());
           updateCredAndCredHistory(beginTx, userCredential, tenant, token, okapiUrl)
             .onComplete(v -> {
               deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, false);
 
-              logStorageService.logEvent(tenant, userId, LogEvent.EventType.PASSWORD_RESET,
-                JsonObject.mapFrom(requestHeaders));
+              logStorageService.logEvent(tenant, userId, LogEvent.EventType.PASSWORD_RESET, headers);
             });
         }
       });
@@ -282,10 +282,10 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   /**
    * Save a new user's credential
    */
-  private void saveUserCredential(Map<String, String> requestHeaders, AsyncResult<SQLConnection> beginTx,
+  private void saveUserCredential(Map<String, String> requestHeaders, JsonObject headers, AsyncResult<SQLConnection> beginTx,
                                   Handler<AsyncResult<JsonObject>> asyncHandler, String actionId,
                                   Credential userCredential) {
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     String credId = userCredential.getId();
     pgClient.save(beginTx, SNAPSHOTS_TABLE_CREDENTIALS, credId, userCredential,
@@ -298,7 +298,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
         }
         deletePasswordActionById(pgClient, beginTx, asyncHandler, actionId, true);
         logStorageService.logEvent(tenant, userCredential.getUserId(),
-          LogEvent.EventType.PASSWORD_CREATE, JsonObject.mapFrom(requestHeaders));
+          LogEvent.EventType.PASSWORD_CREATE, headers);
       });
   }
 
@@ -378,11 +378,16 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> requestHeaders,
+  public PasswordStorageService updateCredential(JsonObject credJson, JsonObject headers,
                                                  Handler<AsyncResult<Void>> asyncResultHandler) {
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String token = requestHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = requestHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    Map<String,String> requestHeaders = LoginAPI.decodeJsonHeaders(headers);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    String token = requestHeaders.get(XOkapiHeaders.TOKEN);
+    String okapiUrl = requestHeaders.get(XOkapiHeaders.URL);
+
+    for (Map.Entry<String,String> ent : requestHeaders.entrySet()) {
+      logger.info("{}: {}", ent.getKey(), ent.getValue());
+    }
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     Credential cred = credJson.mapTo(Credential.class);
@@ -404,7 +409,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
               asyncResultHandler.handle(Future.failedFuture(done.cause()));
             } else {
               logStorageService.logEvent(tenant, cred.getUserId(),
-                LogEvent.EventType.PASSWORD_CHANGE, JsonObject.mapFrom(requestHeaders));
+                LogEvent.EventType.PASSWORD_CHANGE, headers);
 
               asyncResultHandler.handle(Future.succeededFuture());
             }
@@ -416,16 +421,17 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   }
 
   @Override
-  public PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordJson, Map<String, String> okapiHeaders,
+  public PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordJson, JsonObject headers,
                                                          Handler<AsyncResult<Boolean>> asyncResultHandler) {
 
     Password passwordEntity = passwordJson.mapTo(Password.class);
     String password = passwordEntity.getPassword();
     String userId = passwordEntity.getUserId();
 
-    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String token = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    Map<String,String> okapiHeaders = LoginAPI.decodeJsonHeaders(headers);
+    String tenant = okapiHeaders.get(XOkapiHeaders.TENANT);
+    String token = okapiHeaders.get(XOkapiHeaders.TOKEN);
+    String okapiUrl = okapiHeaders.get(XOkapiHeaders.URL);
 
     getCredByUserId(tenant, userId)
       .map(credential -> credential != null &&
@@ -574,8 +580,8 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
 
   private Future<Integer> getPasswordHistoryNumber(String okapiUrl, String token, String tenant) {
     return WebClientFactory.getWebClient(vertx).getAbs(okapiUrl + PW_HISTORY_NUMBER_CONF_PATH)
-      .putHeader(RestVerticle.OKAPI_HEADER_TOKEN, token)
-      .putHeader(RestVerticle.OKAPI_HEADER_TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, token)
+      .putHeader(XOkapiHeaders.TENANT, tenant)
       .send().map(resp -> {
         if (resp.statusCode() != 200) {
           return DEFAULT_PASSWORDS_HISTORY_NUMBER;
