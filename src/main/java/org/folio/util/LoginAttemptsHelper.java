@@ -2,8 +2,6 @@ package org.folio.util;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
-import static org.folio.rest.impl.LoginAPI.OKAPI_TENANT_HEADER;
-import static org.folio.rest.impl.LoginAPI.OKAPI_TOKEN_HEADER;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 import java.util.Date;
@@ -16,7 +14,7 @@ import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.folio.rest.RestVerticle;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Error;
 import org.folio.rest.jaxrs.model.Errors;
@@ -194,14 +192,14 @@ public class LoginAttemptsHelper {
    */
   private Future<JsonObject> getLoginConfig(String configCode, Map<String, String> okapiHeaders) {
     String requestURL;
-    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    String tenant = okapiHeaders.get(XOkapiHeaders.TENANT);
+    String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+    String okapiUrl = okapiHeaders.get(XOkapiHeaders.URL);
 
     requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, requestToken);
     return request
       .expect(ResponsePredicate.JSON)
       .expect(ResponsePredicate.SC_OK)
@@ -226,13 +224,13 @@ public class LoginAttemptsHelper {
    * @param okapiHeaders  - okapi headers
    */
   private Future<Void> updateUser(JsonObject user, Map<String, String> okapiHeaders) {
-    String tenant = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-    String requestToken = okapiHeaders.get(RestVerticle.OKAPI_HEADER_TOKEN);
-    String okapiUrl = okapiHeaders.get(LoginAPI.OKAPI_URL_HEADER);
+    String tenant = okapiHeaders.get(XOkapiHeaders.TENANT);
+    String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+    String okapiUrl = okapiHeaders.get(XOkapiHeaders.URL);
     String requestURL = okapiUrl + "/users/" + StringUtil.urlEncode(user.getString("id"));
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).putAbs(requestURL);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, requestToken);
     return request
       .expect(ResponsePredicate.SC_NO_CONTENT)
       .sendJsonObject(user).mapEmpty();
@@ -249,10 +247,9 @@ public class LoginAttemptsHelper {
                                                   List<LoginAttempts> attempts) {
 
     String userId = userObject.getString("id");
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
 
-    logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT,
-      JsonObject.mapFrom(requestHeaders));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT, LoginAPI.encodeJsonHeaders(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one
@@ -297,9 +294,8 @@ public class LoginAttemptsHelper {
     user.put("active", false);
     return updateUser(user, requestHeaders)
       .compose(v -> {
-        String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
-        logStorageService.logEvent(tenant, userId, LogEvent.EventType.USER_BLOCK,
-          JsonObject.mapFrom(requestHeaders));
+        String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+        logStorageService.logEvent(tenant, userId, LogEvent.EventType.USER_BLOCK, LoginAPI.encodeJsonHeaders(requestHeaders));
 
         attempt.setAttemptCount(0);
         attempt.setLastAttempt(new Date());
@@ -320,10 +316,9 @@ public class LoginAttemptsHelper {
                                                    List<LoginAttempts> attempts) {
 
     String userId = userObject.getString("id");
-    String tenant = requestHeaders.get(RestVerticle.OKAPI_HEADER_TENANT);
+    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
 
-    logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT,
-      JsonObject.mapFrom(requestHeaders));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT, LoginAPI.encodeJsonHeaders(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one

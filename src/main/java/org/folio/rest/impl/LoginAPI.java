@@ -12,7 +12,6 @@ import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,10 +22,12 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Credential;
@@ -79,12 +80,6 @@ import io.vertx.ext.web.client.HttpResponse;
 public class LoginAPI implements Authn {
 
   private static final String TABLE_NAME_CREDENTIALS = "auth_credentials";
-  public static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
-  public static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
-  public static final String OKAPI_URL_HEADER = "x-okapi-url";
-  public static final String OKAPI_USER_ID_HEADER = "x-okapi-user-id";
-  public static final String OKAPI_REQUEST_TIMESTAMP_HEADER = "x-okapi-request-timestamp";
-  public static final String OKAPI_REQUEST_IP_HEADER = "x-okapi-request-ip";
   public static final String X_FORWARDED_FOR_HEADER = "X-Forwarded-For";
   private static final String CREDENTIAL_USERID_FIELD = "'userId'";
   private static final String USER_ID_FIELD = "'userId'";
@@ -143,7 +138,7 @@ public class LoginAPI implements Authn {
   }
 
   private String getTenant(Map<String, String> headers) {
-    return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
+    return TenantTool.calculateTenantId(headers.get(XOkapiHeaders.TENANT));
   }
 
   static String buildUserLookupURL(String okapiURL, String username, String userId) {
@@ -184,8 +179,8 @@ public class LoginAPI implements Authn {
       final String okapiURL, String requestToken) {
     final String requestURL = buildUserLookupURL(okapiURL, username, userId);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, requestToken);
     return request
       .expect(ResponsePredicate.JSON)
       .send()
@@ -196,15 +191,15 @@ public class LoginAPI implements Authn {
     String okapiURL, String requestToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/token");
 
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, requestToken);
 
     return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
       if (response.statusCode() != 200 && response.statusCode() != 201) {
         throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
       }
       String token = response.statusCode() == 200
-        ? response.getHeader(OKAPI_TOKEN_HEADER)
+        ? response.getHeader(XOkapiHeaders.TOKEN)
         : response.bodyAsJsonObject().getString("token");
       if (token == null) {
         throw new RuntimeException(String.format("Got response %s fetching token, but content is null",
@@ -218,8 +213,8 @@ public class LoginAPI implements Authn {
   private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
     String okapiURL, String requestToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/refreshtoken");
-    request.putHeader(OKAPI_TENANT_HEADER, tenant)
-      .putHeader(OKAPI_TOKEN_HEADER, requestToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, requestToken);
 
     JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
     return request
@@ -265,8 +260,8 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = getTenant(okapiHeaders);
-      String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
-      String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       if (requestToken == null) {
         logger.error("Missing request token");
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
@@ -404,9 +399,7 @@ public class LoginAPI implements Authn {
                               PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesful login skip login attempts counter
                               String finalRefreshToken = refreshToken;
-                              Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
-                              requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
-                              requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
+                              Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
                               loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                                   .compose(attempts ->
                                       loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, requestHeaders, attempts))
@@ -432,9 +425,7 @@ public class LoginAPI implements Authn {
                           });
                         } else {
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                          Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
-                          requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
-                          requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
+                          Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
                           loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                               .compose(attempts ->
                                   loginAttemptsHelper.onLoginFailAttemptHandler(userObject, requestHeaders, attempts))
@@ -477,8 +468,8 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = getTenant(okapiHeaders);
-      String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
-      String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       Future<JsonObject> userVerifyFuture;
       if (entity.getUserId() != null) {
         userVerifyFuture = Future.succeededFuture(new JsonObject().put("id",
@@ -608,6 +599,18 @@ public class LoginAPI implements Authn {
     });
   }
 
+  public static JsonObject encodeJsonHeaders(Map<String,String> headers) {
+    return JsonObject.mapFrom(headers);
+  }
+
+  public static Map<String,String> decodeJsonHeaders(JsonObject obj) {
+    Map<String,String> map = new CaseInsensitiveMap<>();
+    for (String k : obj.fieldNames()) {
+      map.put(k, obj.getString(k));
+    }
+    return map;
+  }
+
   /**
    * This method is /authn/password/repeatable endpoint implementation
    * which is used by programmatic rule of mod-password-validator.
@@ -623,7 +626,8 @@ public class LoginAPI implements Authn {
   public void postAuthnPasswordRepeatable(Password password, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      passwordStorageService.isPasswordPreviouslyUsed(JsonObject.mapFrom(password), okapiHeaders, used -> {
+      passwordStorageService.isPasswordPreviouslyUsed(JsonObject.mapFrom(password),
+          encodeJsonHeaders(okapiHeaders), used -> {
         if (used.failed()) {
           asyncResultHandler.handle(
               Future.succeededFuture(PostAuthnPasswordRepeatableResponse.respond500WithTextPlain(INTERNAL_ERROR)));
@@ -645,16 +649,21 @@ public class LoginAPI implements Authn {
     }
   }
 
+  static Map<String,String> copyHeaders(Map<String, String> okapiHeaders, String userAgent, String forwardedFor) {
+    Map<String,String> nMap = new CaseInsensitiveMap<>(okapiHeaders);
+    nMap.put(HttpHeaders.USER_AGENT, userAgent);
+    nMap.put(X_FORWARDED_FOR_HEADER, forwardedFor);
+    return nMap;
+  }
+
   @Override
   public void postAuthnResetPassword(String userAgent, String xForwardedFor,
       PasswordReset entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
       JsonObject passwordResetJson = JsonObject.mapFrom(entity);
-      Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
-      requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
-      requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
-      passwordStorageService.resetPassword(requestHeaders, passwordResetJson,
+      Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+      passwordStorageService.resetPassword(encodeJsonHeaders(requestHeaders), passwordResetJson,
           serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
@@ -753,8 +762,7 @@ public class LoginAPI implements Authn {
       Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      JsonObject headers = JsonObject.mapFrom(requestHeaders);
-      configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -793,8 +801,7 @@ public class LoginAPI implements Authn {
   public void postAuthnLogEvents(LogEvent logEvent, Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      JsonObject headers = JsonObject.mapFrom(requestHeaders);
-      configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -841,8 +848,7 @@ public class LoginAPI implements Authn {
   public void deleteAuthnLogEventsById(String userId, Map<String, String> requestHeaders,
       Handler<AsyncResult<Response>> asyncHandler, Context context) {
     try {
-      JsonObject headers = JsonObject.mapFrom(requestHeaders);
-      configurationService.getEnableConfigurations(vTenantId, headers, serviceHandler -> {
+      configurationService.getEnableConfigurations(vTenantId, encodeJsonHeaders(requestHeaders), serviceHandler -> {
             if (serviceHandler.failed()) {
               String errorMessage = serviceHandler.cause().getMessage();
               asyncHandler.handle(createFutureResponse(
@@ -920,8 +926,8 @@ public class LoginAPI implements Authn {
     try {
       Future<JsonObject> userVerifiedFuture;
       String tenantId = getTenant(okapiHeaders);
-      String okapiURL = okapiHeaders.get(OKAPI_URL_HEADER);
-      String requestToken = okapiHeaders.get(OKAPI_TOKEN_HEADER);
+      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       if (requestToken == null) {
         logger.error("Missing request token");
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse
@@ -978,11 +984,8 @@ public class LoginAPI implements Authn {
               Credential newCred = makeCredentialObject(null, userEntity.getString("id"),
                   entity.getNewPassword());
 
-              Map<String, String> requestHeaders = new HashMap<>(okapiHeaders);
-              requestHeaders.put(HttpHeaders.USER_AGENT, userAgent);
-              requestHeaders.put(X_FORWARDED_FOR_HEADER, xForwardedFor);
-
-              passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), requestHeaders,
+              Map<String, String> requestHeaders = copyHeaders(okapiHeaders, userAgent, xForwardedFor);
+              passwordStorageService.updateCredential(JsonObject.mapFrom(newCred), encodeJsonHeaders(requestHeaders),
                   updateCredResult -> {
                     if (updateCredResult.failed()) {
                       String message = updateCredResult.cause().getLocalizedMessage();

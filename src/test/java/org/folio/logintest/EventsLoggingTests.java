@@ -15,7 +15,9 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.awaitility.Awaitility;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
@@ -33,7 +35,6 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -80,7 +81,7 @@ public class EventsLoggingTests {
 
   @Parameterized.Parameters
   public static Iterable<String> headers() {
-    return Arrays.asList(LoginAPI.X_FORWARDED_FOR_HEADER, LoginAPI.OKAPI_REQUEST_IP_HEADER);
+    return Arrays.asList(LoginAPI.X_FORWARDED_FOR_HEADER, XOkapiHeaders.REQUEST_IP);
   }
 
   public EventsLoggingTests(String clientIpHeader) {
@@ -107,11 +108,11 @@ public class EventsLoggingTests {
     spec = new RequestSpecBuilder()
       .setBaseUri("http://localhost:" + port)
       .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
-      .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, TOKEN)
-      .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + mockServer.port())
+      .addHeader(XOkapiHeaders.TENANT, TENANT)
+      .addHeader(XOkapiHeaders.TOKEN, TOKEN)
+      .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockServer.port())
       .addHeader(clientIpHeader, CLIENT_IP)
-      .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
+      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
       .build();
 
     mockHttpCalls();
@@ -348,7 +349,7 @@ public class EventsLoggingTests {
 
     mockServer.stubFor(
       WireMock.post("/token")
-        .willReturn(WireMock.ok().withHeader(RestVerticle.OKAPI_HEADER_TOKEN, TOKEN))
+        .willReturn(WireMock.ok().withHeader(XOkapiHeaders.TOKEN, TOKEN))
     );
 
     mockServer.stubFor(
@@ -368,8 +369,9 @@ public class EventsLoggingTests {
     Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     TenantAPI tenantAPI = new TenantRefAPI();
-    Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-        "x-okapi-tenant", TENANT);
+    Map<String,String> okapiHeaders = new CaseInsensitiveMap();
+    okapiHeaders.put(XOkapiHeaders.URL, "http://localhost:" + port);
+    okapiHeaders.put(XOkapiHeaders.TENANT, TENANT);
     tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
         vertx.getOrCreateContext());
     return promise.future();

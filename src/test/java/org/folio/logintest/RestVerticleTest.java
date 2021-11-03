@@ -9,14 +9,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -38,7 +37,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -138,9 +136,9 @@ public class RestVerticleTest {
     okapiUrl = "http://localhost:" + mockPort;
 
     headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken");
-    headers.add(LoginAPI.OKAPI_URL_HEADER, okapiUrl);
-    headers.add(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()));
+    headers.add(XOkapiHeaders.TOKEN, "dummytoken");
+    headers.add(XOkapiHeaders.URL, okapiUrl);
+    headers.add(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()));
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -413,7 +411,7 @@ public class RestVerticleTest {
   private Future<WrappedResponse> doLoginNoToken(TestContext context, JsonObject loginCredentials) {
     MultiMap headersNoToken = MultiMap.caseInsensitiveMultiMap();
     headersNoToken.addAll(headers);
-    headersNoToken.remove(RestVerticle.OKAPI_HEADER_TOKEN);
+    headersNoToken.remove(XOkapiHeaders.TOKEN);
 
     return doRequest(vertx, loginUrl, HttpMethod.POST, headersNoToken, loginCredentials.encode(),
       400, "Missing Okapi token header");

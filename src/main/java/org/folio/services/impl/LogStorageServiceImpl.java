@@ -5,6 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LogEvents;
@@ -23,6 +24,7 @@ import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.folio.rest.impl.LoginAPI.MESSAGE_LOG_CONFIGURATION_IS_DISABLED;
@@ -50,8 +52,12 @@ public class LogStorageServiceImpl implements LogStorageService {
   }
 
 
-  public LogStorageService logEvent(String tenantId, String userId, LogEvent.EventType eventType, JsonObject headers) {
-    LogEvent logEvent = EventLogUtils.createLogEventObject(eventType, userId, headers);
+  public LogStorageService logEvent(String tenantId, String userId, LogEvent.EventType eventType,
+      JsonObject headers) {
+
+    Map<String,String> okapiHeaders = LoginAPI.decodeJsonHeaders(headers);
+
+    LogEvent logEvent = EventLogUtils.createLogEventObject(eventType, userId, okapiHeaders);
     configurationService.getEnableConfigurations(tenantId, headers, serviceHandler -> {
       if (serviceHandler.failed()) {
         logger.error(serviceHandler.cause().getMessage());

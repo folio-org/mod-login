@@ -11,9 +11,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Password;
@@ -36,7 +36,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-
 
 @RunWith(VertxUnitRunner.class)
 public class LoginAttemptsTest {
@@ -120,9 +119,9 @@ public class LoginAttemptsTest {
       .setContentType(ContentType.JSON)
       .setBaseUri("http://localhost:" + port)
       .addHeader("x-okapi-url", "http://localhost:" + mockPort)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT_DIKU)
-      .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummy.token")
-      .addHeader(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()))
+      .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+      .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
+      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
       .build();
   }
 
@@ -359,7 +358,7 @@ public class LoginAttemptsTest {
   public void shouldReturnValidationErrorWithNoPassword() {
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, adminId)
+      .header(XOkapiHeaders.USER_ID, adminId)
       .body(new Password().withUserId(UUID.randomUUID().toString()))
       .when()
       .post(CRED_PATH)

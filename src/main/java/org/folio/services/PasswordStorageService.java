@@ -12,8 +12,6 @@ import org.folio.rest.jaxrs.model.ResponseCreateAction;
 import org.folio.rest.jaxrs.model.ResponseResetAction;
 import org.folio.services.impl.PasswordStorageServiceImpl;
 
-import java.util.Map;
-
 /**
  * The interface provides basic CRUD operations for storing and retrieving data from the storage
  */
@@ -69,7 +67,7 @@ public interface PasswordStorageService {
    * @return asyncResult with the response entity {@link ResponseResetAction}
    */
   @Fluent
-  PasswordStorageService resetPassword(Map<String, String> requestHeaders, JsonObject resetAction,
+  PasswordStorageService resetPassword(JsonObject requestHeaders, JsonObject resetAction,
                                        Handler<AsyncResult<JsonObject>> asyncResultHandler);
 
   /**
@@ -81,7 +79,7 @@ public interface PasswordStorageService {
    * @return {@link PasswordStorageService} instance
    */
   @Fluent
-  PasswordStorageService updateCredential(JsonObject credJson, Map<String, String> requestHeaders,
+  PasswordStorageService updateCredential(JsonObject credJson, JsonObject requestHeaders,
                                           Handler<AsyncResult<Void>> asyncResultHandler);
 
   /**
@@ -94,7 +92,7 @@ public interface PasswordStorageService {
    * @return {@link PasswordStorageService} instance
    */
   @Fluent
-  PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, Map<String, String> okapiHeaders,
+  PasswordStorageService isPasswordPreviouslyUsed(JsonObject passwordEntity, JsonObject okapiHeaders,
                                                   Handler<AsyncResult<Boolean>> asyncResultHandler);
 
   /**
