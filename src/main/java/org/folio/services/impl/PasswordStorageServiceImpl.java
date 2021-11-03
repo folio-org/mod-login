@@ -41,6 +41,7 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.folio.util.LoginConfigUtils;
 import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
@@ -188,7 +189,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   @Override
   public PasswordStorageService resetPassword(JsonObject headers, JsonObject resetActionEntity,
                                               Handler<AsyncResult<JsonObject>> asyncHandler) {
-    Map<String,String> requestHeaders = LoginAPI.decodeJsonHeaders(headers);
+    Map<String,String> requestHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
     String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
     try {
       PasswordReset passwordReset = resetActionEntity.mapTo(PasswordReset.class);
@@ -380,7 +381,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
   @Override
   public PasswordStorageService updateCredential(JsonObject credJson, JsonObject headers,
                                                  Handler<AsyncResult<Void>> asyncResultHandler) {
-    Map<String,String> requestHeaders = LoginAPI.decodeJsonHeaders(headers);
+    Map<String,String> requestHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
     String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
     String token = requestHeaders.get(XOkapiHeaders.TOKEN);
     String okapiUrl = requestHeaders.get(XOkapiHeaders.URL);
@@ -428,7 +429,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     String password = passwordEntity.getPassword();
     String userId = passwordEntity.getUserId();
 
-    Map<String,String> okapiHeaders = LoginAPI.decodeJsonHeaders(headers);
+    Map<String,String> okapiHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
     String tenant = okapiHeaders.get(XOkapiHeaders.TENANT);
     String token = okapiHeaders.get(XOkapiHeaders.TOKEN);
     String okapiUrl = okapiHeaders.get(XOkapiHeaders.URL);

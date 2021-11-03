@@ -3,9 +3,11 @@ package org.folio.util;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.folio.rest.jaxrs.resource.support.ResponseDelegate;
 
 import javax.ws.rs.core.Response;
+import java.util.Map;
 
 public class LoginConfigUtils {
 
@@ -40,4 +42,13 @@ public class LoginConfigUtils {
   public static <T> T getResponseEntity(AsyncResult<JsonObject> asyncResult, Class<T> t) {
     return asyncResult.result().mapTo(t);
   }
+
+  public static JsonObject encodeJsonHeaders(Map<String,String> headers) {
+    return JsonObject.mapFrom(headers);
+  }
+
+  public static Map<String,String> decodeJsonHeaders(JsonObject obj) {
+    return obj.mapTo(CaseInsensitiveMap.class);
+  }
+
 }

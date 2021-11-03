@@ -249,7 +249,8 @@ public class LoginAttemptsHelper {
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
 
-    logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT, LoginAPI.encodeJsonHeaders(requestHeaders));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT,
+        LoginConfigUtils.encodeJsonHeaders(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one
@@ -295,7 +296,8 @@ public class LoginAttemptsHelper {
     return updateUser(user, requestHeaders)
       .compose(v -> {
         String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
-        logStorageService.logEvent(tenant, userId, LogEvent.EventType.USER_BLOCK, LoginAPI.encodeJsonHeaders(requestHeaders));
+        logStorageService.logEvent(tenant, userId, LogEvent.EventType.USER_BLOCK,
+            LoginConfigUtils.encodeJsonHeaders(requestHeaders));
 
         attempt.setAttemptCount(0);
         attempt.setLastAttempt(new Date());
@@ -318,7 +320,8 @@ public class LoginAttemptsHelper {
     String userId = userObject.getString("id");
     String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
 
-    logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT, LoginAPI.encodeJsonHeaders(requestHeaders));
+    logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT,
+        LoginConfigUtils.encodeJsonHeaders(requestHeaders));
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
     // if there no attempts record for user, create one

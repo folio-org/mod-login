@@ -12,11 +12,11 @@ import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.okapi.common.XOkapiHeaders;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.ConfigResponse;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.services.ConfigurationService;
+import org.folio.util.LoginConfigUtils;
 import org.folio.util.WebClientFactory;
 
 import com.google.common.collect.Lists;
@@ -51,7 +51,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
   @Override
   public ConfigurationService getEnableConfigurations(String tenantId, JsonObject headers, Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     try {
-      Map<String,String> okapiHeaders = LoginAPI.decodeJsonHeaders(headers);
+      Map<String,String> okapiHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
       lookupConfig(okapiHeaders, tenantId).onComplete(lookupConfigHandler -> {
         ConfigResponse configResponse = new ConfigResponse()
           .withCode(EVENT_LOG_STATUS_CODE)

@@ -17,6 +17,7 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.util.EventLogUtils;
+import org.folio.util.LoginConfigUtils;
 import org.folio.util.StringUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,7 +56,7 @@ public class LogStorageServiceImpl implements LogStorageService {
   public LogStorageService logEvent(String tenantId, String userId, LogEvent.EventType eventType,
       JsonObject headers) {
 
-    Map<String,String> okapiHeaders = LoginAPI.decodeJsonHeaders(headers);
+    Map<String,String> okapiHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
 
     LogEvent logEvent = EventLogUtils.createLogEventObject(eventType, userId, okapiHeaders);
     configurationService.getEnableConfigurations(tenantId, headers, serviceHandler -> {
