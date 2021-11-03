@@ -262,6 +262,11 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      if (okapiURL == null) {
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+            .respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
+        return;
+      }
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       if (requestToken == null) {
         logger.error("Missing request token");
@@ -469,13 +474,18 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = getTenant(okapiHeaders);
-      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       Future<JsonObject> userVerifyFuture;
       if (entity.getUserId() != null) {
         userVerifyFuture = Future.succeededFuture(new JsonObject().put("id",
             entity.getUserId()));
       } else {
+        String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+        if (okapiURL == null) {
+          asyncResultHandler.handle(Future.succeededFuture(
+              PostAuthnCredentialsResponse.respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
+          return;
+        }
         userVerifyFuture = lookupUser(entity.getUsername(), null,
             tenantId, okapiURL, requestToken);
       }
@@ -916,6 +926,11 @@ public class LoginAPI implements Authn {
       Future<JsonObject> userVerifiedFuture;
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      if (okapiURL == null) {
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse
+            .respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
+        return;
+      }
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       if (requestToken == null) {
         logger.error("Missing request token");

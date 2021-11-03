@@ -283,13 +283,37 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testNoOkapiUrl(TestContext context) {
+  public void testAuthnLoginNoOkapiUrl(TestContext context) {
     MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
     testHeaders.addAll(headers);
     testHeaders.remove("x-okapi-url");
     doRequest(vertx, loginUrl, HttpMethod.POST, testHeaders,
         new JsonObject().put("username", "foo").put("password", "bar").encode(),
-        500, // should be 400
+        400,
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testAuthnCredentialsNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, credentialsUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        400,
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testAuthnUpdateNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, updateUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        400,
         "Try without X-Okapi-Url")
         .onComplete(context.asyncAssertSuccess());
   }
