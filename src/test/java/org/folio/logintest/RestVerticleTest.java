@@ -9,14 +9,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.logintest.TestUtil.WrappedResponse;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -38,7 +37,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -138,9 +136,9 @@ public class RestVerticleTest {
     okapiUrl = "http://localhost:" + mockPort;
 
     headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken");
-    headers.add(LoginAPI.OKAPI_URL_HEADER, okapiUrl);
-    headers.add(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime()));
+    headers.add(XOkapiHeaders.TOKEN, "dummytoken");
+    headers.add(XOkapiHeaders.URL, okapiUrl);
+    headers.add(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()));
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -284,48 +282,40 @@ public class RestVerticleTest {
     });
   }
 
-  class HTTPResponseHandler implements Handler<HttpClientResponse> {
-
-    CompletableFuture<Response> event;
-
-    public HTTPResponseHandler(CompletableFuture<Response> cf) {
-      event = cf;
-    }
-
-    @Override
-    public void handle(HttpClientResponse hcr) {
-      hcr.bodyHandler(bh -> {
-        Response r = new Response();
-        r.code = hcr.statusCode();
-        try {
-          r.body = bh.toJsonObject();
-        } catch (Exception e) {
-          r.body = null;
-        }
-        event.complete(r);
-      });
-    }
+  @Test
+  public void testAuthnLoginNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, loginUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        400,
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
   }
 
-  class HTTPNoBodyResponseHandler implements Handler<HttpClientResponse> {
-
-    CompletableFuture<Response> event;
-
-    public HTTPNoBodyResponseHandler(CompletableFuture<Response> cf) {
-      event = cf;
-    }
-
-    @Override
-    public void handle(HttpClientResponse hcr) {
-      Response r = new Response();
-      r.code = hcr.statusCode();
-      event.complete(r);
-    }
+  @Test
+  public void testAuthnCredentialsNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, credentialsUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        400,
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
   }
 
-  class Response {
-    int code;
-    JsonObject body;
+  @Test
+  public void testAuthnUpdateNoOkapiUrl(TestContext context) {
+    MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
+    testHeaders.addAll(headers);
+    testHeaders.remove("x-okapi-url");
+    doRequest(vertx, updateUrl, HttpMethod.POST, testHeaders,
+        new JsonObject().put("username", "foo").put("password", "bar").encode(),
+        400,
+        "Try without X-Okapi-Url")
+        .onComplete(context.asyncAssertSuccess());
   }
 
   private Future<WrappedResponse> postNewCredentials(TestContext context,
@@ -445,7 +435,7 @@ public class RestVerticleTest {
   private Future<WrappedResponse> doLoginNoToken(TestContext context, JsonObject loginCredentials) {
     MultiMap headersNoToken = MultiMap.caseInsensitiveMultiMap();
     headersNoToken.addAll(headers);
-    headersNoToken.remove(RestVerticle.OKAPI_HEADER_TOKEN);
+    headersNoToken.remove(XOkapiHeaders.TOKEN);
 
     return doRequest(vertx, loginUrl, HttpMethod.POST, headersNoToken, loginCredentials.encode(),
       400, "Missing Okapi token header");

@@ -4,8 +4,6 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 import static junit.framework.TestCase.fail;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
-import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_CREDENTIALS;
 import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 
@@ -19,9 +17,9 @@ import java.util.UUID;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
@@ -88,9 +86,9 @@ public class PasswordResetActionTest {
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
-      new Header(OKAPI_HEADER_TENANT, TENANT_ID),
-      new Header(OKAPI_HEADER_TOKEN, OKAPI_TOKEN_VAL),
-      new Header(LoginAPI.OKAPI_REQUEST_TIMESTAMP_HEADER, String.valueOf(new Date().getTime())));
+      new Header(XOkapiHeaders.TENANT, TENANT_ID),
+      new Header(XOkapiHeaders.TOKEN, OKAPI_TOKEN_VAL),
+      new Header(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime())));
     restPathPasswordAction = System.getProperty("org.folio.password.action.path", "/authn/password-reset-action");
     restPathResetPassword = System.getProperty("org.folio.password.reset.path", "/authn/reset-password");
     request = RestAssured.given()

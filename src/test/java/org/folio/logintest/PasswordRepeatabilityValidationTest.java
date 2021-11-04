@@ -9,9 +9,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.impl.TenantAPI;
 import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
@@ -21,7 +21,6 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,9 +93,9 @@ public class PasswordRepeatabilityValidationTest {
     spec = new RequestSpecBuilder()
       .setContentType(ContentType.JSON)
       .setBaseUri("http://localhost:" + port)
-      .addHeader(RestVerticle.OKAPI_HEADER_TENANT, TENANT)
-      .addHeader(RestVerticle.OKAPI_HEADER_TOKEN, "dummytoken")
-      .addHeader(LoginAPI.OKAPI_URL_HEADER, "http://localhost:" + port)
+      .addHeader(XOkapiHeaders.TENANT, TENANT)
+      .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
+      .addHeader(XOkapiHeaders.URL, "http://localhost:" + port)
       .build();
   }
 
@@ -140,7 +139,7 @@ public class PasswordRepeatabilityValidationTest {
   public void testCurrentPassword() {
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, USER_ID)
+      .header(XOkapiHeaders.USER_ID, USER_ID)
       .body(buildPasswordEntity(CURRENT_PASSWORD))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
@@ -154,7 +153,7 @@ public class PasswordRepeatabilityValidationTest {
     String userId = UUID.randomUUID().toString();
     RestAssured.given()
       .spec(spec)
-      .header(RestVerticle.OKAPI_USERID_HEADER, userId)
+      .header(XOkapiHeaders.USER_ID, userId)
       .body(buildPasswordEntity(CURRENT_PASSWORD, userId))
       .when()
       .post(PASSWORD_REAPITABILITY_VALIDATION_PATH)
