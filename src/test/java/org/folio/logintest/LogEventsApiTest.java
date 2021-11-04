@@ -113,7 +113,7 @@ public class LogEventsApiTest {
 
   @Test
   public void testMissingOkapiUrl() {
-    JsonObject logEven = getLogEven("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, null)
         .then()
         .statusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
@@ -127,7 +127,7 @@ public class LogEventsApiTest {
     initModConfigStub(mockServerPort, initLoggingConfigurations(config));
     String okapiUrl = "http://localhost:" + mockServerPort;
 
-    JsonObject logEven = getLogEven("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent("tenant", UUID.randomUUID().toString(), LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -150,7 +150,7 @@ public class LogEventsApiTest {
     String okapiUrl = "http://localhost:" + mockServerPort;
 
     String userId = UUID.randomUUID().toString();
-    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -174,7 +174,7 @@ public class LogEventsApiTest {
     String okapiUrl = "http://localhost:" + mockServerPort;
     String userId = UUID.randomUUID().toString();
 
-    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     Response response = requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -200,7 +200,7 @@ public class LogEventsApiTest {
     String okapiUrl = "http://localhost:" + mockServerPort;
     String userId = UUID.randomUUID().toString();
 
-    JsonObject logEven = getLogEven("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent("tenant", userId, LogEvent.EventType.PASSWORD_RESET.toString());
     Response response = requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_CREATED)
@@ -226,7 +226,7 @@ public class LogEventsApiTest {
     String id = UUID.randomUUID().toString();
 
     // test post
-    JsonObject logEven = getLogEven(TENANT_ID, id, LogEvent.EventType.PASSWORD_RESET.toString());
+    JsonObject logEven = getLogEvent(TENANT_ID, id, LogEvent.EventType.PASSWORD_RESET.toString());
     requestPostLogEvent(logEven, okapiUrl)
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
@@ -274,7 +274,7 @@ public class LogEventsApiTest {
       .withBody(JsonObject.mapFrom(configurations).toString())));
   }
 
-  private JsonObject getLogEven(String tenant, String userId, String eventCode) {
+  private JsonObject getLogEvent(String tenant, String userId, String eventCode) {
     return new JsonObject()
       .put("tenant", tenant)
       .put("userId", userId)
