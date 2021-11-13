@@ -15,14 +15,11 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
-import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.awaitility.Awaitility;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -366,15 +363,8 @@ public class EventsLoggingTests {
   }
 
   private Future<Void> postTenant() {
-    Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    TenantAPI tenantAPI = new TenantRefAPI();
-    Map<String,String> okapiHeaders = new CaseInsensitiveMap();
-    okapiHeaders.put(XOkapiHeaders.URL, "http://localhost:" + port);
-    okapiHeaders.put(XOkapiHeaders.TENANT, TENANT);
-    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-        vertx.getOrCreateContext());
-    return promise.future();
+    return TestUtil.postSync(ta, TENANT, port, vertx);
   }
 
   private Future<String> persistCredentials() {

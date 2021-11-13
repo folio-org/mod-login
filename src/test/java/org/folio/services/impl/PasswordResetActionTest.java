@@ -10,18 +10,16 @@ import static org.folio.util.LoginConfigUtils.SNAPSHOTS_TABLE_PW;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
 
 import javax.ws.rs.core.MediaType;
 
 import org.apache.http.HttpStatus;
+import org.folio.logintest.TestUtil;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -30,7 +28,6 @@ import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -82,19 +79,18 @@ public class PasswordResetActionTest {
 
   @BeforeClass
   public static void setUpClass(final TestContext context) {
-    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
-      new Header(XOkapiHeaders.TENANT, TENANT_ID),
-      new Header(XOkapiHeaders.TOKEN, OKAPI_TOKEN_VAL),
-      new Header(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime())));
+        new Header(XOkapiHeaders.TENANT, TENANT_ID),
+        new Header(XOkapiHeaders.TOKEN, OKAPI_TOKEN_VAL),
+        new Header(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime())));
     restPathPasswordAction = System.getProperty("org.folio.password.action.path", "/authn/password-reset-action");
     restPathResetPassword = System.getProperty("org.folio.password.reset.path", "/authn/reset-password");
     request = RestAssured.given()
-      .port(port)
-      .contentType(MediaType.APPLICATION_JSON)
-      .headers(headers);
+        .port(port)
+        .contentType(MediaType.APPLICATION_JSON)
+        .headers(headers);
 
     try {
       PostgresClient.setPostgresTester(new PostgresTesterContainer());
@@ -104,16 +100,13 @@ public class PasswordResetActionTest {
     }
 
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
-      .setConfig(new JsonObject().put(HTTP_PORT, port));
+        .setConfig(new JsonObject().put(HTTP_PORT, port));
 
-    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions, res -> {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TenantAPI tenantAPI = new TenantRefAPI();
-      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-          "x-okapi-tenant", TENANT_ID);
-      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-          vertx.getOrCreateContext());
-    });
+    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions)
+        .onComplete(context.asyncAssertSuccess(res -> {
+          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+          TestUtil.postSync(ta, TENANT_ID, port, vertx).onComplete(context.asyncAssertSuccess());
+        }));
   }
 
   @Before

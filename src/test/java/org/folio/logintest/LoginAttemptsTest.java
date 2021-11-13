@@ -14,8 +14,6 @@ import java.util.UUID;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -76,7 +74,6 @@ public class LoginAttemptsTest {
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
     moduleArgs = new HashMap<String,String>(MODULE_SPECIFIC_ARGS);
-    Async async = context.async();
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -99,30 +96,23 @@ public class LoginAttemptsTest {
       return;
     }
 
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
-      if (mockRes.failed()) {
-        mockRes.cause().printStackTrace();
-        context.fail(mockRes.cause());
-      } else {
-        vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TenantAPI tenantAPI = new TenantRefAPI();
-          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-              "x-okapi-tenant", TENANT_DIKU);
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-              vertx.getOrCreateContext());
-        });
-      }
-    });
-
     spec = new RequestSpecBuilder()
-      .setContentType(ContentType.JSON)
-      .setBaseUri("http://localhost:" + port)
-      .addHeader("x-okapi-url", "http://localhost:" + mockPort)
-      .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-      .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
-      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-      .build();
+        .setContentType(ContentType.JSON)
+        .setBaseUri("http://localhost:" + port)
+        .addHeader("x-okapi-url", "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
+        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .build();
+
+    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+        .onComplete(context.asyncAssertSuccess(res ->
+            vertx.deployVerticle(RestVerticle.class.getName(), options)
+                .onComplete(context.asyncAssertSuccess(res2 -> {
+                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+                  TestUtil.postSync(ta, TENANT_DIKU, port, vertx).onComplete(context.asyncAssertSuccess());
+                }))
+        ));
   }
 
   @Before

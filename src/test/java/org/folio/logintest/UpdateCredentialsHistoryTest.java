@@ -5,7 +5,6 @@ import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWOR
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -15,8 +14,6 @@ import org.apache.http.HttpStatus;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -40,7 +37,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.sqlclient.Row;
@@ -116,8 +112,6 @@ public class UpdateCredentialsHistoryTest {
 
   @Test
   public void testInitialPasswordIsSavedToHistory(TestContext context) {
-    Async async = context.async();
-
     UpdateCredentials entity = new UpdateCredentials()
       .withUserId(gollumId)
       .withPassword(INITIAL_PASSWORD)
@@ -133,21 +127,17 @@ public class UpdateCredentialsHistoryTest {
 
     Promise<Results<CredentialsHistory>> promise = Promise.promise();
     pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, promise);
-    promise.future().onComplete(results -> {
-      List<CredentialsHistory> credHist = results.result().getResults();
+    promise.future().onComplete(context.asyncAssertSuccess(results -> {
+      List<CredentialsHistory> credHist = results.getResults();
       context.assertEquals(credHist.size(), 1);
 
       CredentialsHistory hisObject = credHist.get(0);
       context.assertEquals(hisObject.getHash(), authUtil.calculateHash(INITIAL_PASSWORD, hisObject.getSalt()));
-
-      async.complete();
-    });
+    }));
   }
 
   @Test
   public void testInitialPasswordIsDeletedWhenHistoryOverflowsWithDefaultPwdHistNumber(TestContext context) {
-    Async async = context.async();
-
     UpdateCredentials entity = new UpdateCredentials()
       .withUserId(gollumId);
     String password = INITIAL_PASSWORD;
@@ -169,14 +159,8 @@ public class UpdateCredentialsHistoryTest {
       password = newPassword;
     }
 
-    isInitialPasswordRemovedFromHistory().onComplete(any -> {
-      if (any.failed()) {
-        context.fail(any.cause());
-      } else {
-        context.assertFalse(any.result());
-        async.complete();
-      }
-    });
+    isInitialPasswordRemovedFromHistory()
+        .onComplete(context.asyncAssertSuccess(any -> context.assertFalse(any)));
   }
 
   private Future<Boolean> isInitialPasswordRemovedFromHistory() {
@@ -198,14 +182,8 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private static Future<Void> postTenant() {
-    Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    TenantAPI tenantAPI = new TenantRefAPI();
-    Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-        "x-okapi-tenant", TENANT);
-    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-        vertx.getOrCreateContext());
-    return promise.future();
+    return TestUtil.postSync(ta, TENANT, port, vertx);
   }
 
   private static Future<Void> deployUserMockVerticle() {

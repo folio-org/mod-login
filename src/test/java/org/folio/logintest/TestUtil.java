@@ -2,6 +2,11 @@ package org.folio.logintest;
 
 import java.util.Map;
 
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
+import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.rest.impl.TenantAPI;
+import org.folio.rest.impl.TenantRefAPI;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
@@ -109,5 +114,15 @@ public class TestUtil {
         promise.complete(wr);
       }
     }
+  }
+
+  public static Future<Void> postSync(TenantAttributes ta, String tenant, int port, Vertx vertx) {
+    Map<String, String> okapiHeaders = new CaseInsensitiveMap();
+    okapiHeaders.put(XOkapiHeaders.URL, "http://localhost:" + port);
+    okapiHeaders.put(XOkapiHeaders.TENANT, tenant);
+    TenantAPI tenantAPI = new TenantRefAPI();
+    Promise<Void> promise = Promise.promise();
+    tenantAPI.postTenantSync(ta, okapiHeaders, x -> promise.handle(x.mapEmpty()), vertx.getOrCreateContext());
+    return promise.future();
   }
 }

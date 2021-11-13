@@ -7,7 +7,6 @@ import static org.folio.logintest.UserMock.sarumanId;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
@@ -16,8 +15,6 @@ import org.folio.logintest.TestUtil.WrappedResponse;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -33,7 +30,6 @@ import org.junit.runner.RunWith;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -126,7 +122,6 @@ public class RestVerticleTest {
 
   @BeforeClass
   public static void setup(TestContext context) {
-    Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort(); //get another
     vertx = Vertx.vertx();
@@ -158,25 +153,17 @@ public class RestVerticleTest {
       return;
     }
 
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
-      if (mockRes.failed()) {
-        mockRes.cause().printStackTrace();
-        context.fail(mockRes.cause());
-      } else {
-        vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-          List<Parameter> parameters = new LinkedList<>();
-          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-          ta.setParameters(parameters);
-          TenantAPI tenantAPI = new TenantRefAPI();
-          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-              "x-okapi-tenant", "diku");
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-              vertx.getOrCreateContext());
-        });
-      }
-    });
-
+    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+        .onComplete(context.asyncAssertSuccess(mockRes ->
+            vertx.deployVerticle(RestVerticle.class.getName(), options)
+                .onComplete(context.asyncAssertSuccess(res -> {
+                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+                  List<Parameter> parameters = new LinkedList<>();
+                  parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+                  ta.setParameters(parameters);
+                  TestUtil.postSync(ta, "diku", port, vertx).onComplete(context.asyncAssertSuccess());
+                }))
+        ));
   }
 
   @Before
@@ -286,7 +273,7 @@ public class RestVerticleTest {
   public void testAuthnLoginNoOkapiUrl(TestContext context) {
     MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
     testHeaders.addAll(headers);
-    testHeaders.remove("x-okapi-url");
+    testHeaders.remove(XOkapiHeaders.URL);
     doRequest(vertx, loginUrl, HttpMethod.POST, testHeaders,
         new JsonObject().put("username", "foo").put("password", "bar").encode(),
         400,
@@ -298,7 +285,7 @@ public class RestVerticleTest {
   public void testAuthnCredentialsNoOkapiUrl(TestContext context) {
     MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
     testHeaders.addAll(headers);
-    testHeaders.remove("x-okapi-url");
+    testHeaders.remove(XOkapiHeaders.URL);
     doRequest(vertx, credentialsUrl, HttpMethod.POST, testHeaders,
         new JsonObject().put("username", "foo").put("password", "bar").encode(),
         400,
@@ -310,7 +297,7 @@ public class RestVerticleTest {
   public void testAuthnUpdateNoOkapiUrl(TestContext context) {
     MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
     testHeaders.addAll(headers);
-    testHeaders.remove("x-okapi-url");
+    testHeaders.remove(XOkapiHeaders.URL);
     doRequest(vertx, updateUrl, HttpMethod.POST, testHeaders,
         new JsonObject().put("username", "foo").put("password", "bar").encode(),
         400,
@@ -381,8 +368,8 @@ public class RestVerticleTest {
       404, "Delete credentials by user id - user not found");
   }
 
-  private Future<WrappedResponse> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
-    Promise<WrappedResponse> promise = Promise.promise();
+  private Future<Void> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
+    Promise<Void> promise = Promise.promise();
     PostgresClient.getInstance(vertx, "diku").execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE", ar -> {
       doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
         500, "Postgres Error on Delete credentials by userId")
@@ -391,11 +378,7 @@ public class RestVerticleTest {
         List<Parameter> parameters = new LinkedList<>();
         parameters.add(new Parameter().withKey("loadSample").withValue("true"));
         ta.setParameters(parameters);
-        TenantAPI tenantAPI = new TenantRefAPI();
-        Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-            "x-okapi-tenant", "diku");
-        tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-            vertx.getOrCreateContext());
+        TestUtil.postSync(ta, "diku", port, vertx).onComplete(promise);
       });
     });
     return promise.future();

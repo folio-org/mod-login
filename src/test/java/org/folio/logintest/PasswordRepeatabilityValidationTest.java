@@ -4,7 +4,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -12,8 +11,6 @@ import java.util.stream.IntStream;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.CredentialsHistory;
 import org.folio.rest.jaxrs.model.Password;
@@ -35,7 +32,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
@@ -63,7 +59,6 @@ public class PasswordRepeatabilityValidationTest {
 
   @BeforeClass
   public static void setup(final TestContext context) {
-    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
 
@@ -74,29 +69,23 @@ public class PasswordRepeatabilityValidationTest {
       context.fail(e);
     }
 
+    spec = new RequestSpecBuilder()
+        .setContentType(ContentType.JSON)
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.TENANT, TENANT)
+        .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + port)
+        .build();
+
     DeploymentOptions restVerticleDeploymentOptions =
       new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
+    vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions)
+        .onComplete(context.asyncAssertSuccess(res -> {
       TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TenantAPI tenantAPI = new TenantRefAPI();
-      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-          "x-okapi-tenant", "diku");
-      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> fillInCredentialsHistory()
-          .compose(v -> saveCredential())
-          .onComplete(v -> {
-            if (v.succeeded()) {
-              async.complete();
-            }
-          }), vertx.getOrCreateContext());
-    });
-
-    spec = new RequestSpecBuilder()
-      .setContentType(ContentType.JSON)
-      .setBaseUri("http://localhost:" + port)
-      .addHeader(XOkapiHeaders.TENANT, TENANT)
-      .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
-      .addHeader(XOkapiHeaders.URL, "http://localhost:" + port)
-      .build();
+      TestUtil.postSync(ta, TENANT, port, vertx).onComplete(context.asyncAssertSuccess(res2 ->
+        fillInCredentialsHistory().compose(x -> saveCredential()).onComplete(context.asyncAssertSuccess())
+      ));
+    }));
   }
 
   @Test
