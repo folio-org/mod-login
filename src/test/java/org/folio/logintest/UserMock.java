@@ -265,7 +265,6 @@ public class UserMock extends AbstractVerticle {
           .put("configs", new JsonArray())
           .put("totalRecords", 0);
       }
-      System.out.println("AD: returning " + responseJson.encodePrettily());
       context.response()
         .setStatusCode(200)
         .putHeader("Content-Type", "application/json")
