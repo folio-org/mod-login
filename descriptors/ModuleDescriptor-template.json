@@ -111,6 +111,12 @@
       "version" : "15.4"
     }
   ],
+  "optional" : [
+    {
+      "id" : "configuration",
+      "version" : "2.0"
+    }
+  ],
   "permissionSets" : [
     {
       "permissionName" : "login.item.post",
