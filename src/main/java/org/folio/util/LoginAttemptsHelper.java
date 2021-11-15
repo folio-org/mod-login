@@ -162,11 +162,11 @@ public class LoginAttemptsHelper {
   }
 
   private int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+    defaultValue = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(key, String.valueOf(defaultValue)));
     if (res.failed()) {
       logger.warn(res.cause());
-      return Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(key, String.valueOf(defaultValue)));
     } else try {
-      return res.result().getInteger(VALUE);
+      return res.result().getInteger(VALUE, defaultValue);
     } catch (Exception e) {
       logger.error(e);
     }
@@ -206,14 +206,7 @@ public class LoginAttemptsHelper {
       .send().map(res -> {
       JsonObject resultObject = res.bodyAsJsonObject();
       JsonArray configs = resultObject.getJsonArray("configs");
-      if (configs.size() > 1) {
-        throw new RuntimeException("Bad results from configs");
-      } else if (configs.isEmpty()) {
-        String errorMessage = "No config found by code " + configCode;
-        logger.error(errorMessage);
-        throw new RuntimeException(errorMessage);
-      }
-      return configs.getJsonObject(0);
+      return configs.isEmpty() ? new JsonObject() : configs.getJsonObject(0);
     });
   }
 
