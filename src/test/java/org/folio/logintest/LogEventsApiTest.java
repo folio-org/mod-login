@@ -79,11 +79,11 @@ public class LogEventsApiTest {
     PostgresClient.getInstance(vertx);
 
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
-      .setConfig(new JsonObject().put(HTTP_PORT, port));
+        .setConfig(new JsonObject().put(HTTP_PORT, port));
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions)
         .compose(res -> TestUtil.postSync(ta, TENANT_ID, port, vertx))
-            .onComplete(context.asyncAssertSuccess());
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before
