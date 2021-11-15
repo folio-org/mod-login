@@ -78,12 +78,8 @@ public class UpdateCredentialsHistoryTest {
       .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
       .build();
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     pgClient = PostgresClient.getInstance(vertx, TENANT);
 
@@ -93,7 +89,6 @@ public class UpdateCredentialsHistoryTest {
       .compose(v -> postTenant())
       .compose(v -> persistCredentials())
       .onComplete(context.asyncAssertSuccess());
-
   }
 
   @After

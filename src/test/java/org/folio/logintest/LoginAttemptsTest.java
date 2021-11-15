@@ -88,13 +88,8 @@ public class LoginAttemptsTest {
       new JsonObject()
         .put("port", mockPort));
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-      return;
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
         .setContentType(ContentType.JSON)
@@ -105,14 +100,11 @@ public class LoginAttemptsTest {
         .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
         .build();
 
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(UserMock.class.getName(), mockOptions)
-        .onComplete(context.asyncAssertSuccess(res ->
-            vertx.deployVerticle(RestVerticle.class.getName(), options)
-                .onComplete(context.asyncAssertSuccess(res2 -> {
-                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-                  TestUtil.postSync(ta, TENANT_DIKU, port, vertx).onComplete(context.asyncAssertSuccess());
-                }))
-        ));
+        .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
+        .compose(res -> TestUtil.postSync(ta, TENANT_DIKU, port, vertx))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before

@@ -62,12 +62,8 @@ public class PasswordRepeatabilityValidationTest {
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
         .setContentType(ContentType.JSON)
@@ -78,14 +74,13 @@ public class PasswordRepeatabilityValidationTest {
         .build();
 
     DeploymentOptions restVerticleDeploymentOptions =
-      new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+        new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions)
-        .onComplete(context.asyncAssertSuccess(res -> {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TestUtil.postSync(ta, TENANT, port, vertx).onComplete(context.asyncAssertSuccess(res2 ->
-        fillInCredentialsHistory().compose(x -> saveCredential()).onComplete(context.asyncAssertSuccess())
-      ));
-    }));
+        .compose(x -> TestUtil.postSync(ta, TENANT, port, vertx))
+        .compose(x -> fillInCredentialsHistory())
+        .compose(x -> saveCredential())
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

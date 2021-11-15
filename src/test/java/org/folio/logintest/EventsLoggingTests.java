@@ -93,30 +93,26 @@ public class EventsLoggingTests {
     port = NetworkUtils.nextFreePort();
     vertx = Vertx.vertx();
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
-      .setBaseUri("http://localhost:" + port)
-      .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-      .addHeader(XOkapiHeaders.TENANT, TENANT)
-      .addHeader(XOkapiHeaders.TOKEN, TOKEN)
-      .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockServer.port())
-      .addHeader(clientIpHeader, CLIENT_IP)
-      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-      .build();
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+        .addHeader(XOkapiHeaders.TENANT, TENANT)
+        .addHeader(XOkapiHeaders.TOKEN, TOKEN)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockServer.port())
+        .addHeader(clientIpHeader, CLIENT_IP)
+        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .build();
 
     mockHttpCalls();
 
     deployVerticle()
-      .compose(v -> postTenant())
-      .compose(v -> persistCredentials())
-      .compose(v -> persistPasswordResetActions())
-      .onComplete(context.asyncAssertSuccess());
+        .compose(v -> postTenant())
+        .compose(v -> persistCredentials())
+        .compose(v -> persistPasswordResetActions())
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

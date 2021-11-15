@@ -75,20 +75,15 @@ public class LogEventsApiTest {
       .contentType(MediaType.APPLICATION_JSON)
       .headers(headers);
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
       .setConfig(new JsonObject().put(HTTP_PORT, port));
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions)
-        .onComplete(context.asyncAssertSuccess(res -> {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TestUtil.postSync(ta, TENANT_ID, port, vertx).onComplete(context.asyncAssertSuccess());
-    }));
+        .compose(res -> TestUtil.postSync(ta, TENANT_ID, port, vertx))
+            .onComplete(context.asyncAssertSuccess());
   }
 
   @Before

@@ -20,7 +20,6 @@ import org.folio.logintest.TestUtil;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.jaxrs.model.PasswordReset;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -92,21 +91,16 @@ public class PasswordResetActionTest {
         .contentType(MediaType.APPLICATION_JSON)
         .headers(headers);
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
         .setConfig(new JsonObject().put(HTTP_PORT, port));
 
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions)
-        .onComplete(context.asyncAssertSuccess(res -> {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TestUtil.postSync(ta, TENANT_ID, port, vertx).onComplete(context.asyncAssertSuccess());
-        }));
+        .compose(res -> TestUtil.postSync(ta, TENANT_ID, port, vertx))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before
@@ -247,8 +241,7 @@ public class PasswordResetActionTest {
 
     // check new user's password
     new PasswordStorageServiceImpl(vertx).getCredByUserId(TENANT_ID, userId)
-      .onComplete(context.asyncAssertSuccess(v -> {
-        Credential cred = (Credential) v;
+      .onComplete(context.asyncAssertSuccess(cred -> {
         assertEquals(new AuthUtil().calculateHash(newPassword, cred.getSalt()), cred.getHash());
       }));
   }

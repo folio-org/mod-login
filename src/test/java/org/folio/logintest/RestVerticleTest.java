@@ -142,27 +142,17 @@ public class RestVerticleTest {
       new JsonObject()
         .put("port", mockPort));
 
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      e.printStackTrace();
-      context.fail(e);
-      return;
-    }
-
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+    List<Parameter> parameters = new LinkedList<>();
+    parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+    ta.setParameters(parameters);
     vertx.deployVerticle(UserMock.class.getName(), mockOptions)
-        .onComplete(context.asyncAssertSuccess(mockRes ->
-            vertx.deployVerticle(RestVerticle.class.getName(), options)
-                .onComplete(context.asyncAssertSuccess(res -> {
-                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-                  List<Parameter> parameters = new LinkedList<>();
-                  parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-                  ta.setParameters(parameters);
-                  TestUtil.postSync(ta, "diku", port, vertx).onComplete(context.asyncAssertSuccess());
-                }))
-        ));
+        .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
+        .compose(res -> TestUtil.postSync(ta, "diku", port, vertx))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before
@@ -368,19 +358,15 @@ public class RestVerticleTest {
   }
 
   private Future<Void> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+    List<Parameter> parameters = new LinkedList<>();
+    parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+    ta.setParameters(parameters);
     return PostgresClient.getInstance(vertx, "diku")
         .execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE")
-        .compose(ar ->
-            doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
-                500, "Postgres Error on Delete credentials by userId")
-                .compose(r -> {
-                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-                  List<Parameter> parameters = new LinkedList<>();
-                  parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-                  ta.setParameters(parameters);
-                  return TestUtil.postSync(ta, "diku", port, vertx);
-                })
-        );
+        .compose(ar -> doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+            500, "Postgres Error on Delete credentials by userId"))
+        .compose(r -> TestUtil.postSync(ta, "diku", port, vertx));
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {
