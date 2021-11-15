@@ -31,7 +31,6 @@ import org.junit.runner.RunWith;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
@@ -369,19 +368,19 @@ public class RestVerticleTest {
   }
 
   private Future<Void> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
-    Promise<Void> promise = Promise.promise();
-    PostgresClient.getInstance(vertx, "diku").execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE", ar -> {
-      doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
-        500, "Postgres Error on Delete credentials by userId")
-      .onComplete(r -> {
-        TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
-        List<Parameter> parameters = new LinkedList<>();
-        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-        ta.setParameters(parameters);
-        TestUtil.postSync(ta, "diku", port, vertx).onComplete(promise);
-      });
-    });
-    return promise.future();
+    return PostgresClient.getInstance(vertx, "diku")
+        .execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE")
+        .compose(ar ->
+            doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
+                500, "Postgres Error on Delete credentials by userId")
+                .compose(r -> {
+                  TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
+                  List<Parameter> parameters = new LinkedList<>();
+                  parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+                  ta.setParameters(parameters);
+                  return TestUtil.postSync(ta, "diku", port, vertx);
+                })
+        );
   }
 
   private Future<WrappedResponse> testMockUser(TestContext context, String username, String userId) {

@@ -6,7 +6,6 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
@@ -49,12 +48,8 @@ public class CredentialExistenceTest {
     int port = NetworkUtils.nextFreePort();
     String okapiUrl = "http://localhost:" + port;
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
         .setContentType(ContentType.JSON)
@@ -66,15 +61,11 @@ public class CredentialExistenceTest {
 
     DeploymentOptions restVerticleDeploymentOptions =
         new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions)
-        .onComplete(context.asyncAssertSuccess(res -> {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TestUtil.postSync(ta, TENANT, port, vertx)
-              .onComplete(context.asyncAssertSuccess(res2 ->
-                  saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
-                      .onComplete(context.asyncAssertSuccess())
-              ));
-        }));
+        .compose(x -> TestUtil.postSync(ta, TENANT, port, vertx))
+        .compose(x -> saveCredential(EXISTING_CREDENTIALS_USER_ID, "password"))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -102,15 +93,13 @@ public class CredentialExistenceTest {
   }
 
   private static Future<Void> saveCredential(String userId, String password) {
-    Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
     credential.setHash(authUtil.calculateHash(password, salt));
     credential.setUserId(userId);
-    PostgresClient.getInstance(vertx, TENANT)
-      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
-    return promise.future().map(s -> null);
+    return PostgresClient.getInstance(vertx, TENANT)
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential).mapEmpty();
   }
 }

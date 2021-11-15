@@ -99,7 +99,7 @@ public class LoginAttemptsTest {
     spec = new RequestSpecBuilder()
         .setContentType(ContentType.JSON)
         .setBaseUri("http://localhost:" + port)
-        .addHeader("x-okapi-url", "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
         .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
@@ -187,7 +187,7 @@ public class LoginAttemptsTest {
       .statusCode(201)
       .body("okapiToken", is("dummytoken"))
       .body("refreshToken", is("dummyrefreshtoken"))
-      .header("x-okapi-token", is("dummytoken"))
+      .header(XOkapiHeaders.TOKEN, is("dummytoken"))
       .header("refreshtoken", is("dummyrefreshtoken"));
 
     RestAssured.given()

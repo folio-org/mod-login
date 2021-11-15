@@ -14,11 +14,14 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * @author kurt
  */
 public class UserMock extends AbstractVerticle {
+  private static final Logger logger = LogManager.getLogger(UserMock.class);
 
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
@@ -49,7 +52,7 @@ public class UserMock extends AbstractVerticle {
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
-    System.out.println("Running UserMock on port " + port);
+    logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {
       if (result.failed()) {
         promise.fail(result.cause());
@@ -265,7 +268,6 @@ public class UserMock extends AbstractVerticle {
           .put("configs", new JsonArray())
           .put("totalRecords", 0);
       }
-      System.out.println("AD: returning " + responseJson.encodePrettily());
       context.response()
         .setStatusCode(200)
         .putHeader("Content-Type", "application/json")

@@ -21,7 +21,6 @@ import org.folio.rest.jaxrs.model.UpdateCredentials;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.interfaces.Results;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.util.AuthUtil;
 import org.junit.After;
@@ -34,13 +33,10 @@ import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import io.vertx.sqlclient.Row;
-import io.vertx.sqlclient.RowSet;
 
 @RunWith(VertxUnitRunner.class)
 public class UpdateCredentialsHistoryTest {
@@ -125,15 +121,14 @@ public class UpdateCredentialsHistoryTest {
       .then()
       .statusCode(HttpStatus.SC_NO_CONTENT);
 
-    Promise<Results<CredentialsHistory>> promise = Promise.promise();
-    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, promise);
-    promise.future().onComplete(context.asyncAssertSuccess(results -> {
-      List<CredentialsHistory> credHist = results.getResults();
-      context.assertEquals(credHist.size(), 1);
+    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false)
+        .onComplete(context.asyncAssertSuccess(results -> {
+          List<CredentialsHistory> credHist = results.getResults();
+          context.assertEquals(credHist.size(), 1);
 
-      CredentialsHistory hisObject = credHist.get(0);
-      context.assertEquals(hisObject.getHash(), authUtil.calculateHash(INITIAL_PASSWORD, hisObject.getSalt()));
-    }));
+          CredentialsHistory hisObject = credHist.get(0);
+          context.assertEquals(hisObject.getHash(), authUtil.calculateHash(INITIAL_PASSWORD, hisObject.getSalt()));
+        }));
   }
 
   @Test
@@ -164,21 +159,13 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private Future<Boolean> isInitialPasswordRemovedFromHistory() {
-    Promise<Boolean> promise = Promise.promise();
-
-    pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false, get -> {
-      if (get.failed()) {
-        promise.fail(get.cause());
-      } else {
-        boolean any = get.result().getResults()
-          .stream()
-          .anyMatch(obj -> authUtil.calculateHash(INITIAL_PASSWORD, obj.getSalt()).equals(obj.getHash()));
-
-        promise.complete(any);
-      }
-    });
-
-    return promise.future();
+    return pgClient.get(TABLE_NAME_CRED_HIST, CredentialsHistory.class, new Criterion(userIdCrit), false)
+        .map(result -> {
+        boolean any = result.getResults()
+            .stream()
+            .anyMatch(obj -> authUtil.calculateHash(INITIAL_PASSWORD, obj.getSalt()).equals(obj.getHash()));
+        return any;
+      });
   }
 
   private static Future<Void> postTenant() {
@@ -199,29 +186,23 @@ public class UpdateCredentialsHistoryTest {
   }
 
   private static Future<Void> persistCredentials() {
-    Promise<String> promise = Promise.promise();
     authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
     Credential cred = new Credential()
-      .withId(id)
-      .withSalt(salt)
-      .withHash(authUtil.calculateHash(INITIAL_PASSWORD, salt))
-      .withUserId(gollumId);
-    pgClient.save(TABLE_NAME_CRED, id, cred, promise);
-    return promise.future().map(s -> null);
+        .withId(id)
+        .withSalt(salt)
+        .withHash(authUtil.calculateHash(INITIAL_PASSWORD, salt))
+        .withUserId(gollumId);
+    return pgClient.save(TABLE_NAME_CRED, id, cred).mapEmpty();
   }
 
   private Future<Void> clearCredentialsHistoryTable() {
-    Promise<RowSet<Row>> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit), promise);
-    return promise.future().map(s -> null);
+    return pgClient.delete(TABLE_NAME_CRED_HIST, new Criterion(userIdCrit)).mapEmpty();
   }
 
   private Future<Void> clearCredentialsTable() {
-    Promise<RowSet<Row>> promise = Promise.promise();
-    pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit), promise);
-    return promise.future().map(s -> null);
+    return pgClient.delete(TABLE_NAME_CRED, new Criterion(userIdCrit)).mapEmpty();
   }
 
 }
