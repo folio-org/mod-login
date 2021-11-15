@@ -14,8 +14,6 @@ import java.util.UUID;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -76,7 +74,6 @@ public class LoginAttemptsTest {
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
     moduleArgs = new HashMap<String,String>(MODULE_SPECIFIC_ARGS);
-    Async async = context.async();
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -91,38 +88,23 @@ public class LoginAttemptsTest {
       new JsonObject()
         .put("port", mockPort));
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-      return;
-    }
-
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions, mockRes -> {
-      if (mockRes.failed()) {
-        mockRes.cause().printStackTrace();
-        context.fail(mockRes.cause());
-      } else {
-        vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-          TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-          TenantAPI tenantAPI = new TenantRefAPI();
-          Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-              "x-okapi-tenant", TENANT_DIKU);
-          tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-              vertx.getOrCreateContext());
-        });
-      }
-    });
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
-      .setContentType(ContentType.JSON)
-      .setBaseUri("http://localhost:" + port)
-      .addHeader("x-okapi-url", "http://localhost:" + mockPort)
-      .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-      .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
-      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-      .build();
+        .setContentType(ContentType.JSON)
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
+        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .build();
+
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+        .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
+        .compose(res -> TestUtil.postSync(ta, TENANT_DIKU, port, vertx))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before
@@ -197,7 +179,7 @@ public class LoginAttemptsTest {
       .statusCode(201)
       .body("okapiToken", is("dummytoken"))
       .body("refreshToken", is("dummyrefreshtoken"))
-      .header("x-okapi-token", is("dummytoken"))
+      .header(XOkapiHeaders.TOKEN, is("dummytoken"))
       .header("refreshtoken", is("dummyrefreshtoken"));
 
     RestAssured.given()

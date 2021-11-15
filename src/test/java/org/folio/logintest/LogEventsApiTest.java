@@ -13,7 +13,6 @@ import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -21,8 +20,6 @@ import org.apache.http.HttpStatus;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.LogEvent;
@@ -38,7 +35,6 @@ import org.junit.runner.RunWith;
 import javax.ws.rs.core.MediaType;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -68,7 +64,6 @@ public class LogEventsApiTest {
 
   @BeforeClass
   public static void setUpClass(final TestContext context) {
-    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     Headers headers = new Headers(
@@ -80,35 +75,21 @@ public class LogEventsApiTest {
       .contentType(MediaType.APPLICATION_JSON)
       .headers(headers);
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     DeploymentOptions restDeploymentOptions = new DeploymentOptions()
-      .setConfig(new JsonObject().put(HTTP_PORT, port));
-    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions, res -> {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TenantAPI tenantAPI = new TenantRefAPI();
-      Map<String, String> okapiHeaders = Map.of("x-okapi-url", "http://localhost:" + port,
-          "x-okapi-tenant", TENANT_ID);
-      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> async.complete(),
-          vertx.getOrCreateContext());
-    });
+        .setConfig(new JsonObject().put(HTTP_PORT, port));
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+    vertx.deployVerticle(RestVerticle.class.getName(), restDeploymentOptions)
+        .compose(res -> TestUtil.postSync(ta, TENANT_ID, port, vertx))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Before
   public void setUp(TestContext context) {
-    Async async = context.async();
-    PostgresClient.getInstance(vertx, TENANT_ID).delete(SNAPSHOTS_TABLE_EVENT_LOGS, new Criterion(), event -> {
-      if (event.failed()) {
-        context.fail(event.cause());
-      } else {
-        async.complete();
-      }
-    });
+    PostgresClient.getInstance(vertx, TENANT_ID).delete(SNAPSHOTS_TABLE_EVENT_LOGS, new Criterion())
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

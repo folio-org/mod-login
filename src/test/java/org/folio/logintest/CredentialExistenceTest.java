@@ -6,18 +6,14 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.apache.http.HttpStatus;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Credential;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -27,7 +23,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.Map;
 import java.util.UUID;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 
@@ -49,38 +44,28 @@ public class CredentialExistenceTest {
 
   @BeforeClass
   public static void setup(final TestContext context) {
-    Async async = context.async();
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     String okapiUrl = "http://localhost:" + port;
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
-
-    DeploymentOptions restVerticleDeploymentOptions =
-      new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
-    vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions, res -> {
-      TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-      TenantAPI tenantAPI = new TenantRefAPI();
-      Map<String, String> okapiHeaders = Map.of("x-okapi-url", okapiUrl,
-          "x-okapi-tenant", TENANT);
-      tenantAPI.postTenantSync(ta, okapiHeaders, handler -> {
-        saveCredential(EXISTING_CREDENTIALS_USER_ID, "password")
-          .onComplete(context.asyncAssertSuccess(done -> async.complete()));
-      }, vertx.getOrCreateContext());
-    });
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
-      .setContentType(ContentType.JSON)
-      .setBaseUri(okapiUrl)
-      .addHeader(XOkapiHeaders.TENANT, TENANT)
-      .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
-      .addHeader(XOkapiHeaders.URL, okapiUrl)
-      .build();
+        .setContentType(ContentType.JSON)
+        .setBaseUri(okapiUrl)
+        .addHeader(XOkapiHeaders.TENANT, TENANT)
+        .addHeader(XOkapiHeaders.TOKEN, "dummytoken")
+        .addHeader(XOkapiHeaders.URL, okapiUrl)
+        .build();
+
+    DeploymentOptions restVerticleDeploymentOptions =
+        new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+    TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
+    vertx.deployVerticle(RestVerticle.class.getName(), restVerticleDeploymentOptions)
+        .compose(x -> TestUtil.postSync(ta, TENANT, port, vertx))
+        .compose(x -> saveCredential(EXISTING_CREDENTIALS_USER_ID, "password"))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -108,15 +93,13 @@ public class CredentialExistenceTest {
   }
 
   private static Future<Void> saveCredential(String userId, String password) {
-    Promise<String> promise = Promise.promise();
     String salt = authUtil.getSalt();
     Credential credential = new Credential();
     credential.setId(UUID.randomUUID().toString());
     credential.setSalt(salt);
     credential.setHash(authUtil.calculateHash(password, salt));
     credential.setUserId(userId);
-    PostgresClient.getInstance(vertx, TENANT)
-      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential, promise);
-    return promise.future().map(s -> null);
+    return PostgresClient.getInstance(vertx, TENANT)
+      .save(TABLE_NAME_CREDENTIALS, UUID.randomUUID().toString(), credential).mapEmpty();
   }
 }

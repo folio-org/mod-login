@@ -9,20 +9,16 @@ import io.restassured.specification.RequestSpecification;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunnerWithParametersFactory;
-import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.awaitility.Awaitility;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.impl.LoginAPI;
-import org.folio.rest.impl.TenantAPI;
-import org.folio.rest.impl.TenantRefAPI;
 import org.folio.rest.jaxrs.model.Config;
 import org.folio.rest.jaxrs.model.Configurations;
 import org.folio.rest.jaxrs.model.Credential;
@@ -49,7 +45,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -98,30 +93,26 @@ public class EventsLoggingTests {
     port = NetworkUtils.nextFreePort();
     vertx = Vertx.vertx();
 
-    try {
-      PostgresClient.setPostgresTester(new PostgresTesterContainer());
-      PostgresClient.getInstance(vertx);
-    } catch (Exception e) {
-      context.fail(e);
-    }
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
-      .setBaseUri("http://localhost:" + port)
-      .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-      .addHeader(XOkapiHeaders.TENANT, TENANT)
-      .addHeader(XOkapiHeaders.TOKEN, TOKEN)
-      .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockServer.port())
-      .addHeader(clientIpHeader, CLIENT_IP)
-      .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-      .build();
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+        .addHeader(XOkapiHeaders.TENANT, TENANT)
+        .addHeader(XOkapiHeaders.TOKEN, TOKEN)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockServer.port())
+        .addHeader(clientIpHeader, CLIENT_IP)
+        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .build();
 
     mockHttpCalls();
 
     deployVerticle()
-      .compose(v -> postTenant())
-      .compose(v -> persistCredentials())
-      .compose(v -> persistPasswordResetActions())
-      .onComplete(context.asyncAssertSuccess());
+        .compose(v -> postTenant())
+        .compose(v -> persistCredentials())
+        .compose(v -> persistPasswordResetActions())
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -366,19 +357,11 @@ public class EventsLoggingTests {
   }
 
   private Future<Void> postTenant() {
-    Promise<Void> promise = Promise.promise();
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    TenantAPI tenantAPI = new TenantRefAPI();
-    Map<String,String> okapiHeaders = new CaseInsensitiveMap();
-    okapiHeaders.put(XOkapiHeaders.URL, "http://localhost:" + port);
-    okapiHeaders.put(XOkapiHeaders.TENANT, TENANT);
-    tenantAPI.postTenantSync(ta, okapiHeaders, handler -> promise.complete(),
-        vertx.getOrCreateContext());
-    return promise.future();
+    return TestUtil.postSync(ta, TENANT, port, vertx);
   }
 
   private Future<String> persistCredentials() {
-    Promise<String> promise = Promise.promise();
     AuthUtil authUtil = new AuthUtil();
     String salt = authUtil.getSalt();
     String id = UUID.randomUUID().toString();
@@ -389,30 +372,25 @@ public class EventsLoggingTests {
       .withUserId(USER_ID);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
-    pgClient.save("auth_credentials", id, cred, promise);
-
-    return promise.future();
+    return pgClient.save("auth_credentials", id, cred);
   }
 
   private CompositeFuture persistPasswordResetActions() {
-    Promise<String> existingUserPromise = Promise.promise();
-    Promise<String> newUserPromise = Promise.promise();
-
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT);
 
     PasswordCreate existingUserAction = new PasswordCreate();
     existingUserAction.setId(RESET_PASSWORD_ACTION_ID);
     existingUserAction.setUserId(USER_ID);
     existingUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction, existingUserPromise);
+    Future<String> existingUserFuture = pgClient.save("auth_password_action", RESET_PASSWORD_ACTION_ID, existingUserAction);
 
     PasswordCreate newUserAction = new PasswordCreate();
     newUserAction.setId(CREATE_PASSWORD_ACTION_ID);
     newUserAction.setUserId(NEW_USER_ID);
     newUserAction.setExpirationTime(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)));
-    pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction, newUserPromise);
+    Future<String> newUserFuture = pgClient.save("auth_password_action", CREATE_PASSWORD_ACTION_ID, newUserAction);
 
-    return CompositeFuture.all(existingUserPromise.future(), newUserPromise.future());
+    return CompositeFuture.all(existingUserFuture, newUserFuture);
   }
 
   private Callable<Boolean> isEventSuccessfullyLogged(LogEvent.EventType eventType, String userId) {
