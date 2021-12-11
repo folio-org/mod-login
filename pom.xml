@@ -34,8 +34,8 @@
     <release>11</release>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>4.1.4</vertx.version>
-    <raml-module-builder-version>33.1.1</raml-module-builder-version>
+    <vertx.version>4.2.1</vertx.version>
+    <raml-module-builder-version>33.2.1</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
@@ -323,12 +323,12 @@
           <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjrt</artifactId>
-            <version>1.9.6</version>
+            <version>1.9.7</version>
           </dependency>
           <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjtools</artifactId>
-            <version>1.9.6</version>
+            <version>1.9.7</version>
           </dependency>
         </dependencies>
       </plugin>
