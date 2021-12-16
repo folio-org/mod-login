@@ -57,6 +57,7 @@ import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
+import org.folio.util.PercentCodec;
 import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
@@ -146,17 +147,14 @@ public class LoginAPI implements Authn {
     return TenantTool.calculateTenantId(headers.get(OKAPI_TENANT_HEADER));
   }
 
-  private String buildUserLookupURL(String okapiURL, String username, String userId) {
-    String requestURL;
-    if(username != null) {
-      requestURL = String.format("%s/users?query=username==%s", okapiURL,
-          StringUtil.urlEncode(username));
+  static String buildUserLookupURL(String okapiURL, String username, String userId) {
+    String query;
+    if (username != null) {
+      query = "username==" + StringUtil.cqlEncode(username);
     } else {
-      requestURL = String.format("%s/users?query=id==%s", okapiURL,
-          StringUtil.urlEncode(userId));
+      query = "id==" + StringUtil.cqlEncode(userId);
     }
-
-    return requestURL;
+    return okapiURL + "/users?query=" + PercentCodec.encode(query);
   }
 
   private JsonObject extractUserFromLookupResponse(HttpResponse<Buffer> res, String requestURL, String username) throws UserLookupException {

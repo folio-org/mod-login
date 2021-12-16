@@ -10,14 +10,13 @@ import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LogEvents;
 import org.folio.rest.jaxrs.model.LogResponse;
 import org.folio.rest.jaxrs.model.LoggingEvent;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.util.EventLogUtils;
+import org.folio.util.StringUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -185,9 +184,9 @@ public class LogStorageServiceImpl implements LogStorageService {
    * @param value - value corresponding to the key
    * @return - CQLWrapper object
    */
-  private CQLWrapper getCqlWrapper(String value) throws FieldException {
+  static CQLWrapper getCqlWrapper(String value) throws FieldException {
     CQL2PgJSON cql2PgJSON = new CQL2PgJSON(SNAPSHOTS_TABLE_EVENT_LOGS + ".jsonb");
-    return new CQLWrapper(cql2PgJSON, String.format(EVENT_CONFIG_CRITERIA_ID, value));
+    return new CQLWrapper(cql2PgJSON, String.format(EVENT_CONFIG_CRITERIA_ID, StringUtil.cqlEncode(value)));
   }
 
   /**
@@ -199,8 +198,6 @@ public class LogStorageServiceImpl implements LogStorageService {
    */
   private CQLWrapper getCQL(String query, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(SNAPSHOTS_TABLE_EVENT_LOGS + ".jsonb");
-    return new CQLWrapper(cql2pgJson, query)
-      .setLimit(new Limit(limit))
-      .setOffset(new Offset(offset));
+    return new CQLWrapper(cql2pgJson, query, limit, offset);
   }
 }

@@ -1,3 +1,9 @@
+## 2021-12-15 v7.5.1
+
+* MODLOGIN-174 RMB 33.2.2, Log4j 2.16.0
+* MODLOGIN-172 RMB 33.2.1, Vertx 4.2.1, Log4j 2.15.0 fixing remote execution (CVE-2021-44228)
+* MODLOGIN-165 Incorrect handling of user name term
+
 ## 2021-09-29 v7.5.0
 
 * [MODLOGIN-159](https://issues.folio.org/browse/MODLOGIN-159) RMB 33.1.1, Vert.x 4.1.4

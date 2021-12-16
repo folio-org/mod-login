@@ -43,6 +43,7 @@ import org.folio.rest.persist.interfaces.Results;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
@@ -55,6 +56,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.Tuple;
 
 public class PasswordStorageServiceImpl implements PasswordStorageService {
 
@@ -493,7 +495,7 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     } catch (FieldException e) {
       promise.fail(e);
     }
-    CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + newCred.getId());
+    CQLWrapper cqlWrapper = new CQLWrapper(field, "id==" + StringUtil.cqlEncode(newCred.getId()));
     pgClient.update(conn, TABLE_NAME_CREDENTIALS, newCred, cqlWrapper, true, promise);
     return promise.future().map(updated -> oldCred);
   }
@@ -524,10 +526,9 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
-    Promise<RowSet<Row>> promise = Promise.promise();
-    String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = '%s'", tableName, userId);
-    pgClient.select(query, promise);
-    return promise.future().map(resultSet -> resultSet.iterator().next().getInteger(0));
+    String query = String.format("SELECT count(id) FROM %s WHERE jsonb->>'userId' = $1", tableName);
+    return pgClient.selectSingle(query, Tuple.of(userId))
+        .map(row-> row.getInteger(0));
   }
 
   private Future<Void> deleteOldCredHistoryRecords(String tenantId, String userId, Integer count) {
@@ -536,15 +537,13 @@ public class PasswordStorageServiceImpl implements PasswordStorageService {
     }
 
     PostgresClient pgClient = PostgresClient.getInstance(vertx, tenantId);
-    Promise<RowSet<Row>> promise = Promise.promise();
     String tableName = String.format(
       "%s.%s", PostgresClient.convertToPsqlStandard(tenantId), TABLE_NAME_CREDENTIALS_HISTORY);
 
     String query = String.format("DELETE FROM %s WHERE id IN " +
-        "(SELECT id FROM %s WHERE jsonb->>'userId' = '%s' ORDER BY jsonb->>'date' ASC LIMIT %d)",
-      tableName, tableName, userId, count);
-    pgClient.execute(query, promise);
-    return promise.future().map(s -> null);
+        "(SELECT id FROM %s WHERE jsonb->>'userId' = $1 ORDER BY jsonb->>'date' ASC LIMIT $2)",
+      tableName, tableName);
+    return pgClient.execute(query, Tuple.of(userId, count)).mapEmpty();
   }
 
   private Future<Boolean> isPresentInCredHistory(String tenantId, String userId,
