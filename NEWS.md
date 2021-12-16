@@ -1,8 +1,8 @@
 ## 2021-12-15 v7.5.1
 
-* MODLOGIN-174 RMB 33.2.2, Log4j 2.16.0
-* MODLOGIN-172 RMB 33.2.1, Vertx 4.2.1, Log4j 2.15.0 fixing remote execution (CVE-2021-44228)
-* MODLOGIN-165 Incorrect handling of user name term
+* [MODLOGIN-174](https://issues.folio.org/browse/MODLOGIN-174) RMB 33.2.2, Log4j 2.16.0
+* [MODLOGIN-172](https://issues.folio.org/browse/MODLOGIN-172) RMB 33.2.1, Vertx 4.2.1, Log4j 2.15.0 fixing remote execution (CVE-2021-44228)
+* [MODLOGIN-165](https://issues.folio.org/browse/MODLOGIN-165) Incorrect handling of user name term
 
 ## 2021-09-29 v7.5.0
 
@@ -65,7 +65,7 @@ The main focus of this release is to address several security issues.
  * [MODLOGIN-108](https://issues.folio.org/browse/MODLOGIN-108) Change limit from 1000 to 2147483647 (login.raml)
 
 ## 2019-03-15 v5.1.0
- * MODLOGIN-105	use loadSample to load sample data
+ * [MODLOGIN-105](https://issues.folio.org/browse/MODLOGIN-105)	use loadSample to load sample data
 
 ## 2019-03-05 v5.0.0
  * Update to RMB 23.9.0 ([MODLOGIN-106](https://issues.folio.org/browse/MODLOGIN-106))
