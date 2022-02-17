@@ -34,8 +34,8 @@
     <release>11</release>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>4.2.1</vertx.version>
-    <raml-module-builder-version>33.2.2</raml-module-builder-version>
+    <vertx.version>4.2.4</vertx.version>
+    <raml-module-builder-version>33.2.5</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
@@ -114,7 +114,7 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
-      <version>4.3.1</version>
+      <version>4.4.0</version>
       <scope>test</scope>
     </dependency>
 
