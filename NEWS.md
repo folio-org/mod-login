@@ -1,3 +1,29 @@
+## 2022-02-18 v7.6.0
+
+Changes:
+
+* [MODLOGIN-163](https://issues.folio.org/browse/MODLOGIN-163) POST `/authn/login` response contains clear text password.
+The new behavior is to return the token in the response rather than echoing the password. Interface `login` bumped from 7.0 to 7.1.
+This will make the interaction with login a little more regular.
+
+Fixes:
+
+* [MODLOGIN-184](https://issues.folio.org/browse/MODLOGIN-184) CQL query encoded incorrectly
+* [MODLOGIN-183](https://issues.folio.org/browse/MODLOGIN-183) Upgrade to RMB 33.2.5, Log4j 2.17.
+* [MODLOGIN-181](https://issues.folio.org/browse/MODLOGIN-181) 500 returned when `login.fail.to.warn.attempts` isn't configured & login fails more than once
+* [MODLOGIN-177](https://issues.folio.org/browse/MODLOGIN-177) auth/login case-insensitivity should be documented
+* [MODLOGIN-171](https://issues.folio.org/browse/MODLOGIN-171) Logs ERROR when using default config values
+* [MODLOGIN-170](https://issues.folio.org/browse/MODLOGIN-170) Missing optional on configuration interface
+* [MODLOGIN-168](https://issues.folio.org/browse/MODLOGIN-168) POST to `/authn/login` after too many failed requests generates 500
+* [MODLOGIN-157](https://issues.folio.org/browse/MODLOGIN-157) Unhandled exception for `/authn/login`
+* [MODLOGIN-155](https://issues.folio.org/browse/MODLOGIN-155) Missing dependency on `mod-authtoken`
+
+## 2021-12-15 v7.5.1
+
+* [MODLOGIN-174](https://issues.folio.org/browse/MODLOGIN-174) RMB 33.2.2, Log4j 2.16.0
+* [MODLOGIN-172](https://issues.folio.org/browse/MODLOGIN-172) RMB 33.2.1, Vertx 4.2.1, Log4j 2.15.0 fixing remote execution (CVE-2021-44228)
+* [MODLOGIN-165](https://issues.folio.org/browse/MODLOGIN-165) Incorrect handling of user name term
+
 ## 2021-09-29 v7.5.0
 
 * [MODLOGIN-159](https://issues.folio.org/browse/MODLOGIN-159) RMB 33.1.1, Vert.x 4.1.4
@@ -59,7 +85,7 @@ The main focus of this release is to address several security issues.
  * [MODLOGIN-108](https://issues.folio.org/browse/MODLOGIN-108) Change limit from 1000 to 2147483647 (login.raml)
 
 ## 2019-03-15 v5.1.0
- * MODLOGIN-105	use loadSample to load sample data
+ * [MODLOGIN-105](https://issues.folio.org/browse/MODLOGIN-105)	use loadSample to load sample data
 
 ## 2019-03-05 v5.0.0
  * Update to RMB 23.9.0 ([MODLOGIN-106](https://issues.folio.org/browse/MODLOGIN-106))
