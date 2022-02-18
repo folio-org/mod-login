@@ -196,7 +196,7 @@ public class LoginAttemptsHelper {
     String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
     String okapiUrl = okapiHeaders.get(XOkapiHeaders.URL);
 
-    requestURL = okapiUrl + "/configurations/entries?query=" + "code==" + StringUtil.urlEncode(configCode);
+    requestURL = okapiUrl + "/configurations/entries?query=" + PercentCodec.encode("code==" + configCode);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, requestToken);
