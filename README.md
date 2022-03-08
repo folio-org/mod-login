@@ -15,6 +15,7 @@ default implementation uses a simple username and password for authentication.
 
 # Module properties to set up at mod-configuration
 
+* login.fail.to.warn.attempts - number of login attempts before warn (default value - 3)
 * login.fail.attempts - number of login attempts before block user account (default value - 5)
 * login.fail.timeout - after timeout in minutes, fail login attempts will be dropped (default value - 10)
 
