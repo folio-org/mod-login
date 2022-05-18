@@ -81,7 +81,39 @@ traits:
                 example: "Internal server error"
   /login:
     post:
-      description: Get a new login token
+      description: Get a new login token without an expiration (legacy endpoint)
+      headers:
+        User-Agent:
+        X-Forwarded-For:
+      body:
+        application/json:
+          type: loginCredentials
+      responses:
+        201:
+          headers:
+            x-okapi-token:
+            refreshtoken:
+          body:
+            application/json:
+              type: loginResponse
+        400:
+          description: "Bad request"
+          body:
+            text/plain:
+              example: "Bad request"
+        422:
+          description: "Unprocessable Entity"
+          body:
+            application/json:
+              type: errors
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
+  /login-with-expiry:
+    post:
+      description: Get a new login token with an expiring refresh and access token
       headers:
         User-Agent:
         X-Forwarded-For:

@@ -259,6 +259,19 @@ public class LoginAPI implements Authn {
   public void postAuthnLogin(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler, vertxContext);
+  }
+
+  @Override
+  public void postAuthnLoginWithExpiry(String userAgent, String xForwardedFor,
+      LoginCredentials entity, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler, vertxContext);
+  }
+
+  private void doPostAuthnLogin(String userAgent, String xForwardedFor,
+      LoginCredentials entity, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
@@ -414,7 +427,7 @@ public class LoginAPI implements Authn {
                                       asyncResultHandler.handle(Future.succeededFuture(
                                           PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                                     } else {
-                                      //Append token as header to result
+                                      // Append token as header to result
                                       String authToken = fetchTokenFuture.result();
                                       LoginResponse response = new LoginResponse()
                                           .withOkapiToken(authToken)
@@ -467,6 +480,7 @@ public class LoginAPI implements Authn {
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
+
 
   @Override
   public void postAuthnCredentials(LoginCredentials entity,
