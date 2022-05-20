@@ -178,9 +178,7 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(201)
       .body("okapiToken", is("dummytoken"))
-      .body("refreshToken", is("dummyrefreshtoken"))
-      .header(XOkapiHeaders.TOKEN, is("dummytoken"))
-      .header("refreshtoken", is("dummyrefreshtoken"));
+      .header(XOkapiHeaders.TOKEN, is("dummytoken"));
 
     RestAssured.given()
       .spec(spec)

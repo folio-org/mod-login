@@ -459,4 +459,3 @@ public class RestVerticleTest {
       400, "Attempt to update password with an empty string password");
   }
 }
-

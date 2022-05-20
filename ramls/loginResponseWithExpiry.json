@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Object returned on successful login",
+  "type": "object",
+  "properties": {
+    "accessToken": {
+      "description": "Expiring access token (X-Okapi-Token format)",
+      "type": "string"
+    },
+    "refreshTokenExpiration": {
+      "description": "The time in UTC after which the refresh token will be considered expired. Time format is ISO 8601.",
+      "type": "string"
+    },
+    "accessTokenExpiration": {
+      "description": "The time in UTC after which the access token will be considered expired. Time format is ISO 8601.",
+      "type": "string"
+    }
+
+  },
+  "required": [
+    "accessToken",
+    "refreshTokenExpiration",
+    "accessTokenExpiration"
+  ]
+}

@@ -218,7 +218,8 @@ public class UserMock extends AbstractVerticle {
     context.response()
       .setStatusCode(201)
       .putHeader("Content-Type", "application/json")
-      .putHeader("X-Okapi-Token", "dummytoken")
+      // TODO Why is this header mocked when it isn't being returned from /token
+      //.putHeader("X-Okapi-Token", "dummytoken")
       .end(new JsonObject().put("token", "dummytoken").encode());
   }
 
@@ -304,5 +305,3 @@ public class UserMock extends AbstractVerticle {
     });
   }
 }
-
-

@@ -43,6 +43,7 @@ public class LoginTest {
 
   private static final String TENANT_DIKU = "diku";
   private static final String LOGIN_PATH = "/authn/login";
+//  private static final String LOGIN_PATH = "/authn/login-with-expiry";
   private static final String CRED_PATH = "/authn/credentials";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
@@ -100,38 +101,6 @@ public class LoginTest {
         .onComplete(context.asyncAssertSuccess());
   }
 
-  @Before
-  public void setUp(TestContext context) {
-    MODULE_SPECIFIC_ARGS.clear();
-    MODULE_SPECIFIC_ARGS.putAll(moduleArgs);
-    UserMock.resetConfigs();
-    Async async = context.async();
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_DIKU);
-    pgClient.startTx(beginTx ->
-      pgClient.delete(beginTx, "auth_attempts", new Criterion(), event -> {
-        if (event.failed()) {
-          pgClient.rollbackTx(beginTx, e -> context.fail(event.cause()));
-        } else {
-          pgClient.delete(beginTx, "auth_credentials", new Criterion(), eventAuth -> {
-            if (eventAuth.failed()) {
-              pgClient.rollbackTx(beginTx, e -> context.fail(eventAuth.cause()));
-            } else { // auth_credentials_history
-              pgClient.delete(beginTx, "auth_credentials_history", new Criterion(), eventHistory -> {
-                if (eventHistory.failed()) {
-                  pgClient.rollbackTx(beginTx, e -> context.fail(eventHistory.cause()));
-                } else {
-                  pgClient.endTx(beginTx, ev -> {
-                    event.succeeded();
-                    async.complete();
-                  });
-                }
-              });
-            }
-          });
-        }
-      }));
-  }
-
   @Test
   public void testLogin(final TestContext context) throws UnsupportedEncodingException {
     RestAssured.given()
@@ -152,9 +121,9 @@ public class LoginTest {
       .log().all()
       .statusCode(201)
       .body("okapiToken", is("dummytoken"))
-      .body("refreshToken", is("dummyrefreshtoken"))
-      .header(XOkapiHeaders.TOKEN, is("dummytoken"))
-      .header("refreshtoken", is("dummyrefreshtoken"));
+      //.body("refreshToken", is("dummyrefreshtoken"))
+      .header(XOkapiHeaders.TOKEN, is("dummytoken"));
+      //.header("refreshtoken", is("dummyrefreshtoken"));
 
     RestAssured.given()
       .spec(spec)
