@@ -26,6 +26,7 @@ types:
   logEvents: !include logEventCollection.json
   logResponse: !include logResponse.json
   loginResponse: !include loginResponse.json
+  loginResponseWithExpiry: !include loginResponseWithExpiry.json
   credentialsExistence: !include credentialsExistence.json
 
 traits:
@@ -123,11 +124,12 @@ traits:
       responses:
         201:
           headers:
-            x-okapi-token:
-            cookie:
+            Set-Cookie:
+              type: string
+              example: refreshToken=abc123; Path=/authn/refresh; HttpOnly
           body:
             application/json:
-              type: loginResponse
+              type: loginResponseWithExpiry
         400:
           description: "Bad request"
           body:

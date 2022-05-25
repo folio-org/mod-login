@@ -39,6 +39,7 @@ import org.folio.rest.jaxrs.model.LogResponse;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
 import org.folio.rest.jaxrs.model.LoginResponse;
+import org.folio.rest.jaxrs.model.LoginResponseWithExpiry;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
@@ -268,6 +269,14 @@ public class LoginAPI implements Authn {
     return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
   }
 
+  private String getSetCookie(String token, String path) {
+    var sb = new StringBuilder("refreshToken=");
+    sb.append(token);
+    sb.append("; HttpOnly; path=");
+    sb.append(path);
+    return sb.toString();
+  }
+
   private void doPostAuthnLogin(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
@@ -409,10 +418,6 @@ public class LoginAPI implements Authn {
                             logger.debug("Fetching token from authz with payload " + payload.encode());
                             fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, tokenSignEndpoint);
                           }
-                          // fetchRefreshTokenFuture = fetchRefreshToken(userObject.getString("id"),
-                          //     sub, tenantId, okapiURL, requestToken);
-                          // CompositeFuture compositeFuture = CompositeFuture.join(fetchTokenFuture,
-                          //     fetchRefreshTokenFuture);
 
                           fetchTokenFuture.onComplete(fetchTokenRes -> {
                             if (fetchTokenFuture.failed()) {
@@ -420,13 +425,6 @@ public class LoginAPI implements Authn {
                               logger.error(errMsg);
                               asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
                             } else {
-                              // String refreshToken = null;
-                              // if (fetchRefreshTokenFuture.failed()) {
-                              //   logger.error(String.format("Error getting refresh token: %s",
-                              //       fetchRefreshTokenFuture.cause().getLocalizedMessage()));
-                              // } else {
-                              //   refreshToken = fetchRefreshTokenFuture.result();
-                              // }
                               PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesful login skip login attempts counter
                               //String finalRefreshToken = refreshToken;
@@ -440,15 +438,26 @@ public class LoginAPI implements Authn {
                                       asyncResultHandler.handle(Future.succeededFuture(
                                           PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                                     } else {
-                                      // Append token as header to result
-                                      String authToken = fetchTokenFuture.result().getString("token");
-                                      logger.debug("Response in login token: " + authToken);
-                                      LoginResponse response = new LoginResponse()
-                                          .withOkapiToken(authToken);
-                                      asyncResultHandler.handle(Future.succeededFuture(
-                                          PostAuthnLoginResponse.respond201WithApplicationJson(response,
-                                              PostAuthnLoginResponse.headersFor201()
-                                                  .withXOkapiToken(authToken))));
+                                      if (usesTokenSignLegacy(tokenSignEndpoint)) {
+                                        String authToken = fetchTokenFuture.result().getString("token");
+                                        var response = new LoginResponse().withOkapiToken(authToken);
+                                        asyncResultHandler.handle(Future.succeededFuture(
+                                            PostAuthnLoginResponse.respond201WithApplicationJson(response,
+                                                PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken))));
+                                      } else {
+                                        String accessToken = fetchTokenFuture.result().getString("accessToken");
+                                        String refreshToken = fetchTokenFuture.result().getString("refreshToken");
+                                        String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
+                                        String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
+                                        var response = new LoginResponseWithExpiry()
+                                            .withAccessToken(accessToken)
+                                            .withAccessTokenExpiration(accessTokenExpiration)
+                                            .withRefreshTokenExpiration(refreshTokenExpiration);
+                                        asyncResultHandler.handle(Future.succeededFuture(
+                                          PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
+                                              PostAuthnLoginWithExpiryResponse.headersFor201()
+                                                  .withSetCookie(getSetCookie(refreshToken, "/authn/refresh")))));
+                                      }
                                     }
                                   });
 

@@ -48,8 +48,9 @@ public class UserMock extends AbstractVerticle {
 
     router.route("/users").handler(this::handleUsers);
     router.put("/users/:id").handler(this::handleUserPut);
-    router.route("/token").handler(this::handleToken);
-    router.route("/refreshtoken").handler(this::handleRefreshToken);
+    router.route("/token").handler(this::handleTokenLegacy);
+    router.route("/token/sign").handler(this::handleTokenSign);
+    router.route("/token/refresh").handler(this::handleTokenRefresh);
     router.route("/configurations/entries").handler(this::handleConfig);
     logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {
@@ -214,20 +215,37 @@ public class UserMock extends AbstractVerticle {
     }
   }
 
-  private void handleToken(RoutingContext context) {
+  private void handleTokenSign(RoutingContext context) {
+    var response = new JsonObject()
+      .put("accessTokenExpiration", "atisodatestring")
+      .put("refreshTokenExpiration", "rtisodatestring")
+      .put("accessToken", "dummyaccesstoken")
+      .put("refreshToken", "dummyrefreshtoken");
+    context.response()
+      .setStatusCode(201)
+      .putHeader("Content-Type", "application/json")
+      .end(response.encode());
+  }
+
+  private void handleTokenRefresh(RoutingContext context) {
+    var response = new JsonObject()
+      .put("accessTokenExpiration", 0)
+      .put("refreshTokenExpiration", 0)
+      .put("accessToken", "dummyaccesstoken")
+      .put("refreshToken", "dummyrefreshtoken");
+    context.response()
+      .setStatusCode(201)
+      .putHeader("Content-Type", "application/json")
+      .end(response.encode());
+  }
+
+  private void handleTokenLegacy(RoutingContext context) {
     context.response()
       .setStatusCode(201)
       .putHeader("Content-Type", "application/json")
       // TODO Why is this header mocked when it isn't being returned from /token
       //.putHeader("X-Okapi-Token", "dummytoken")
       .end(new JsonObject().put("token", "dummytoken").encode());
-  }
-
-  private void handleRefreshToken(RoutingContext context) {
-    context.response()
-      .setStatusCode(201)
-      .putHeader("Content-Type", "application/json")
-      .end(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode());
   }
 
   public static void setConfig(String code, JsonObject json) {

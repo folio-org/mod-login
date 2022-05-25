@@ -36,14 +36,13 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
-public class LoginTest {
+public class LoginWithExpiryTest {
 
   private static Vertx vertx;
   private static RequestSpecification spec;
 
   private static final String TENANT_DIKU = "diku";
-  private static final String LOGIN_PATH = "/authn/login";
-//  private static final String LOGIN_PATH = "/authn/login-with-expiry";
+  private static final String LOGIN_PATH = "/authn/login-with-expiry";
   private static final String CRED_PATH = "/authn/credentials";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
@@ -120,10 +119,10 @@ public class LoginTest {
       .then()
       .log().all()
       .statusCode(201)
-      .body("okapiToken", is("dummytoken"))
-      //.body("refreshToken", is("dummyrefreshtoken"))
-      .header(XOkapiHeaders.TOKEN, is("dummytoken"));
-      //.header("refreshtoken", is("dummyrefreshtoken"));
+      .body("accessToken", is("dummyaccesstoken"))
+      .body("accessTokenExpiration", is("atisodatestring"))
+      .body("refreshTokenExpiration", is("rtisodatestring"))
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
 
     RestAssured.given()
       .spec(spec)
