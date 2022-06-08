@@ -154,58 +154,8 @@ public class LoginWithExpiryTest {
   }
 
   @Test
-  public void testLoginWithExpiryNoToken(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryNoPassword(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryNoUsernameOrId(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithEmptyUserResponse(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryBadUserResponse(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryNonExistentUserResponse(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryNonExistentUser(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryMultiUserResponse(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryNoUserId(final TestContext context) {
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryInactive(final TestContext context) {
-    // doInactiveLogin
-    assertTrue(true);
-  }
-
-  @Test
-  public void testLoginWithExpiryBadPassword(final TestContext context) {
+  public void testLoginWithExpiry(final TestContext context) {
+    // TODO Add more tests that mirror the tests in RestVerticleTest for the /login route.
     RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())
@@ -215,29 +165,22 @@ public class LoginWithExpiryTest {
       .log().all()
       .statusCode(201);
 
+    // TODO Do no token test by removing the token.
+
+    // Login without password.
     RestAssured.given()
       .spec(spec)
-      .body(credsObject4.encode())
+      .body(credsNoPassword.encode())
       .when()
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect")); 
- }
+      .statusCode(400);
+    // TODO Where to get this?
+    //.body("errors[0].code", equalTo("password.incorrect")); 
 
-  @Test
-  public void testLoginWithExpiry(final TestContext context) throws UnsupportedEncodingException {
+    // Login success.
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject1.encode())
-      .when()
-      .post(CRED_PATH)
-      .then()
-      .log().all()
-      .statusCode(201);
-
-      RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())
       .when()
@@ -250,4 +193,5 @@ public class LoginWithExpiryTest {
       .body("refreshTokenExpiration", is("rtisodatestring"))
       .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
   }
+
 }
