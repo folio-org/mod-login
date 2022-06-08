@@ -4,6 +4,9 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import static org.folio.util.LoginAttemptsHelper.*;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.folio.logintest.UserMock.gollumId;
+import static org.folio.logintest.UserMock.sarumanId;
+import static junit.framework.TestCase.assertTrue;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
@@ -35,6 +38,7 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
+
 @RunWith(VertxUnitRunner.class)
 public class LoginWithExpiryTest {
 
@@ -47,20 +51,69 @@ public class LoginWithExpiryTest {
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
-  private JsonObject credsObject8 = new JsonObject()
-    .put("username", "admin")
-    .put("password", "admin1")
-    .put("userId", adminId);
+  private JsonObject credsObject1 = new JsonObject()
+    .put("id", UUID.randomUUID().toString())
+    .put("username", "gollum")
+    .put("userId", gollumId)
+    .put("password", "12345");
 
-  private JsonObject credsObject8Fail = new JsonObject()
-    .put("username", "admin")
-    .put("password", "admin")
-    .put("userId", adminId);
+  private JsonObject credsObject2 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "12345");
 
-  private JsonObject credsObject8Login = new JsonObject()
-    .put("username", "admin")
-    .put("password", "admin2")
-    .put("userId", adminId);
+  private JsonObject credsObject3 = new JsonObject()
+    .put("username", "saruman")
+    .put("userId", sarumanId)
+    .put("password", "12345");
+
+  private JsonObject credsObject4 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "54321");
+
+  private JsonObject credsObject5 = new JsonObject()
+    .put("userId", gollumId)
+    .put("password", "54321");
+
+  private JsonObject credsObject6 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "12345")
+    .put("newPassword", "54321");
+
+  private JsonObject credsNoUsernameOrUserId = new JsonObject()
+      .put("password", "12345");
+
+  private JsonObject credsNoPassword = new JsonObject()
+      .put("username", "gollum");
+
+  private JsonObject credsElicitEmptyUserResp = new JsonObject()
+      .put("username", "mrunderhill")
+      .put("password", "54321");
+
+  private JsonObject credsElicitBadUserResp = new JsonObject()
+      .put("username", "gimli")
+      .put("password", "54321");
+
+  private JsonObject credsNonExistentUser = new JsonObject()
+      .put("username", "mickeymouse")
+      .put("password", "54321");
+
+  private JsonObject credsElicitMultiUserResp = new JsonObject()
+      .put("username", "gandalf")
+      .put("password", "54321");
+
+  private JsonObject credsUserWithNoId = new JsonObject()
+      .put("username", "strider")
+      .put("password", "54321");
+
+  private JsonObject credsEmptyStringPassword = new JsonObject()
+      .put("username", "saruman")
+      .put("userId", sarumanId)
+      .put("password", "");
+
+  private JsonObject newCredsEmptyPassword = new JsonObject()
+      .put("username", "gollum")
+      .put("password", "12345")
+      .put("newPassword", "");
 
   private static Map<String, String> moduleArgs;
 
@@ -101,10 +154,83 @@ public class LoginWithExpiryTest {
   }
 
   @Test
-  public void testLogin(final TestContext context) throws UnsupportedEncodingException {
+  public void testLoginWithExpiryNoToken(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryNoPassword(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryNoUsernameOrId(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithEmptyUserResponse(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryBadUserResponse(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryNonExistentUserResponse(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryNonExistentUser(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryMultiUserResponse(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryNoUserId(final TestContext context) {
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryInactive(final TestContext context) {
+    // doInactiveLogin
+    assertTrue(true);
+  }
+
+  @Test
+  public void testLoginWithExpiryBadPassword(final TestContext context) {
     RestAssured.given()
       .spec(spec)
-      .body(credsObject8.encode())
+      .body(credsObject1.encode())
+      .when()
+      .post(CRED_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject4.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("password.incorrect")); 
+ }
+
+  @Test
+  public void testLoginWithExpiry(final TestContext context) throws UnsupportedEncodingException {
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject1.encode())
       .when()
       .post(CRED_PATH)
       .then()
@@ -113,7 +239,7 @@ public class LoginWithExpiryTest {
 
       RestAssured.given()
       .spec(spec)
-      .body(credsObject8.encode())
+      .body(credsObject1.encode())
       .when()
       .post(LOGIN_PATH)
       .then()
@@ -123,15 +249,5 @@ public class LoginWithExpiryTest {
       .body("accessTokenExpiration", is("atisodatestring"))
       .body("refreshTokenExpiration", is("rtisodatestring"))
       .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
-
-    RestAssured.given()
-      .spec(spec)
-      .body(credsObject8Fail.encode())
-      .when()
-      .post(LOGIN_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
   }
 }
