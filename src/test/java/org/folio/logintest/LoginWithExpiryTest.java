@@ -48,6 +48,7 @@ public class LoginWithExpiryTest {
   private static final String TENANT_DIKU = "diku";
   private static final String LOGIN_PATH = "/authn/login-with-expiry";
   private static final String CRED_PATH = "/authn/credentials";
+  private static final String UPDATE_PATH = "/authn/update";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
@@ -155,7 +156,6 @@ public class LoginWithExpiryTest {
 
   @Test
   public void testLoginWithExpiry(final TestContext context) {
-    // TODO Add more tests that mirror the tests in RestVerticleTest for the /login route.
     RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())
@@ -167,7 +167,6 @@ public class LoginWithExpiryTest {
 
     // TODO Do no token test by removing the token.
 
-    // Login without password.
     RestAssured.given()
       .spec(spec)
       .body(credsNoPassword.encode())
@@ -175,14 +174,182 @@ public class LoginWithExpiryTest {
       .post(LOGIN_PATH)
       .then()
       .log().all()
-      .statusCode(400);
-    // TODO Where to get this?
-    //.body("errors[0].code", equalTo("password.incorrect")); 
+      .statusCode(400)
+      .contentType("text/plain")
+      .body(is("You must provide a password"));
 
-    // Login success.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsNoUsernameOrUserId.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(400)
+      .contentType("text/plain")
+      .body(is("You must provide a username or userId"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsElicitEmptyUserResp.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("username.incorrect"))
+      .body("errors[0].message", is("Error verifying user existence: No user found by username mrunderhill"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsElicitBadUserResp.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("username.incorrect"))
+      .body("errors[0].message", is("Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsNonExistentUser.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("username.incorrect"))
+      .body("errors[0].message", is("Error verifying user existence: No user found by username mickeymouse"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsElicitMultiUserResp.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("username.incorrect"))
+      .body("errors[0].message", is("Error verifying user existence: Bad results from username"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsUserWithNoId.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(500)
+      .contentType("text/plain")
+      .body(is("No user id could be found"));
+
     RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(201)
+      .body("accessToken", is("dummyaccesstoken"))
+      .body("accessTokenExpiration", is("atisodatestring"))
+      .body("refreshTokenExpiration", is("rtisodatestring"))
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject2.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(201)
+      .body("accessToken", is("dummyaccesstoken"))
+      .body("accessTokenExpiration", is("atisodatestring"))
+      .body("refreshTokenExpiration", is("rtisodatestring"))
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+
+    // Post a credentials object which doesn't have an id property.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject3.encode())
+      .when()
+      .post(CRED_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
+
+    // The credentials object doesn't have a id so it is not considered active.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject3.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("user.blocked"))
+      .body("errors[0].message", is("User must be flagged as active"));
+
+    // The following credentials objects have incorrect passwords.
+    // One provides the userId and the other provides the username, but neither should work.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject4.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("password.incorrect"))
+      .body("errors[0].message", is("Password does not match"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject5.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .contentType("application/json")
+      .body("errors[0].code", is("password.incorrect.block.user"))
+      .body("errors[0].message", is("Fifth failed attempt"));
+
+    // Now we update our credentials object with a new password and try again.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject6.encode())
+      .when()
+      .post(UPDATE_PATH)
+      .then()
+      .log().all()
+      .statusCode(204);
+
+    // These should now succeed.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject4.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(201)
+      .body("accessToken", is("dummyaccesstoken"))
+      .body("accessTokenExpiration", is("atisodatestring"))
+      .body("refreshTokenExpiration", is("rtisodatestring"))
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject5.encode())
       .when()
       .post(LOGIN_PATH)
       .then()

@@ -240,6 +240,7 @@ public class RestVerticleTest {
         .compose(w -> postNewCredentialsWithEmptyStringPassword(context, credsEmptyStringPassword))
         .compose(w -> postNewCredentials(context, credsObject3))
         .compose(w -> doUpdatePasswordWithEmptyString(context, newCredsEmptyPassword))
+        // TODO Why is this inactive? It seems like it should be fine.
         .compose(w -> doInactiveLogin(context, credsObject3))
         .compose(w -> doBadPasswordLogin(context, credsObject4))
         .compose(w -> doBadPasswordLogin(context, credsObject5))
@@ -416,12 +417,12 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> doLoginMultiUserRespose(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      422, "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+      422, "Error verifying user existence: Bad results from username");
   }
 
   private Future<WrappedResponse> doLoginNonExistentUser(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      422, "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+      422, "Error verifying user existence: No user found by username mickeymouse");
   }
 
   private Future<WrappedResponse> doLoginEmptyUserResponse(TestContext context, JsonObject loginCredentials) {
