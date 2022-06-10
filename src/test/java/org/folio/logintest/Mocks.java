@@ -20,16 +20,56 @@ import org.apache.logging.log4j.Logger;
 /**
  * @author kurt
  */
-public class UserMock extends AbstractVerticle {
-  private static final Logger logger = LogManager.getLogger(UserMock.class);
+public class Mocks extends AbstractVerticle {
+  private static final Logger logger = LogManager.getLogger(Mocks.class);
 
   public static final String gollumId = "bc6e4932-6415-40e2-ac1e-67ecdd665366";
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
+  public static final JsonObject credsObject1 = new JsonObject()
+    .put("id", UUID.randomUUID().toString())
+    .put("username", "gollum")
+    .put("userId", gollumId)
+    .put("password", "12345");
+  public static final JsonObject credsObject2 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "12345");
+  public static final JsonObject credsObject3 = new JsonObject()
+    .put("username", "saruman")
+    .put("userId", sarumanId)
+    .put("password", "12345");
+  public static final JsonObject credsObject4 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "54321");
+  public static final JsonObject credsObject5 = new JsonObject()
+    .put("userId", gollumId)
+    .put("password", "54321");
+  public static final JsonObject credsObject6 = new JsonObject()
+    .put("username", "gollum")
+    .put("password", "12345")
+    .put("newPassword", "54321");
+  public static final JsonObject credsNoUsernameOrUserId = new JsonObject()
+      .put("password", "12345");
+  public static final JsonObject credsNoPassword = new JsonObject()
+      .put("username", "gollum");
+  public static final JsonObject credsElicitEmptyUserResp = new JsonObject()
+      .put("username", "mrunderhill")
+      .put("password", "54321");
+  public static final JsonObject credsElicitBadUserResp = new JsonObject()
+      .put("username", "gimli")
+      .put("password", "54321");
+  public static final JsonObject credsNonExistentUser = new JsonObject()
+      .put("username", "mickeymouse")
+      .put("password", "54321");
+  public static final JsonObject credsElicitMultiUserResp = new JsonObject()
+      .put("username", "gandalf")
+      .put("password", "54321");
+  public static final JsonObject credsUserWithNoId = new JsonObject()
+      .put("username", "strider")
+      .put("password", "54321");
+
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
-
   private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
-
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
     .put("id", adminId)
