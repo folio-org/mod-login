@@ -125,8 +125,9 @@ traits:
         201:
           headers:
             Set-Cookie:
+              description: A refresh token cookie, limited to a given path and age, and stored in the client as HttpOnly to protect it from client script.
               type: string
-              example: refreshToken=abc123; Path=/authn/refresh; HttpOnly
+              example: refreshToken=abc123; Path=/authn/refresh; HttpOnly; Max-Age=10000
           body:
             application/json:
               type: loginResponseWithExpiry

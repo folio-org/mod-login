@@ -224,10 +224,10 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
       .body("accessToken", is("dummyaccesstoken"))
       .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"))
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+      .body("refreshTokenExpiration", is("rtisodatestring"));
 
     RestAssured.given()
       .spec(spec)
@@ -237,10 +237,10 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
       .body("accessToken", is("dummyaccesstoken"))
       .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"))
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+      .body("refreshTokenExpiration", is("rtisodatestring"));
 
     // Post a credentials object which doesn't have an id property.
     RestAssured.given()
@@ -310,10 +310,10 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
       .body("accessToken", is("dummyaccesstoken"))
       .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"))
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+      .body("refreshTokenExpiration", is("rtisodatestring"));
 
     RestAssured.given()
       .spec(spec)
@@ -323,9 +323,9 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
+      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
       .body("accessToken", is("dummyaccesstoken"))
       .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"))
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; path=/authn/refresh"));
+      .body("refreshTokenExpiration", is("rtisodatestring"));
   }
 }

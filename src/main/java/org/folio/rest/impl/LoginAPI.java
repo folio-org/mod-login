@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
@@ -199,25 +200,23 @@ public class LoginAPI implements Authn {
       .putHeader(XOkapiHeaders.TOKEN, requestToken);
 
     return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
-      // TODO Why do we check for both 200 and 201 here? mod-authtoken should only be returning 201.
       if (response.statusCode() != 200 && response.statusCode() != 201) {
         throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
       }
-      // String token = response.statusCode() == 200
-      //   ? response.getHeader(XOkapiHeaders.TOKEN)
-      //   : response.bodyAsJsonObject().getString("token");
-      // if (token == null) {
-      //   throw new RuntimeException(String.format("Got response %s fetching token, but content is null",
-      //     response.statusCode()));
-      // }
-      // logger.debug("Got token " + token + " from authz");
-      // return token;
-
-      logger.debug("Response code in fetchToken is: " + response.statusCode());
-      logger.debug("Response body is: " + response.bodyAsString());
 
       return response.bodyAsJsonObject();
     });
+  }
+
+  private boolean usesTokenSignLegacy(String endpoint) {
+    return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
+  }
+
+  private String makeRefreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
+    var sb = new StringBuilder("refreshToken=");
+    sb.append(refreshToken);
+    sb.append("; HttpOnly; Path=/authn/refresh");
+    return sb.toString();
   }
 
   @Override
@@ -265,18 +264,6 @@ public class LoginAPI implements Authn {
        vertxContext,TOKEN_SIGN_ENDPOINT);
   }
 
-  private boolean usesTokenSignLegacy(String endpoint) {
-    return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
-  }
-
-  private String getSetCookie(String token, String path) {
-    var sb = new StringBuilder("refreshToken=");
-    sb.append(token);
-    sb.append("; HttpOnly; path=");
-    sb.append(path);
-    return sb.toString();
-  }
-
   private void doPostAuthnLogin(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
@@ -284,13 +271,11 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
-      // Break this out into a return check okapiUrl method.
       if (okapiURL == null) {
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
             .respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
         return;
       }
-      // TODO Break this out into a return checkToken method.
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
       if (requestToken == null) {
         logger.error("Missing request token");
@@ -298,7 +283,6 @@ public class LoginAPI implements Authn {
             .respond400WithTextPlain("Missing Okapi token header")));
         return;
       }
-      // TODO This block is easily broken out into a verifyUser method that takes an entity argument.
       Future<JsonObject> userVerified;
       if (entity.getUserId() == null && entity.getUsername() == null) {
         logger.error("No username or userId provided for login attempt");
@@ -328,8 +312,6 @@ public class LoginAPI implements Authn {
         }
       }
       userVerified.onComplete(verifyResult -> {
-        // TODO Break all of this out into onFailure and onSuccess
-        // Still may need try/catch for postgres client. See below.
         if (verifyResult.failed()) {
           String errMsg = "Error verifying user existence: " + verifyResult
               .cause().getLocalizedMessage();
@@ -340,8 +322,7 @@ public class LoginAPI implements Authn {
           ));
 
         } else {
-          // TODO This comment needs to be clarified or removed.
-          //User's okay, let's try to login
+          // User's okay, let's try to login
           try {
             JsonObject userObject = verifyResult.result();
             // TODO This has something to do with verifying a user's data and nothing else. Break out into method.
@@ -363,7 +344,6 @@ public class LoginAPI implements Authn {
                 return;
               }
             }
-            // TODO Now we're actually logging in. Why isn't this a method like logIn(critiera; c);
             Criteria useridCrit = new Criteria();
             useridCrit.addField(CREDENTIAL_USERID_FIELD);
             useridCrit.setOperation("=");
@@ -381,7 +361,6 @@ public class LoginAPI implements Authn {
                   } else {
                     try {
                       List<Credential> credList = getReply.result().getResults();
-                      // TODO Break if statement out into method.
                       if (credList.isEmpty()) {
                         logger.error("No matching credentials found for userid " + userObject.getString("id"));
                         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("No credentials match that login")));
@@ -407,7 +386,6 @@ public class LoginAPI implements Authn {
                           if (!userObject.isEmpty()) {
                             payload.put("user_id", userObject.getString("id"));
                           }
-                          // TODO Construct a POJO here to return the response of this method! Call it LoginResponse.
                           Future<JsonObject> fetchTokenFuture;
                           String fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                           if (fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
@@ -427,9 +405,7 @@ public class LoginAPI implements Authn {
                             } else {
                               PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                               // after succesful login skip login attempts counter
-                              //String finalRefreshToken = refreshToken;
                               Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
-                              // TODO Although this looks similar to the code below it isn't. But sttill break out into method checkLoginAttemptsAndReturnToken.
                               loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                                   .compose(attempts ->
                                       loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, requestHeaders, attempts))
@@ -456,7 +432,7 @@ public class LoginAPI implements Authn {
                                         asyncResultHandler.handle(Future.succeededFuture(
                                           PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
                                               PostAuthnLoginWithExpiryResponse.headersFor201()
-                                                  .withSetCookie(getSetCookie(refreshToken, "/authn/refresh")))));
+                                                  .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration)))));
                                       }
                                     }
                                   });
@@ -464,7 +440,6 @@ public class LoginAPI implements Authn {
                             }
                           });
                         } else {
-                          // TODO Break this out into a method: checkLoginAttempts that uses onSuccess and onFailure methods and call return on it.
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                           Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
                           loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
@@ -490,9 +465,8 @@ public class LoginAPI implements Authn {
                     }
                   }
                 });
-            //Make sure this username isn't already added
+            // Make sure this username isn't already added
           } catch(Exception e) {
-            // TODO The log mesage seems to indicate that this exception has a type. Why not catch that?
             logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
           }
