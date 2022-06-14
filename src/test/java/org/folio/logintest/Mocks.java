@@ -4,6 +4,7 @@ import static java.lang.Thread.sleep;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_CODE;
 import static org.folio.util.LoginAttemptsHelper.LOGIN_ATTEMPTS_TIMEOUT_CODE;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -256,9 +257,11 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenSign(RoutingContext context) {
+    var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
+    var rtExpiration = Instant.now().plusSeconds(604800).toString();
     var response = new JsonObject()
-      .put("accessTokenExpiration", "atisodatestring")
-      .put("refreshTokenExpiration", "rtisodatestring")
+      .put("accessTokenExpiration", atExpiration)
+      .put("refreshTokenExpiration",rtExpiration)
       .put("accessToken", "dummyaccesstoken")
       .put("refreshToken", "dummyrefreshtoken");
     context.response()
@@ -268,10 +271,12 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenRefresh(RoutingContext context) {
+    var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
+    var rtExpiration = Instant.now().plusSeconds(604800).toString();
     var response = new JsonObject()
-      .put("accessTokenExpiration", 0)
-      .put("refreshTokenExpiration", 0)
-      .put("accessToken", "dummyaccesstoken")
+    .put("accessTokenExpiration", atExpiration)
+    .put("refreshTokenExpiration",rtExpiration)
+    .put("accessToken", "dummyaccesstoken")
       .put("refreshToken", "dummyrefreshtoken");
     context.response()
       .setStatusCode(201)

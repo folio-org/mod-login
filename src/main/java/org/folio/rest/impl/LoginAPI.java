@@ -10,6 +10,7 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -19,7 +20,6 @@ import java.util.UUID;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
@@ -66,7 +66,6 @@ import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -212,10 +211,26 @@ public class LoginAPI implements Authn {
     return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
   }
 
+  // For documentation of the cookie attributes please see:
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
   private String makeRefreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
+    // The refresh token expiration is the time after which the token will be considered expired.
+    var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
+    var ttlSeconds = exp - Instant.now().getEpochSecond();
     var sb = new StringBuilder("refreshToken=");
     sb.append(refreshToken);
-    sb.append("; HttpOnly; Path=/authn/refresh");
+
+    // Path indicates the path that must exist in the requested URL for the client to send the
+    // Cookie header.
+    sb.append("; HttpOnly; Path=/authn/refresh; ");
+
+    // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
+    // that the cookie will persist between browser tab sessions.
+    sb.append("Max-Age=");
+    sb.append(ttlSeconds);
+
+    logger.debug("Refresh token cookie: {}", sb.toString());
+
     return sb.toString();
   }
 
@@ -325,7 +340,6 @@ public class LoginAPI implements Authn {
           // User's okay, let's try to login
           try {
             JsonObject userObject = verifyResult.result();
-            // TODO This has something to do with verifying a user's data and nothing else. Break out into method.
             if (!userObject.containsKey("id")) {
               logger.error("No 'id' key in returned user object");
               asyncResultHandler.handle(Future.succeededFuture(
@@ -353,8 +367,7 @@ public class LoginAPI implements Authn {
                 true, getReply-> {
                   // TODO And now we're actually getting a user's credentials.
                   if (getReply.failed()) {
-                    logger.error("Error in postgres get operation: " +
-                        getReply.cause().getLocalizedMessage());
+                    logger.error("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
                     asyncResultHandler.handle(Future.succeededFuture(
                         PostAuthnLoginResponse.respond500WithTextPlain(
                             INTERNAL_ERROR)));
@@ -372,7 +385,6 @@ public class LoginAPI implements Authn {
                           asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(message)));
                           return;
                         }
-                        logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
                         String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
                         String sub;
                         if (userCred.getHash().equals(testHash)) {
@@ -389,11 +401,8 @@ public class LoginAPI implements Authn {
                           Future<JsonObject> fetchTokenFuture;
                           String fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                           if (fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
-                            // TODO What is this string "dummyToken" doing here?
-                            //fetchTokenFuture = Future.succeededFuture("dummyToken");
                             fetchTokenFuture = Future.succeededFuture();
                           } else {
-                            logger.debug("Fetching token from authz with payload " + payload.encode());
                             fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, tokenSignEndpoint);
                           }
 
@@ -404,7 +413,7 @@ public class LoginAPI implements Authn {
                               asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
                             } else {
                               PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                              // after succesful login skip login attempts counter
+                              // After successful login skip login attempts counter.
                               Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
                               loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                                   .compose(attempts ->

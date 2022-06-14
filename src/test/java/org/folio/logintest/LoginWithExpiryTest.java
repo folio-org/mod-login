@@ -15,6 +15,8 @@ import static org.folio.logintest.Mocks.credsNonExistentUser;
 import static org.folio.logintest.Mocks.credsUserWithNoId;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasKey;
 
 import java.util.Date;
 
@@ -224,10 +226,13 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
+      .header("Set-Cookie", containsString("refreshToken=dummyrefreshtoken;"))
+      .header("Set-Cookie", containsString("HttpOnly;"))
+      .header("Set-Cookie", containsString("Path=/authn/refresh;"))
+      .header("Set-Cookie", containsString("Max-Age=604800"))
       .body("accessToken", is("dummyaccesstoken"))
-      .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"));
+      .body("$", hasKey("accessTokenExpiration"))
+      .body("$", hasKey("refreshTokenExpiration"));
 
     RestAssured.given()
       .spec(spec)
@@ -237,10 +242,13 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
+      .header("Set-Cookie", containsString("refreshToken=dummyrefreshtoken;"))
+      .header("Set-Cookie", containsString("HttpOnly;"))
+      .header("Set-Cookie", containsString("Path=/authn/refresh;"))
+      .header("Set-Cookie", containsString("Max-Age=604800"))
       .body("accessToken", is("dummyaccesstoken"))
-      .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"));
+      .body("$", hasKey("accessTokenExpiration"))
+      .body("$", hasKey("refreshTokenExpiration"));
 
     // Post a credentials object which doesn't have an id property.
     RestAssured.given()
@@ -310,10 +318,14 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
+      .header("Set-Cookie", containsString("refreshToken=dummyrefreshtoken;"))
+      .header("Set-Cookie", containsString("HttpOnly;"))
+      .header("Set-Cookie", containsString("Path=/authn/refresh;"))
+      .header("Set-Cookie", containsString("Max-Age=604800"))
       .body("accessToken", is("dummyaccesstoken"))
-      .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"));
+      .body("$", hasKey("accessTokenExpiration"))
+      .body("$", hasKey("refreshTokenExpiration"));
+
 
     RestAssured.given()
       .spec(spec)
@@ -323,9 +335,12 @@ public class LoginWithExpiryTest {
       .then()
       .log().all()
       .statusCode(201)
-      .header("Set-Cookie", is("refreshToken=dummyrefreshtoken; HttpOnly; Path=/authn/refresh"))
+      .header("Set-Cookie", containsString("refreshToken=dummyrefreshtoken;"))
+      .header("Set-Cookie", containsString("HttpOnly;"))
+      .header("Set-Cookie", containsString("Path=/authn/refresh;"))
+      .header("Set-Cookie", containsString("Max-Age=604800"))
       .body("accessToken", is("dummyaccesstoken"))
-      .body("accessTokenExpiration", is("atisodatestring"))
-      .body("refreshTokenExpiration", is("rtisodatestring"));
+      .body("$", hasKey("accessTokenExpiration"))
+      .body("$", hasKey("refreshTokenExpiration"));
   }
 }
