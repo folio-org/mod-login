@@ -1,3 +1,8 @@
+## 2022-06-14 v7.7.0
+
+* [MODLOGIN-190](https://issues.folio.org/browse/MODLOGIN-190) Upgrade to RMB 34.0.0
+* [MODLOGIN-187](https://issues.folio.org/browse/MODLOGIN-187) Update outdated mod-users submodule from v15.4.0 to v18.2.0
+
 ## 2022-02-18 v7.6.0
 
 Changes:
