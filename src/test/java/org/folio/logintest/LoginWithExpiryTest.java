@@ -218,6 +218,22 @@ public class LoginWithExpiryTest {
       .contentType("text/plain")
       .body(is("No user id could be found"));
 
+    // This test should pass but it fails because of the cookie merging.
+    // In the very old days of cookies merging cookies into a single Set-Cookie header
+    // was possible when separating the cookie data with a comma. This was called "cookie folding"
+    // but AFAIK UAs don't support this anymore and the accepted way is to have multiple
+    // Set-Cookie headers. See MDN on this.
+    RestAssured.given()
+      .spec(spec)
+      .body(credsObject1.encode())
+      .when()
+      .post(LOGIN_WITH_EXPIRY_PATH)
+      .then()
+      .log().all()
+      .statusCode(200)
+      .header("Set-Cookie", containsString("at=abc123; HttpOnly; Max-Age=123;"))
+      .header("Set-Cookie", containsString("rt=xyz321;"));
+
     RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())

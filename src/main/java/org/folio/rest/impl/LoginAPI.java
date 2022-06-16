@@ -434,14 +434,27 @@ public class LoginAPI implements Authn {
                                         String refreshToken = fetchTokenFuture.result().getString("refreshToken");
                                         String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
                                         String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
-                                        var response = new LoginResponseWithExpiry()
-                                            .withAccessToken(accessToken)
-                                            .withAccessTokenExpiration(accessTokenExpiration)
-                                            .withRefreshTokenExpiration(refreshTokenExpiration);
-                                        asyncResultHandler.handle(Future.succeededFuture(
-                                          PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
-                                              PostAuthnLoginWithExpiryResponse.headersFor201()
-                                                  .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration)))));
+                                        // This is how I'm recommending we do it. One cookie for the RT. AT in the body.
+                                        // var response = new LoginResponseWithExpiry()
+                                        //     .withAccessToken(accessToken)
+                                        //     .withAccessTokenExpiration(accessTokenExpiration)
+                                        //     .withRefreshTokenExpiration(refreshTokenExpiration);
+                                        // asyncResultHandler.handle(Future.succeededFuture(
+                                        //   PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
+                                        //       PostAuthnLoginWithExpiryResponse.headersFor201()
+                                        //           .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration)))
+                                        //           ));
+                                        // This merges the two headers into one, making (I believe) the cookie
+                                        // unparsable by the client. I've also tried creating Cookie objects and adding
+                                        // them. Same problem. See the corresponding test on LoginWithExpiryTest line 226,
+                                        // which fails because of the merger and the corresponding log. RMB has a different
+                                        // problem. It overwrites the first cookie with the second because it uses a Map
+                                        // for the data structure.
+                                        var response = Response.ok()
+                                            .header("Set-Cookie", "at=abc123; HttpOnly; Max-Age=123")
+                                            .header("Set-Cookie", "rt=xyz321")
+                                            .build();
+                                        asyncResultHandler.handle(Future.succeededFuture(response));
                                       }
                                     }
                                   });
