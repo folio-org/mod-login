@@ -234,6 +234,27 @@ public class LoginAPI implements Authn {
     return sb.toString();
   }
 
+  private String makeAccessTokenCookie(String accessToken, String accessTokenExpiration) {
+    // The refresh token expiration is the time after which the token will be considered expired.
+    var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
+    var ttlSeconds = exp - Instant.now().getEpochSecond();
+    var sb = new StringBuilder("accessToken=");
+    sb.append(accessToken);
+
+    // Path indicates the path that must exist in the requested URL for the client to send the
+    // Cookie header.
+    sb.append("; HttpOnly; ");
+
+    // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
+    // that the cookie will persist between browser tab sessions.
+    sb.append("Max-Age=");
+    sb.append(ttlSeconds);
+
+    logger.debug("Access token cookie: {}", sb.toString());
+
+    return sb.toString();
+  }
+
   @Override
   public void getAuthnLoginAttemptsById(String id, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -434,7 +455,6 @@ public class LoginAPI implements Authn {
                                         String refreshToken = fetchTokenFuture.result().getString("refreshToken");
                                         String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
                                         String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
-                                        // This is how I'm recommending we do it. One cookie for the RT. AT in the body.
                                         // var response = new LoginResponseWithExpiry()
                                         //     .withAccessToken(accessToken)
                                         //     .withAccessTokenExpiration(accessTokenExpiration)
@@ -442,8 +462,9 @@ public class LoginAPI implements Authn {
                                         // asyncResultHandler.handle(Future.succeededFuture(
                                         //   PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
                                         //       PostAuthnLoginWithExpiryResponse.headersFor201()
-                                        //           .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration)))
-                                        //           ));
+                                        //           .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration))
+                                        //           .withSetCookie(makeAccessTokenCookie(accessToken, accessTokenExpiration))
+                                        //           )));
                                         // This merges the two headers into one, making (I believe) the cookie
                                         // unparsable by the client. I've also tried creating Cookie objects and adding
                                         // them. Same problem. See the corresponding test on LoginWithExpiryTest line 226,
