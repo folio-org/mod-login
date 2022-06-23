@@ -113,13 +113,39 @@ traits:
               example: "Internal server error"
   /login-with-expiry:
     post:
-      description: Get a new login token with an expiring refresh and access token
+      description: Get an expiring refresh and access token
       headers:
         User-Agent:
         X-Forwarded-For:
       body:
         application/json:
           type: loginCredentials
+      responses:
+        201:
+          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
+          # rather than through RMB code-generation. This is because RMB code generation doesn't
+          # let us do multiple haders with the same value, which we need to do here.
+          body:
+            application/json:
+              type: loginResponseWithExpiry
+        400:
+          description: "Bad request"
+          body:
+            text/plain:
+              example: "Bad request"
+        422:
+          description: "Unprocessable Entity"
+          body:
+            application/json:
+              type: errors
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
+  /refresh:
+    post:
+      description: Get a new refresh and access token
       responses:
         201:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object

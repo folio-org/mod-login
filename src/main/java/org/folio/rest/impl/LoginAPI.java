@@ -105,6 +105,7 @@ public class LoginAPI implements Authn {
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   private static final String TOKEN_SIGN_ENDPOINT = "/token/sign";
   private static final String TOKEN_SIGN_ENDPOINT_LEGACY = "/token";
+  private static final String TOKEN_REFRESH_ENDPOINT = "/token/refresh";
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -190,7 +191,7 @@ public class LoginAPI implements Authn {
       .map(res -> extractUserFromLookupResponse(res, requestURL, username));
   }
 
-  private Future<JsonObject> fetchToken(JsonObject payload, String tenant,
+  private Future<JsonObject> fetchSignToken(JsonObject payload, String tenant,
     String okapiURL, String requestToken, String endpoint) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + endpoint);
 
@@ -199,6 +200,24 @@ public class LoginAPI implements Authn {
 
     return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
       if (response.statusCode() != 200 && response.statusCode() != 201) {
+        throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
+      }
+
+      return response.bodyAsJsonObject();
+    });
+  }
+
+  private Future<JsonObject> fetchRefreshToken(String tenant,
+     String okapiURL, String accessToken, String refreshToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
+
+    // It's ok that we use x-okapi-token here because mod-authtoken's filter will accept both. But we could
+    // just as well use a cookie header.
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+
+    return request.sendJson(new JsonObject().put("refreshToken", refreshToken)).map(response -> {
+      if (response.statusCode() != 201) {
         throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
       }
 
@@ -282,6 +301,30 @@ public class LoginAPI implements Authn {
   }
 
   @Override
+  public void postAuthnRefresh(Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    // The client should send both cookies with the request. One has this path and one should not.
+
+    // TODO Get the cookies from the ctx object.
+    String refreshToken = "";
+    String accessToken = "";
+
+    logger.debug("RT cookie is {}", refreshToken);
+    logger.debug("AT cookie is {}", accessToken);
+    String tenantId = getTenant(okapiHeaders);
+
+    String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+    // This will only work if two cookies are sent, one which has the AT and one which has the RT.
+    // Because we need both to get past mod-at's filter.
+    // String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN); // <-- not going to work
+
+    Future<JsonObject> fetchTokenFuture;
+
+    fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
+    asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture)));
+  }
+
+  @Override
   public void getAuthnLoginAttemptsById(String id, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
@@ -323,7 +366,7 @@ public class LoginAPI implements Authn {
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler,
-       vertxContext,TOKEN_SIGN_ENDPOINT);
+       vertxContext, TOKEN_SIGN_ENDPOINT);
   }
 
   private void doPostAuthnLogin(String userAgent, String xForwardedFor,
@@ -450,7 +493,7 @@ public class LoginAPI implements Authn {
                           if (fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
                             fetchTokenFuture = Future.succeededFuture();
                           } else {
-                            fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken, tokenSignEndpoint);
+                            fetchTokenFuture = fetchSignToken(payload, tenantId, okapiURL, requestToken, tokenSignEndpoint);
                           }
 
                           fetchTokenFuture.onComplete(fetchTokenRes -> {
