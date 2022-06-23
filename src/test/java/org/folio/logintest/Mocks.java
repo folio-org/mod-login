@@ -274,9 +274,9 @@ public class Mocks extends AbstractVerticle {
     var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
     var rtExpiration = Instant.now().plusSeconds(604800).toString();
     var response = new JsonObject()
-    .put("accessTokenExpiration", atExpiration)
-    .put("refreshTokenExpiration",rtExpiration)
-    .put("accessToken", "dummyaccesstoken")
+      .put("accessTokenExpiration", atExpiration)
+      .put("refreshTokenExpiration",rtExpiration)
+      .put("accessToken", "dummyaccesstoken")
       .put("refreshToken", "dummyrefreshtoken");
     context.response()
       .setStatusCode(201)

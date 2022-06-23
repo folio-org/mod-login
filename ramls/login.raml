@@ -146,6 +146,9 @@ traits:
   /refresh:
     post:
       description: Get a new refresh and access token
+      headers:
+        # The cookie will contain crumbs for the refresh token and the access token.
+        Cookie:
       responses:
         201:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object

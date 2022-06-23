@@ -301,19 +301,23 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnRefresh(Map<String, String> okapiHeaders,
+  public void postAuthnRefresh(String cookie, Map<String, String> otherHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
     // The client should send both cookies with the request. One has this path and one should not.
+    logger.debug("Cookie is {}", cookie);
 
-    // TODO Get the cookies from the ctx object.
-    String refreshToken = "";
-    String accessToken = "";
+    String[] crumbs = cookie.split(";");
+    String accessToken = crumbs[0].trim();
+    String refreshToken = crumbs[1].trim();
+
+    // TODO Need to make it not dependent on the order.
+    // TODO Also remove the keys.
 
     logger.debug("RT cookie is {}", refreshToken);
     logger.debug("AT cookie is {}", accessToken);
-    String tenantId = getTenant(okapiHeaders);
+    String tenantId = getTenant(otherHeaders);
 
-    String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+    String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
     // This will only work if two cookies are sent, one which has the AT and one which has the RT.
     // Because we need both to get past mod-at's filter.
     // String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN); // <-- not going to work
@@ -321,6 +325,8 @@ public class LoginAPI implements Authn {
     Future<JsonObject> fetchTokenFuture;
 
     fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
+
+    // TODO Call a completion on the future.
     asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture)));
   }
 
