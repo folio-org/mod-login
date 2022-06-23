@@ -93,7 +93,6 @@ traits:
         201:
           headers:
             x-okapi-token:
-            refreshtoken:
           body:
             application/json:
               type: loginResponse
@@ -123,11 +122,9 @@ traits:
           type: loginCredentials
       responses:
         201:
-          # headers:
-          #   Set-Cookie:
-          #     description: TODO
-          #     type: string
-          #     example: refreshToken=abc123; Path=/authn/refresh; HttpOnly; Max-Age=10000
+          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
+          # rather than through RMB code-generation. This is because RMB code generation doesn't
+          # let us do multiple haders with the same value, which we need to do here.
           body:
             application/json:
               type: loginResponseWithExpiry

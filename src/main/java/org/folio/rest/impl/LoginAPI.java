@@ -40,7 +40,6 @@ import org.folio.rest.jaxrs.model.LogResponse;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
 import org.folio.rest.jaxrs.model.LoginResponse;
-import org.folio.rest.jaxrs.model.LoginResponseWithExpiry;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
@@ -213,7 +212,7 @@ public class LoginAPI implements Authn {
 
   // For documentation of the cookie attributes please see:
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
-  private String makeRefreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
+  private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
@@ -222,7 +221,7 @@ public class LoginAPI implements Authn {
 
     // Path indicates the path that must exist in the requested URL for the client to send the
     // Cookie header.
-    sb.append("; HttpOnly; Path=/authn/refresh; ");
+    sb.append("; HttpOnly; Secure; Path=/authn/refresh; ");
 
     // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
     // that the cookie will persist between browser tab sessions.
@@ -234,7 +233,7 @@ public class LoginAPI implements Authn {
     return sb.toString();
   }
 
-  private String makeAccessTokenCookie(String accessToken, String accessTokenExpiration) {
+  private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
@@ -243,7 +242,7 @@ public class LoginAPI implements Authn {
 
     // Path indicates the path that must exist in the requested URL for the client to send the
     // Cookie header.
-    sb.append("; HttpOnly; ");
+    sb.append("; HttpOnly; Secure; ");
 
     // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
     // that the cookie will persist between browser tab sessions.
@@ -253,6 +252,33 @@ public class LoginAPI implements Authn {
     logger.debug("Access token cookie: {}", sb.toString());
 
     return sb.toString();
+  }
+
+  private Response tokenResponse(Future<JsonObject> fetchTokenFuture) {
+    String accessToken = fetchTokenFuture.result().getString("accessToken");
+    String refreshToken = fetchTokenFuture.result().getString("refreshToken");
+    String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
+    String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
+    // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
+    // RMB generated-code does not allow multiple headers with the same key -- which is what we need
+    // here.
+    var body = new JsonObject()
+        .put("accessTokenExpiration", accessTokenExpiration)
+        .put("refreshTokenExpiration", refreshTokenExpiration)
+        .toString();
+    return Response.status(201)
+        .header("Set-Cookie", refreshTokenCookie(refreshToken, refreshTokenExpiration))
+        .header("Set-Cookie", accessTokenCookie(accessToken, accessTokenExpiration))
+        .type(MediaType.APPLICATION_JSON)
+        .entity(body)
+        .build();
+  }
+
+  private Response tokenResponseLegacy(Future<JsonObject> fetchTokenFuture) {
+    String authToken = fetchTokenFuture.result().getString("token");
+    var response = new LoginResponse().withOkapiToken(authToken);
+    return PostAuthnLoginResponse.respond201WithApplicationJson(response,
+        PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
   @Override
@@ -445,37 +471,9 @@ public class LoginAPI implements Authn {
                                           PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                                     } else {
                                       if (usesTokenSignLegacy(tokenSignEndpoint)) {
-                                        String authToken = fetchTokenFuture.result().getString("token");
-                                        var response = new LoginResponse().withOkapiToken(authToken);
-                                        asyncResultHandler.handle(Future.succeededFuture(
-                                            PostAuthnLoginResponse.respond201WithApplicationJson(response,
-                                                PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken))));
+                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture)));
                                       } else {
-                                        String accessToken = fetchTokenFuture.result().getString("accessToken");
-                                        String refreshToken = fetchTokenFuture.result().getString("refreshToken");
-                                        String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
-                                        String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
-                                        // var response = new LoginResponseWithExpiry()
-                                        //     .withAccessToken(accessToken)
-                                        //     .withAccessTokenExpiration(accessTokenExpiration)
-                                        //     .withRefreshTokenExpiration(refreshTokenExpiration);
-                                        // asyncResultHandler.handle(Future.succeededFuture(
-                                        //   PostAuthnLoginWithExpiryResponse.respond201WithApplicationJson(response,
-                                        //       PostAuthnLoginWithExpiryResponse.headersFor201()
-                                        //           .withSetCookie(makeRefreshTokenCookie(refreshToken, refreshTokenExpiration))
-                                        //           .withSetCookie(makeAccessTokenCookie(accessToken, accessTokenExpiration))
-                                        //           )));
-                                        // This merges the two headers into one, making (I believe) the cookie
-                                        // unparsable by the client. I've also tried creating Cookie objects and adding
-                                        // them. Same problem. See the corresponding test on LoginWithExpiryTest line 226,
-                                        // which fails because of the merger and the corresponding log. RMB has a different
-                                        // problem. It overwrites the first cookie with the second because it uses a Map
-                                        // for the data structure.
-                                        var response = Response.ok()
-                                            .header("Set-Cookie", "at=abc123; HttpOnly; Max-Age=123")
-                                            .header("Set-Cookie", "rt=xyz321")
-                                            .build();
-                                        asyncResultHandler.handle(Future.succeededFuture(response));
+                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture)));
                                       }
                                     }
                                   });
