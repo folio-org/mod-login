@@ -324,25 +324,24 @@ public class LoginAPI implements Authn {
   @Override
   public void postAuthnRefresh(String cookieHeader, Map<String, String> otherHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    logger.debug("Cookie is {}", cookieHeader);
+
+    String accessToken = "";
+    String refreshToken = "";
     try {
-      // The client must send both cookies with the request.
-      logger.debug("Cookie is {}", cookieHeader);
+      accessToken = getCookieValue(cookieHeader, ACCESS_TOKEN);
+      refreshToken = getCookieValue(cookieHeader, REFRESH_TOKEN);
+      logger.debug("RT cookie is {}", refreshToken);
+      logger.debug("AT cookie is {}", accessToken);
+    } catch (Exception e) {
+      logger.error("{}", TOKEN_REFRESH_BAD_MESSAGE);
+      asyncResultHandler.handle(Future.succeededFuture(
+          PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
+          BAD_REQUEST, TOKEN_REFRESH_BAD_CODE))));
+      return;
+    }
 
-      String accessToken = "";
-      String refreshToken = "";
-      try {
-        accessToken = getCookieValue(cookieHeader, ACCESS_TOKEN);
-        refreshToken = getCookieValue(cookieHeader, REFRESH_TOKEN);
-        logger.debug("RT cookie is {}", refreshToken);
-        logger.debug("AT cookie is {}", accessToken);
-      } catch (Exception e) {
-        logger.error("{}", TOKEN_REFRESH_BAD_MESSAGE);
-        asyncResultHandler.handle(Future.succeededFuture(
-            PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
-            BAD_REQUEST, TOKEN_REFRESH_BAD_CODE))));
-        return;
-      }
-
+    try {
       String tenantId = getTenant(otherHeaders);
       String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
 
