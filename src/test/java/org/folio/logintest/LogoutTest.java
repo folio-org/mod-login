@@ -26,7 +26,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
-public class RefreshTest {
+public class LogoutTest {
 
   private static Vertx vertx;
   private static RequestSpecification spec;
@@ -36,7 +36,8 @@ public class RefreshTest {
   private static RequestSpecification specBadRequestEmptyCookie;
 
   private static final String TENANT_DIKU = "diku";
-  private static final String REFRESH_PATH = "/authn/refresh";
+  private static final String LOGOUT_PATH = "/authn/logout";
+  private static final String LOGOUT_ALL_PATH = "/authn/logout-all";
 
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
@@ -61,14 +62,14 @@ public class RefreshTest {
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=123; refreshToken=321")
+        .addHeader("Cookie", "accessToken=123")
         .build();
 
     specExpiredToken = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=expiredtoken; refreshToken=321")
+        .addHeader("Cookie", "accessToken=expiredtoken")
         .build();
 
     specBadRequestMissingAccessTokenCookie = new RequestSpecBuilder()
@@ -96,49 +97,45 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshCreated(final TestContext context) {
+  public void testLogout(final TestContext context) {
     RestAssured.given()
       .spec(spec)
       .when()
-      .post(REFRESH_PATH)
+      .delete(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(201)
       .contentType("application/json")
       .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          .maxAge(604800)
+          .value("")
           .path("/authn/refresh")
           .httpOnly(true)
           .secured(true))
       .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          .maxAge(600)
+          .value("")
           .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+          .secured(true));
   }
 
   @Test
-  public void testRefreshUnprocessable(final TestContext context) {
+  public void testLogoutUnprocessable(final TestContext context) {
     RestAssured.given()
       .spec(specExpiredToken)
       .when()
-      .post(REFRESH_PATH)
+      .delete(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE_CODE))
-      .body("errors[0].message", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE));
+      .body("errors[0].code", is(LoginAPI.TOKEN_LOGOUT_UNPROCESSABLE_CODE))
+      .body("errors[0].message", is(LoginAPI.TOKEN_LOGOUT_UNPROCESSABLE));
   }
 
   @Test
-  public void testRefreshBadRequestEmptyCookie(final TestContext context) {
+  public void testLogoutBadRequestEmptyCookie(final TestContext context) {
     RestAssured.given()
       .spec(specBadRequestEmptyCookie)
       .when()
-      .post(REFRESH_PATH)
+      .delete(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(400)
@@ -147,11 +144,11 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshBadRequestNoCookie(final TestContext context) {
+  public void testLogoutBadRequestNoCookie(final TestContext context) {
     RestAssured.given()
       .spec(specBadRequestNoCookie)
       .when()
-      .post(REFRESH_PATH)
+      .delete(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(400)
@@ -160,11 +157,11 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshMissingAccessTokenCookie(final TestContext context) {
+  public void testLogoutMissingAccessTokenCookie(final TestContext context) {
     RestAssured.given()
       .spec(specBadRequestMissingAccessTokenCookie)
       .when()
-      .post(REFRESH_PATH)
+      .delete(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(400)

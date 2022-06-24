@@ -172,6 +172,58 @@ traits:
           body:
             text/plain:
               example: "Internal server error"
+  /logout:
+    delete:
+      description: Logs the user out on their current device
+      headers:
+        # The cookie will contain crumbs for the refresh token and the access token.
+        Cookie:
+      responses:
+        200:
+          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
+          # rather than through RMB code-generation. This is because RMB code generation doesn't
+          # let us do multiple haders with the same value, which we need to do here.
+        400:
+          description: "Bad request"
+          body:
+            application/json:
+              example: "Bad request"
+        422:
+          description: "Unprocessable entity. mod-authtoken has returned a 400 level response."
+          body:
+            application/json:
+              type: errors
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
+  /logout-all:
+    delete:
+      description: Logs the user out on all of their devices
+      headers:
+        # The cookie will contain crumbs for the refresh token and the access token.
+        Cookie:
+      responses:
+        200:
+          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
+          # rather than through RMB code-generation. This is because RMB code generation doesn't
+          # let us do multiple haders with the same value, which we need to do here.
+        400:
+          description: "Bad request"
+          body:
+            application/json:
+              example: "Bad request"
+        422:
+          description: "Unprocessable entity. mod-authtoken has returned a 400 level response."
+          body:
+            application/json:
+              type: errors
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
   /update:
     post:
       description: Self-update existing credentials.  N.B. A non-empty password must be provided.

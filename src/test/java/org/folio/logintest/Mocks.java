@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -93,6 +94,8 @@ public class Mocks extends AbstractVerticle {
     router.route("/token").handler(this::handleTokenLegacy);
     router.route("/token/sign").handler(this::handleTokenSign);
     router.route("/token/refresh").handler(this::handleTokenRefresh);
+    router.route("/token/logout").handler(this::handleLogout);
+    router.route("/token/logout-all").handler(this::handleLogoutAll);
     router.route("/configurations/entries").handler(this::handleConfig);
     logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {
@@ -292,6 +295,26 @@ public class Mocks extends AbstractVerticle {
       // TODO Why is this header mocked when it isn't being returned from /token
       //.putHeader("X-Okapi-Token", "dummytoken")
       .end(new JsonObject().put("token", "dummytoken").encode());
+  }
+
+  private void returnLogoutResponse(RoutingContext context) {
+    if (!context.request().method().equals(HttpMethod.DELETE)) {
+      context.response()
+      .setStatusCode(405)
+      .end();
+      return;
+    }
+    context.response()
+      .setStatusCode(200)
+      .end();
+  }
+
+  private void handleLogoutAll(RoutingContext context) {
+    returnLogoutResponse(context);
+  }
+
+  private void handleLogout(RoutingContext context) {
+    returnLogoutResponse(context);
   }
 
   public static void setConfig(String code, JsonObject json) {

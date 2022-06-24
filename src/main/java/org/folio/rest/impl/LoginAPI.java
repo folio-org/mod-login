@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.net.HttpCookie;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -63,9 +62,9 @@ import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.PercentCodec;
 import org.folio.util.StringUtil;
+import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
 
-import io.netty.handler.codec.http.cookie.CookieEncoder;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -111,14 +110,17 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_REFRESH_UNPROCESSABLE = "Authorization server unable to process token refresh request";
   public static final String TOKEN_REFRESH_UNPROCESSABLE_CODE = "token.refresh.unprocessable";
   public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
-  public static final String TOKEN_REFRESH_BAD_MESSAGE = "Unable to parse token cookies";
-  public static final String TOKEN_REFRESH_BAD_CODE = "token.refresh.bad";
+  public static final String TOKEN_PARSE_BAD_MESSAGE = "Unable to parse token cookies";
+  public static final String TOKEN_PARSE_BAD_CODE = "token.parse.failure";
   public static final String REFRESH_TOKEN = "refreshToken";
   public static final String ACCESS_TOKEN = "accessToken";
   public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
   public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
   public static final String SET_COOKIE = "Set-Cookie";
   public static final String BAD_REQUEST = "Bad request";
+  public static final String TOKEN_LOGOUT_UNPROCESSABLE = "Authorization server unable to process token logout request";
+  public static final String TOKEN_LOGOUT_UNPROCESSABLE_CODE = "token.logout.unprocessable";
+  public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
 
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
@@ -308,17 +310,14 @@ public class LoginAPI implements Authn {
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
-  private String getCookieValue(String cookieHeader, String key) {
-    String[] cookies = cookieHeader.split(";");
-    for (String c : cookies) {
-      String[] cookeNameValue = c.trim().split("=", 2);
-      String cookieName = cookeNameValue[0].trim();
-      String cookieValue = cookeNameValue[1].trim();
-      if (cookieName.equals(key)) {
-        return cookieValue;
-      }
-    }
-    throw new RuntimeException("No cookie found for key " + key);
+  @Override
+  public void deleteAuthnLogout(String cookieHeader, Map<String, String> otherHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+  }
+
+  @Override
+  public void deleteAuthnLogoutAll(String cookieHeader, Map<String, String> otherHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
   }
 
   @Override
@@ -329,15 +328,14 @@ public class LoginAPI implements Authn {
     String accessToken = "";
     String refreshToken = "";
     try {
-      accessToken = getCookieValue(cookieHeader, ACCESS_TOKEN);
-      refreshToken = getCookieValue(cookieHeader, REFRESH_TOKEN);
-      logger.debug("RT cookie is {}", refreshToken);
-      logger.debug("AT cookie is {}", accessToken);
+      var p = new TokenCookieParser(cookieHeader);
+      accessToken = p.accessToken;
+      refreshToken = p.refreshToken;
     } catch (Exception e) {
-      logger.error("{}", TOKEN_REFRESH_BAD_MESSAGE);
+      logger.error("{}", TOKEN_PARSE_BAD_MESSAGE);
       asyncResultHandler.handle(Future.succeededFuture(
           PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
-          BAD_REQUEST, TOKEN_REFRESH_BAD_CODE))));
+          BAD_REQUEST, TOKEN_PARSE_BAD_CODE))));
       return;
     }
 
@@ -350,7 +348,7 @@ public class LoginAPI implements Authn {
       fetchTokenFuture.onSuccess(r -> {
       // The authorization server uses a number of 400-level responses for this endpoint.
       // It will log those. Here we aggregate all of those possible responses to a single 422
-      // so as to not duplicate its API.
+      // so as to not duplicate its API. This is consistent with other mod-login APIs.
       if (r.statusCode() >= 400) {
           logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
           asyncResultHandler.handle(Future.succeededFuture(
