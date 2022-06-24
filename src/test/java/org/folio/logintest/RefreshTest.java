@@ -80,7 +80,7 @@ public class RefreshTest {
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "at=123; rt=321")
+        .addHeader("Cookie", "accessToken=123; refreshToken=321")
         //.addHeader(XOkapiHeaders.TOKEN, "dummy.token")
         .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
         .build();
@@ -108,29 +108,28 @@ public class RefreshTest {
         .onComplete(context.asyncAssertSuccess());
   }
 
-  // TODO Get this going
-  // @Test
-  // public void testRefresh(final TestContext context) {
-  //   RestAssured.given()
-  //     .spec(spec)
-  //     .when()
-  //     .post(REFRESH_PATH)
-  //     .then()
-  //     .log().all()
-  //     .statusCode(201)
-  //     .contentType("application/json")
-  //     .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-  //         .value("dummyrefreshtoken")
-  //         .maxAge(604800)
-  //         .path("/authn/refresh")
-  //         .httpOnly(true)
-  //         .secured(true))
-  //     .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-  //         .value("dummyaccesstoken")
-  //         .maxAge(600)
-  //         .httpOnly(true)
-  //         .secured(true))
-  //     .body("$", hasKey("accessTokenExpiration"))
-  //     .body("$", hasKey("refreshTokenExpiration"));
-  // }
+  @Test
+  public void testRefreshCreated(final TestContext context) {
+    RestAssured.given()
+      .spec(spec)
+      .when()
+      .post(REFRESH_PATH)
+      .then()
+      .log().all()
+      .statusCode(201)
+      .contentType("application/json")
+      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
+          .value("dummyrefreshtoken")
+          .maxAge(604800)
+          .path("/authn/refresh")
+          .httpOnly(true)
+          .secured(true))
+      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
+          .value("dummyaccesstoken")
+          .maxAge(600)
+          .httpOnly(true)
+          .secured(true))
+      .body("$", hasKey("accessTokenExpiration"))
+      .body("$", hasKey("refreshTokenExpiration"));
+  }
 }

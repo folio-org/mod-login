@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.net.HttpCookie;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -64,6 +65,7 @@ import org.folio.util.PercentCodec;
 import org.folio.util.StringUtil;
 import org.folio.util.WebClientFactory;
 
+import io.netty.handler.codec.http.cookie.CookieEncoder;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -207,8 +209,8 @@ public class LoginAPI implements Authn {
     });
   }
 
-  private Future<JsonObject> fetchRefreshToken(String tenant,
-     String okapiURL, String accessToken, String refreshToken) {
+  private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
+      String okapiURL, String accessToken, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
 
     // It's ok that we use x-okapi-token here because mod-authtoken's filter will accept both. But we could
@@ -216,13 +218,7 @@ public class LoginAPI implements Authn {
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, accessToken);
 
-    return request.sendJson(new JsonObject().put("refreshToken", refreshToken)).map(response -> {
-      if (response.statusCode() != 201) {
-        throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
-      }
-
-      return response.bodyAsJsonObject();
-    });
+    return request.sendJson(new JsonObject().put("refreshToken", refreshToken));
   }
 
   private boolean usesTokenSignLegacy(String endpoint) {
@@ -273,11 +269,11 @@ public class LoginAPI implements Authn {
     return sb.toString();
   }
 
-  private Response tokenResponse(Future<JsonObject> fetchTokenFuture) {
-    String accessToken = fetchTokenFuture.result().getString("accessToken");
-    String refreshToken = fetchTokenFuture.result().getString("refreshToken");
-    String accessTokenExpiration = fetchTokenFuture.result().getString("accessTokenExpiration");
-    String refreshTokenExpiration = fetchTokenFuture.result().getString("refreshTokenExpiration");
+  private Response tokenResponse(JsonObject fetchTokenFuture) {
+    String accessToken = fetchTokenFuture.getString("accessToken");
+    String refreshToken = fetchTokenFuture.getString("refreshToken");
+    String accessTokenExpiration = fetchTokenFuture.getString("accessTokenExpiration");
+    String refreshTokenExpiration = fetchTokenFuture.getString("refreshTokenExpiration");
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
@@ -300,34 +296,44 @@ public class LoginAPI implements Authn {
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
+  private String getCookieValue(String cookieHeader, String key) {
+    String[] cookies = cookieHeader.split(";");
+    for (String c : cookies) {
+      String[] cookeNameValue = c.trim().split("=", 2);
+      String cookieName = cookeNameValue[0].trim();
+      String cookieValue = cookeNameValue[1].trim();
+      if (cookieName.equals(key)) {
+        return cookieValue;
+      }
+    }
+    throw new RuntimeException("No cookie found for key " + key);
+  }
+
   @Override
-  public void postAuthnRefresh(String cookie, Map<String, String> otherHeaders,
+  public void postAuthnRefresh(String cookieHeader, Map<String, String> otherHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
-    // The client should send both cookies with the request. One has this path and one should not.
-    logger.debug("Cookie is {}", cookie);
+    // The client must send both cookies with the request.
+    logger.debug("Cookie is {}", cookieHeader);
 
-    String[] crumbs = cookie.split(";");
-    String accessToken = crumbs[0].trim();
-    String refreshToken = crumbs[1].trim();
-
-    // TODO Need to make it not dependent on the order.
-    // TODO Also remove the keys.
-
+    String accessToken = getCookieValue(cookieHeader, "accessToken");
+    String refreshToken = getCookieValue(cookieHeader, "refreshToken");
     logger.debug("RT cookie is {}", refreshToken);
     logger.debug("AT cookie is {}", accessToken);
+
     String tenantId = getTenant(otherHeaders);
-
     String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
-    // This will only work if two cookies are sent, one which has the AT and one which has the RT.
-    // Because we need both to get past mod-at's filter.
-    // String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN); // <-- not going to work
 
-    Future<JsonObject> fetchTokenFuture;
-
-    fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
-
-    // TODO Call a completion on the future.
-    asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture)));
+    // If either token has expired it should probably send that response back.
+    Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
+    fetchTokenFuture.onComplete(r -> {
+        if (fetchTokenFuture.failed()) {
+        String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
+        logger.error(errMsg);
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
+      } else {
+        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result().bodyAsJsonObject())));
+      }
+    });
   }
 
   @Override
@@ -522,7 +528,7 @@ public class LoginAPI implements Authn {
                                       if (usesTokenSignLegacy(tokenSignEndpoint)) {
                                         asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture)));
                                       } else {
-                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture)));
+                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result())));
                                       }
                                     }
                                   });
