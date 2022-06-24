@@ -17,6 +17,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 
 /**
  * @author kurt
@@ -256,7 +257,7 @@ public class Mocks extends AbstractVerticle {
     }
   }
 
-  private void handleTokenSign(RoutingContext context) {
+  private void returnTokens(RoutingContext context) {
     var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
     var rtExpiration = Instant.now().plusSeconds(604800).toString();
     var response = new JsonObject()
@@ -271,17 +272,17 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenRefresh(RoutingContext context) {
-    var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
-    var rtExpiration = Instant.now().plusSeconds(604800).toString();
-    var response = new JsonObject()
-      .put("accessTokenExpiration", atExpiration)
-      .put("refreshTokenExpiration",rtExpiration)
-      .put("accessToken", "dummyaccesstoken")
-      .put("refreshToken", "dummyrefreshtoken");
-    context.response()
-      .setStatusCode(201)
-      .putHeader("Content-Type", "application/json")
-      .end(response.encode());
+    if (context.request().headers().get(XOkapiHeaders.TOKEN).equals("expiredtoken")) {
+      context.response()
+      .setStatusCode(401)
+      .end();
+      return;
+    }
+    returnTokens(context);
+  }
+
+  private void handleTokenSign(RoutingContext context) {
+    returnTokens(context);
   }
 
   private void handleTokenLegacy(RoutingContext context) {

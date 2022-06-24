@@ -108,6 +108,18 @@ public class LoginAPI implements Authn {
   private static final String TOKEN_SIGN_ENDPOINT = "/token/sign";
   private static final String TOKEN_SIGN_ENDPOINT_LEGACY = "/token";
   private static final String TOKEN_REFRESH_ENDPOINT = "/token/refresh";
+  public static final String TOKEN_REFRESH_UNPROCESSABLE = "Authorization server unable to process token refresh request";
+  public static final String TOKEN_REFRESH_UNPROCESSABLE_CODE = "token.refresh.unprocessable";
+  public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
+  public static final String TOKEN_REFRESH_BAD_MESSAGE = "Unable to parse token cookies";
+  public static final String TOKEN_REFRESH_BAD_CODE = "token.refresh.bad";
+  public static final String REFRESH_TOKEN = "refreshToken";
+  public static final String ACCESS_TOKEN = "accessToken";
+  public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
+  public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
+  public static final String SET_COOKIE = "Set-Cookie";
+  public static final String BAD_REQUEST = "Bad request";
+
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -270,27 +282,27 @@ public class LoginAPI implements Authn {
   }
 
   private Response tokenResponse(JsonObject fetchTokenFuture) {
-    String accessToken = fetchTokenFuture.getString("accessToken");
-    String refreshToken = fetchTokenFuture.getString("refreshToken");
-    String accessTokenExpiration = fetchTokenFuture.getString("accessTokenExpiration");
-    String refreshTokenExpiration = fetchTokenFuture.getString("refreshTokenExpiration");
+    String accessToken = fetchTokenFuture.getString(ACCESS_TOKEN);
+    String refreshToken = fetchTokenFuture.getString(REFRESH_TOKEN);
+    String accessTokenExpiration = fetchTokenFuture.getString(ACCESS_TOKEN_EXPIRATION);
+    String refreshTokenExpiration = fetchTokenFuture.getString(REFRESH_TOKEN_EXPIRATION);
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
     var body = new JsonObject()
-        .put("accessTokenExpiration", accessTokenExpiration)
-        .put("refreshTokenExpiration", refreshTokenExpiration)
+        .put(ACCESS_TOKEN_EXPIRATION, accessTokenExpiration)
+        .put(REFRESH_TOKEN_EXPIRATION, refreshTokenExpiration)
         .toString();
     return Response.status(201)
-        .header("Set-Cookie", refreshTokenCookie(refreshToken, refreshTokenExpiration))
-        .header("Set-Cookie", accessTokenCookie(accessToken, accessTokenExpiration))
+        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
+        .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration))
         .type(MediaType.APPLICATION_JSON)
         .entity(body)
         .build();
   }
 
-  private Response tokenResponseLegacy(Future<JsonObject> fetchTokenFuture) {
-    String authToken = fetchTokenFuture.result().getString("token");
+  private Response tokenResponseLegacy(JsonObject fetchTokenFuture) {
+    String authToken = fetchTokenFuture.getString("token");
     var response = new LoginResponse().withOkapiToken(authToken);
     return PostAuthnLoginResponse.respond201WithApplicationJson(response,
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
@@ -312,28 +324,54 @@ public class LoginAPI implements Authn {
   @Override
   public void postAuthnRefresh(String cookieHeader, Map<String, String> otherHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
-    // The client must send both cookies with the request.
-    logger.debug("Cookie is {}", cookieHeader);
+    try {
+      // The client must send both cookies with the request.
+      logger.debug("Cookie is {}", cookieHeader);
 
-    String accessToken = getCookieValue(cookieHeader, "accessToken");
-    String refreshToken = getCookieValue(cookieHeader, "refreshToken");
-    logger.debug("RT cookie is {}", refreshToken);
-    logger.debug("AT cookie is {}", accessToken);
-
-    String tenantId = getTenant(otherHeaders);
-    String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
-
-    // If either token has expired it should probably send that response back.
-    Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
-    fetchTokenFuture.onComplete(r -> {
-        if (fetchTokenFuture.failed()) {
-        String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
-        logger.error(errMsg);
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
-      } else {
-        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result().bodyAsJsonObject())));
+      String accessToken = "";
+      String refreshToken = "";
+      try {
+        accessToken = getCookieValue(cookieHeader, ACCESS_TOKEN);
+        refreshToken = getCookieValue(cookieHeader, REFRESH_TOKEN);
+        logger.debug("RT cookie is {}", refreshToken);
+        logger.debug("AT cookie is {}", accessToken);
+      } catch (Exception e) {
+        logger.error("{}", TOKEN_REFRESH_BAD_MESSAGE);
+        asyncResultHandler.handle(Future.succeededFuture(
+            PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
+            BAD_REQUEST, TOKEN_REFRESH_BAD_CODE))));
+        return;
       }
-    });
+
+      String tenantId = getTenant(otherHeaders);
+      String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
+
+      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
+
+      fetchTokenFuture.onSuccess(r -> {
+      // The authorization server uses a number of 400-level responses for this endpoint.
+      // It will log those. Here we aggregate all of those possible responses to a single 422
+      // so as to not duplicate its API.
+      if (r.statusCode() >= 400) {
+          logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
+          asyncResultHandler.handle(Future.succeededFuture(
+            PostAuthnRefreshResponse.respond422WithApplicationJson(getErrors(
+            TOKEN_REFRESH_UNPROCESSABLE, TOKEN_REFRESH_UNPROCESSABLE_CODE))));
+          return;
+        }
+        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result().bodyAsJsonObject())));
+      });
+
+      fetchTokenFuture.onFailure(e -> {
+        logger.error("{}: {} {}", INTERNAL_ERROR, e.getMessage(), e.getStackTrace());
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(
+          getErrors(INTERNAL_ERROR, TOKEN_REFRESH_FAIL_CODE))));
+      });
+    } catch (Exception e) {
+      String msg = "Unexpected exception when refreshing token";
+      logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
   }
 
   @Override
@@ -526,7 +564,7 @@ public class LoginAPI implements Authn {
                                           PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                                     } else {
                                       if (usesTokenSignLegacy(tokenSignEndpoint)) {
-                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture)));
+                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture.result())));
                                       } else {
                                         asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result())));
                                       }

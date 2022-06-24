@@ -23,6 +23,7 @@ import java.util.Date;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -47,14 +48,13 @@ public class RefreshTest {
 
   private static Vertx vertx;
   private static RequestSpecification spec;
-  private static RequestSpecification specWithoutUrl;
-  private static RequestSpecification specWithoutToken;
+  private static RequestSpecification specExpiredToken;
+  private static RequestSpecification specBadRequestMissingAccessTokenCookie;
+  private static RequestSpecification specBadRequestNoCookie;
+  private static RequestSpecification specBadRequestEmptyCookie;
 
   private static final String TENANT_DIKU = "diku";
-  //private static final String LOGIN_WITH_EXPIRY_PATH = "/authn/login-with-expiry";
   private static final String REFRESH_PATH = "/authn/refresh";
-  //private static final String CRED_PATH = "/authn/credentials";
-  //private static final String UPDATE_PATH = "/authn/update";
 
   @BeforeClass
   public static void setup(final TestContext context) throws Exception {
@@ -76,30 +76,35 @@ public class RefreshTest {
     PostgresClient.getInstance(vertx);
 
     spec = new RequestSpecBuilder()
-        .setContentType(ContentType.JSON)
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader("Cookie", "accessToken=123; refreshToken=321")
-        //.addHeader(XOkapiHeaders.TOKEN, "dummy.token")
-        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
         .build();
 
-    specWithoutUrl = new RequestSpecBuilder()
-        .setContentType(ContentType.JSON)
+    specExpiredToken = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader("Cookie", "accessToken=expiredtoken; refreshToken=321")
+        .build();
+
+    specBadRequestMissingAccessTokenCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        //.addHeader(XOkapiHeaders.TOKEN, "dummy.token")
-        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .addHeader("Cookie", "refreshToken=321")
         .build();
 
-    // specWithoutToken = new RequestSpecBuilder()
-    //     .setContentType(ContentType.JSON)
-    //     .setBaseUri("http://localhost:" + port)
-    //     .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
-    //     .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-    //     .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-    //     .build();
+    specBadRequestEmptyCookie = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader("Cookie", "")
+        .build();
+
+    specBadRequestNoCookie = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .build();
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(Mocks.class.getName(), mockOptions)
@@ -131,5 +136,57 @@ public class RefreshTest {
           .secured(true))
       .body("$", hasKey("accessTokenExpiration"))
       .body("$", hasKey("refreshTokenExpiration"));
+  }
+
+  @Test
+  public void testRefreshUnprocessable(final TestContext context) {
+    RestAssured.given()
+      .spec(specExpiredToken)
+      .when()
+      .post(REFRESH_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE_CODE))
+      .body("errors[0].message", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE));
+  }
+
+  @Test
+  public void testRefreshBadRequestEmptyCookie(final TestContext context) {
+    RestAssured.given()
+      .spec(specBadRequestEmptyCookie)
+      .when()
+      .post(REFRESH_PATH)
+      .then()
+      .log().all()
+      .statusCode(400)
+      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_BAD_CODE))
+      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+  }
+
+  @Test
+  public void testRefreshBadRequestNoCookie(final TestContext context) {
+    RestAssured.given()
+      .spec(specBadRequestNoCookie)
+      .when()
+      .post(REFRESH_PATH)
+      .then()
+      .log().all()
+      .statusCode(400)
+      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_BAD_CODE))
+      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+  }
+
+  @Test
+  public void specBadRequestMissingAccessTokenCookie(final TestContext context) {
+    RestAssured.given()
+      .spec(specBadRequestMissingAccessTokenCookie)
+      .when()
+      .post(REFRESH_PATH)
+      .then()
+      .log().all()
+      .statusCode(400)
+      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_BAD_CODE))
+      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
   }
 }
