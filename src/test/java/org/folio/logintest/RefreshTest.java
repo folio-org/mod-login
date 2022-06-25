@@ -160,7 +160,7 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshMissingAccessTokenCookie(final TestContext context) {
+  public void MissingAccessTokenCookie(final TestContext context) {
     RestAssured.given()
       .spec(specBadRequestMissingAccessTokenCookie)
       .when()

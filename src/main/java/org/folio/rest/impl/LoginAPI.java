@@ -121,6 +121,8 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_LOGOUT_UNPROCESSABLE = "Authorization server unable to process token logout request";
   public static final String TOKEN_LOGOUT_UNPROCESSABLE_CODE = "token.logout.unprocessable";
   public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
+  public static final String TOKEN_LOGOUT_ENDPOINT = "/token/logout";
+  public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/logout-all";
 
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
@@ -223,6 +225,18 @@ public class LoginAPI implements Authn {
     });
   }
 
+  private Future<HttpResponse<Buffer>> logout(String tenant,
+      String okapiURL, String accessToken, String endpoint) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + endpoint);
+
+    // It's ok that we use x-okapi-token here because mod-authtoken's filter will accept both. But we could
+    // just as well use a cookie header.
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+
+    return request.send();
+  }
+
   private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
       String okapiURL, String accessToken, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
@@ -303,6 +317,16 @@ public class LoginAPI implements Authn {
         .build();
   }
 
+  private Response logoutResponse() {
+    // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
+    // RMB generated-code does not allow multiple headers with the same key -- which is what we need
+    // here.
+    return Response.status(200)
+        .header(SET_COOKIE, REFRESH_TOKEN + "=")
+        .header(SET_COOKIE, ACCESS_TOKEN + "=")
+        .build();
+  }
+
   private Response tokenResponseLegacy(JsonObject fetchTokenFuture) {
     String authToken = fetchTokenFuture.getString("token");
     var response = new LoginResponse().withOkapiToken(authToken);
@@ -310,14 +334,49 @@ public class LoginAPI implements Authn {
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
-  @Override
-  public void deleteAuthnLogout(String cookieHeader, Map<String, String> otherHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+  private void handleLogout(Map<String, String> okapiHeaders,
+  Handler<AsyncResult<Response>> asyncResultHandler, String endpoint) {
+    try {
+      String tenantId = getTenant(okapiHeaders);
+      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      String accessToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+
+      Future<HttpResponse<Buffer>> logoutFuture = logout(tenantId, okapiURL, accessToken, endpoint);
+
+      logoutFuture.onSuccess(r -> {
+      if (r.statusCode() >= 400) {
+          logger.error("{} (status code: {})", TOKEN_LOGOUT_UNPROCESSABLE, r.statusCode());
+          asyncResultHandler.handle(Future.succeededFuture(
+            DeleteAuthnLogoutResponse.respond422WithApplicationJson(getErrors(
+              TOKEN_LOGOUT_UNPROCESSABLE, TOKEN_LOGOUT_UNPROCESSABLE_CODE))));
+          return;
+        }
+
+        asyncResultHandler.handle(Future.succeededFuture(logoutResponse()));
+      });
+
+      logoutFuture.onFailure(e -> {
+        logger.error("{}: {} {}", INTERNAL_ERROR, e.getMessage(), e.getStackTrace());
+        asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnLogoutResponse.respond500WithTextPlain(
+          getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
+      });
+    } catch (Exception e) {
+      String msg = "Unexpected exception when refreshing token";
+      logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
+      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
   }
 
   @Override
-  public void deleteAuthnLogoutAll(String cookieHeader, Map<String, String> otherHeaders,
+  public void deleteAuthnLogout(Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    handleLogout(okapiHeaders, asyncResultHandler, TOKEN_LOGOUT_ENDPOINT);
+  }
+
+  @Override
+  public void deleteAuthnLogoutAll(Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    handleLogout(okapiHeaders, asyncResultHandler, TOKEN_LOGOUT_ALL_ENDPOINT);
   }
 
   @Override
@@ -332,7 +391,7 @@ public class LoginAPI implements Authn {
       accessToken = p.accessToken;
       refreshToken = p.refreshToken;
     } catch (Exception e) {
-      logger.error("{}", TOKEN_PARSE_BAD_MESSAGE);
+      logger.error("{}: {} {}", TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e.getStackTrace());
       asyncResultHandler.handle(Future.succeededFuture(
           PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
           BAD_REQUEST, TOKEN_PARSE_BAD_CODE))));
@@ -346,9 +405,9 @@ public class LoginAPI implements Authn {
       Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
 
       fetchTokenFuture.onSuccess(r -> {
-      // The authorization server uses a number of 400-level responses for this endpoint.
-      // It will log those. Here we aggregate all of those possible responses to a single 422
-      // so as to not duplicate its API. This is consistent with other mod-login APIs.
+      // The authorization server uses a number of 400-level responses.
+      // It will log those. Aggregate all of those possible responses to a single 422
+      // to not duplicate its API. This is consistent with other mod-login APIs.
       if (r.statusCode() >= 400) {
           logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
           asyncResultHandler.handle(Future.succeededFuture(
@@ -356,7 +415,9 @@ public class LoginAPI implements Authn {
             TOKEN_REFRESH_UNPROCESSABLE, TOKEN_REFRESH_UNPROCESSABLE_CODE))));
           return;
         }
-        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result().bodyAsJsonObject())));
+
+        Response tr = tokenResponse(r.bodyAsJsonObject());
+        asyncResultHandler.handle(Future.succeededFuture(tr));
       });
 
       fetchTokenFuture.onFailure(e -> {

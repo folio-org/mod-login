@@ -298,9 +298,9 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void returnLogoutResponse(RoutingContext context) {
-    if (!context.request().method().equals(HttpMethod.DELETE)) {
+    if (context.request().headers().get(XOkapiHeaders.TOKEN).equals("expiredtoken")) {
       context.response()
-      .setStatusCode(405)
+      .setStatusCode(401)
       .end();
       return;
     }

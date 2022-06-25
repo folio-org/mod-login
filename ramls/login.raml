@@ -175,9 +175,6 @@ traits:
   /logout:
     delete:
       description: Logs the user out on their current device
-      headers:
-        # The cookie will contain crumbs for the refresh token and the access token.
-        Cookie:
       responses:
         200:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
@@ -201,9 +198,6 @@ traits:
   /logout-all:
     delete:
       description: Logs the user out on all of their devices
-      headers:
-        # The cookie will contain crumbs for the refresh token and the access token.
-        Cookie:
       responses:
         200:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object

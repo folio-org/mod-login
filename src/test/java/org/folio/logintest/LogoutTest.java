@@ -31,9 +31,6 @@ public class LogoutTest {
   private static Vertx vertx;
   private static RequestSpecification spec;
   private static RequestSpecification specExpiredToken;
-  private static RequestSpecification specBadRequestMissingAccessTokenCookie;
-  private static RequestSpecification specBadRequestNoCookie;
-  private static RequestSpecification specBadRequestEmptyCookie;
 
   private static final String TENANT_DIKU = "diku";
   private static final String LOGOUT_PATH = "/authn/logout";
@@ -62,31 +59,14 @@ public class LogoutTest {
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=123")
+        .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
         .build();
 
     specExpiredToken = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=expiredtoken")
-        .build();
-
-    specBadRequestMissingAccessTokenCookie = new RequestSpecBuilder()
-        .setBaseUri("http://localhost:" + port)
-        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "refreshToken=321")
-        .build();
-
-    specBadRequestEmptyCookie = new RequestSpecBuilder()
-        .setBaseUri("http://localhost:" + port)
-        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "")
-        .build();
-
-    specBadRequestNoCookie = new RequestSpecBuilder()
-        .setBaseUri("http://localhost:" + port)
-        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "expiredtoken")
         .build();
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
@@ -104,68 +84,43 @@ public class LogoutTest {
       .delete(LOGOUT_PATH)
       .then()
       .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("")
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("")
-          .httpOnly(true)
-          .secured(true));
+      .statusCode(200)
+      .cookie("refreshToken", "")
+      .cookie("accessToken", "");
   }
 
   @Test
-  public void testLogoutUnprocessable(final TestContext context) {
+  public void testLogoutBadRequest(final TestContext context) {
     RestAssured.given()
       .spec(specExpiredToken)
       .when()
       .delete(LOGOUT_PATH)
       .then()
       .log().all()
-      .statusCode(422)
-      .body("errors[0].code", is(LoginAPI.TOKEN_LOGOUT_UNPROCESSABLE_CODE))
-      .body("errors[0].message", is(LoginAPI.TOKEN_LOGOUT_UNPROCESSABLE));
+      .statusCode(422);
   }
 
   @Test
-  public void testLogoutBadRequestEmptyCookie(final TestContext context) {
+  public void testLogoutAll(final TestContext context) {
     RestAssured.given()
-      .spec(specBadRequestEmptyCookie)
+      .spec(spec)
       .when()
-      .delete(LOGOUT_PATH)
+      .delete(LOGOUT_ALL_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+      .statusCode(200)
+      .cookie("refreshToken", "")
+      .cookie("accessToken", "");
   }
 
   @Test
-  public void testLogoutBadRequestNoCookie(final TestContext context) {
+  public void testLogoutBadRequestAll(final TestContext context) {
     RestAssured.given()
-      .spec(specBadRequestNoCookie)
+      .spec(specExpiredToken)
       .when()
-      .delete(LOGOUT_PATH)
+      .delete(LOGOUT_ALL_PATH)
       .then()
       .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
-  }
-
-  @Test
-  public void testLogoutMissingAccessTokenCookie(final TestContext context) {
-    RestAssured.given()
-      .spec(specBadRequestMissingAccessTokenCookie)
-      .when()
-      .delete(LOGOUT_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+      .statusCode(422);
   }
 }
