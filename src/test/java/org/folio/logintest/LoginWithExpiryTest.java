@@ -15,8 +15,11 @@ import static org.folio.logintest.Mocks.credsNonExistentUser;
 import static org.folio.logintest.Mocks.credsUserWithNoId;
 
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.allOf;
+
 
 import java.util.Date;
 
@@ -33,7 +36,6 @@ import org.junit.runner.RunWith;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
-import io.restassured.matcher.DetailedCookieMatcher;
 import io.restassured.matcher.RestAssuredMatchers;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
@@ -220,6 +222,7 @@ public class LoginWithExpiryTest {
       .contentType("text/plain")
       .body(is("No user id could be found"));
 
+
     RestAssured.given()
       .spec(spec)
       .body(credsObject1.encode())
@@ -231,13 +234,15 @@ public class LoginWithExpiryTest {
       .contentType("application/json")
       .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
           .value("dummyrefreshtoken")
-          .maxAge(604800)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
           .path("/authn/refresh")
           .httpOnly(true)
           .secured(true))
       .cookie("accessToken", RestAssuredMatchers.detailedCookie()
           .value("dummyaccesstoken")
-          .maxAge(600)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(598), lessThan(601)))
           .httpOnly(true)
           .secured(true))
       .body("$", hasKey("accessTokenExpiration"))
@@ -254,13 +259,15 @@ public class LoginWithExpiryTest {
       .contentType("application/json")
       .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
           .value("dummyrefreshtoken")
-          .maxAge(604800)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
           .path("/authn/refresh")
           .httpOnly(true)
           .secured(true))
       .cookie("accessToken", RestAssuredMatchers.detailedCookie()
           .value("dummyaccesstoken")
-          .maxAge(600)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(598), lessThan(601)))
           .httpOnly(true)
           .secured(true))
       .body("$", hasKey("accessTokenExpiration"))
@@ -361,7 +368,7 @@ public class LoginWithExpiryTest {
       .contentType("application/json")
       .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
           .value("dummyrefreshtoken")
-          .maxAge(604800)
+          .maxAge(is(604800))
           .path("/authn/refresh")
           .httpOnly(true)
           .secured(true))

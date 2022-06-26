@@ -3,6 +3,9 @@ package org.folio.logintest;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.allOf;
 
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
@@ -107,13 +110,15 @@ public class RefreshTest {
       .contentType("application/json")
       .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
           .value("dummyrefreshtoken")
-          .maxAge(604800)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
           .path("/authn/refresh")
           .httpOnly(true)
           .secured(true))
       .cookie("accessToken", RestAssuredMatchers.detailedCookie()
           .value("dummyaccesstoken")
-          .maxAge(600)
+          // Account for time drift because we're using Now.Instant to compute max-age.
+          .maxAge(allOf(greaterThan(598), lessThan(601)))
           .httpOnly(true)
           .secured(true))
       .body("$", hasKey("accessTokenExpiration"))
