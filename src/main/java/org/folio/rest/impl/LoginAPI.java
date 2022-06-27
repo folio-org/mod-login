@@ -241,12 +241,10 @@ public class LoginAPI implements Authn {
       String okapiURL, String accessToken, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
 
-    // It's ok that we use x-okapi-token here because mod-authtoken's filter will accept both. But we could
-    // just as well use a cookie header.
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, accessToken);
 
-    return request.sendJson(new JsonObject().put("refreshToken", refreshToken));
+    return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
   }
 
   private boolean usesTokenSignLegacy(String endpoint) {
@@ -271,8 +269,6 @@ public class LoginAPI implements Authn {
     sb.append("Max-Age=");
     sb.append(ttlSeconds);
 
-    logger.debug("Refresh token cookie: {}", sb.toString());
-
     return sb.toString();
   }
 
@@ -291,8 +287,6 @@ public class LoginAPI implements Authn {
     // that the cookie will persist between browser tab sessions.
     sb.append("Max-Age=");
     sb.append(ttlSeconds);
-
-    logger.debug("Access token cookie: {}", sb.toString());
 
     return sb.toString();
   }

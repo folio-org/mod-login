@@ -1,6 +1,5 @@
 package org.folio.logintest;
 
-
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.greaterThan;
@@ -49,13 +48,12 @@ public class RefreshTest {
     int mockPort = NetworkUtils.nextFreePort();
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
-      new JsonObject()
-        .put("http.port", port)
-    );
+        new JsonObject()
+            .put("http.port", port));
 
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
-      new JsonObject()
-        .put("port", mockPort));
+        new JsonObject()
+            .put("port", mockPort));
 
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
@@ -101,79 +99,80 @@ public class RefreshTest {
   @Test
   public void testRefreshCreated(final TestContext context) {
     RestAssured.given()
-      .spec(spec)
-      .when()
-      .post(REFRESH_PATH)
-      .then()
-      .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(598), lessThan(601)))
-          .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+        .spec(spec)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(201)
+        .contentType("application/json")
+        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value(Mocks.REFRESH_TOKEN)
+            // Account for time drift because we're using Now.Instant to compute max-age.
+            .maxAge(
+                allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .path("/authn/refresh")
+            .httpOnly(true)
+            .secured(true))
+        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value(Mocks.ACCESS_TOKEN)
+            // Account for time drift because we're using Now.Instant to compute max-age.
+            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .httpOnly(true)
+            .secured(true))
+        .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION));
   }
 
   @Test
   public void testRefreshUnprocessable(final TestContext context) {
     RestAssured.given()
-      .spec(specExpiredToken)
-      .when()
-      .post(REFRESH_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE_CODE))
-      .body("errors[0].message", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE));
+        .spec(specExpiredToken)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE_CODE))
+        .body("errors[0].message", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE));
   }
 
   @Test
   public void testRefreshBadRequestEmptyCookie(final TestContext context) {
     RestAssured.given()
-      .spec(specBadRequestEmptyCookie)
-      .when()
-      .post(REFRESH_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+        .spec(specBadRequestEmptyCookie)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
+        .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
   }
 
   @Test
   public void testRefreshBadRequestNoCookie(final TestContext context) {
     RestAssured.given()
-      .spec(specBadRequestNoCookie)
-      .when()
-      .post(REFRESH_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+        .spec(specBadRequestNoCookie)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
+        .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
   }
 
   @Test
   public void MissingAccessTokenCookie(final TestContext context) {
     RestAssured.given()
-      .spec(specBadRequestMissingAccessTokenCookie)
-      .when()
-      .post(REFRESH_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-      .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+        .spec(specBadRequestMissingAccessTokenCookie)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
+        .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
   }
 }

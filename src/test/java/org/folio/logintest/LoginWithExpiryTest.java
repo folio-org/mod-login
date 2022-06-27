@@ -20,6 +20,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.allOf;
 
+import org.folio.rest.impl.LoginAPI;
 
 import java.util.Date;
 
@@ -65,13 +66,12 @@ public class LoginWithExpiryTest {
     int mockPort = NetworkUtils.nextFreePort();
 
     DeploymentOptions options = new DeploymentOptions().setConfig(
-      new JsonObject()
-        .put("http.port", port)
-    );
+        new JsonObject()
+            .put("http.port", port));
 
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
-      new JsonObject()
-        .put("port", mockPort));
+        new JsonObject()
+            .put("port", mockPort));
 
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
@@ -111,273 +111,210 @@ public class LoginWithExpiryTest {
   @Test
   public void testLoginWithExpiry(final TestContext context) {
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject1.encode())
-      .when()
-      .post(CRED_PATH)
-      .then()
-      .log().all()
-      .statusCode(201);
+        .spec(spec)
+        .body(credsObject1.encode())
+        .when()
+        .post(CRED_PATH)
+        .then()
+        .log().all()
+        .statusCode(201);
 
     RestAssured.given()
-      .spec(specWithoutToken)
-      .body(credsNoPassword.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .contentType("text/plain")
-      .body(is("Missing Okapi token header"));
-
-   RestAssured.given()
-      .spec(specWithoutUrl)
-      .body(credsNoPassword.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .contentType("text/plain")
-      .body(is("Missing X-Okapi-Url header"));
+        .spec(specWithoutToken)
+        .body(credsNoPassword.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .contentType("text/plain")
+        .body(is("Missing Okapi token header"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsNoPassword.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .contentType("text/plain")
-      .body(is("You must provide a password"));
+        .spec(specWithoutUrl)
+        .body(credsNoPassword.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .contentType("text/plain")
+        .body(is("Missing X-Okapi-Url header"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsNoUsernameOrUserId.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(400)
-      .contentType("text/plain")
-      .body(is("You must provide a username or userId"));
+        .spec(spec)
+        .body(credsNoPassword.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .contentType("text/plain")
+        .body(is("You must provide a password"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsElicitEmptyUserResp.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("username.incorrect"))
-      .body("errors[0].message", is("Error verifying user existence: No user found by username mrunderhill"));
+        .spec(spec)
+        .body(credsNoUsernameOrUserId.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .contentType("text/plain")
+        .body(is("You must provide a username or userId"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsElicitBadUserResp.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("username.incorrect"))
-      .body("errors[0].message", is("Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object"));
+        .spec(spec)
+        .body(credsElicitEmptyUserResp.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("username.incorrect"))
+        .body("errors[0].message", is("Error verifying user existence: No user found by username mrunderhill"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsNonExistentUser.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("username.incorrect"))
-      .body("errors[0].message", is("Error verifying user existence: No user found by username mickeymouse"));
+        .spec(spec)
+        .body(credsElicitBadUserResp.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("username.incorrect"))
+        .body("errors[0].message", is(
+            "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsElicitMultiUserResp.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("username.incorrect"))
-      .body("errors[0].message", is("Error verifying user existence: Bad results from username"));
+        .spec(spec)
+        .body(credsNonExistentUser.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("username.incorrect"))
+        .body("errors[0].message", is("Error verifying user existence: No user found by username mickeymouse"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsUserWithNoId.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(500)
-      .contentType("text/plain")
-      .body(is("No user id could be found"));
-
-
-    RestAssured.given()
-      .spec(spec)
-      .body(credsObject1.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(598), lessThan(601)))
-          .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+        .spec(spec)
+        .body(credsElicitMultiUserResp.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("username.incorrect"))
+        .body("errors[0].message", is("Error verifying user existence: Bad results from username"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject2.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(604798), lessThan(604801)))
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          // Account for time drift because we're using Now.Instant to compute max-age.
-          .maxAge(allOf(greaterThan(598), lessThan(601)))
-          .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+        .spec(spec)
+        .body(credsUserWithNoId.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(500)
+        .contentType("text/plain")
+        .body(is("No user id could be found"));
+
+    testCookieResponse(credsObject1);
+    testCookieResponse(credsObject2);
 
     // Post a credentials object which doesn't have an id property.
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject3.encode())
-      .when()
-      .post(CRED_PATH)
-      .then()
-      .log().all()
-      .statusCode(201);
+        .spec(spec)
+        .body(credsObject3.encode())
+        .when()
+        .post(CRED_PATH)
+        .then()
+        .log().all()
+        .statusCode(201);
 
     // The credentials object doesn't have a id so it is not considered active.
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject3.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("user.blocked"))
-      .body("errors[0].message", is("User must be flagged as active"));
+        .spec(spec)
+        .body(credsObject3.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("user.blocked"))
+        .body("errors[0].message", is("User must be flagged as active"));
 
     // The following credentials objects have incorrect passwords.
-    // One provides the userId and the other provides the username, but neither should work.
+    // One provides the userId and the other provides the username, but neither
+    // should work.
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject4.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("password.incorrect"))
-      .body("errors[0].message", is("Password does not match"));
+        .spec(spec)
+        .body(credsObject4.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("password.incorrect"))
+        .body("errors[0].message", is("Password does not match"));
 
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject5.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .contentType("application/json")
-      .body("errors[0].code", is("password.incorrect.block.user"))
-      .body("errors[0].message", is("Fifth failed attempt"));
+        .spec(spec)
+        .body(credsObject5.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("errors[0].code", is("password.incorrect.block.user"))
+        .body("errors[0].message", is("Fifth failed attempt"));
 
     // Now we update our credentials object with a new password and try again.
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject6.encode())
-      .when()
-      .post(UPDATE_PATH)
-      .then()
-      .log().all()
-      .statusCode(204);
+        .spec(spec)
+        .body(credsObject6.encode())
+        .when()
+        .post(UPDATE_PATH)
+        .then()
+        .log().all()
+        .statusCode(204);
 
     // These should now succeed.
-    RestAssured.given()
-      .spec(spec)
-      .body(credsObject4.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          .maxAge(604800)
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          .maxAge(600)
-          .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+    testCookieResponse(credsObject4);
+    testCookieResponse(credsObject5);
+  }
 
-
+  private void testCookieResponse(JsonObject creds) {
     RestAssured.given()
-      .spec(spec)
-      .body(credsObject5.encode())
-      .when()
-      .post(LOGIN_WITH_EXPIRY_PATH)
-      .then()
-      .log().all()
-      .statusCode(201)
-      .contentType("application/json")
-      .cookie("refreshToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyrefreshtoken")
-          .maxAge(is(604800))
-          .path("/authn/refresh")
-          .httpOnly(true)
-          .secured(true))
-      .cookie("accessToken", RestAssuredMatchers.detailedCookie()
-          .value("dummyaccesstoken")
-          .maxAge(600)
-          .httpOnly(true)
-          .secured(true))
-      .body("$", hasKey("accessTokenExpiration"))
-      .body("$", hasKey("refreshTokenExpiration"));
+        .spec(spec)
+        .body(creds.encode())
+        .when()
+        .post(LOGIN_WITH_EXPIRY_PATH)
+        .then()
+        .log().all()
+        .statusCode(201)
+        .contentType("application/json")
+        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value(Mocks.REFRESH_TOKEN)
+            // Account for time drift because we're using Now.Instant to compute max-age.
+            .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .path("/authn/refresh")
+            .httpOnly(true)
+            .secured(true))
+        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value(Mocks.ACCESS_TOKEN)
+            // Account for time drift because we're using Now.Instant to compute max-age.
+            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .httpOnly(true)
+            .secured(true))
+        .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION));
   }
 }

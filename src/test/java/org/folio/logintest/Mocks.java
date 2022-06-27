@@ -71,6 +71,11 @@ public class Mocks extends AbstractVerticle {
       .put("username", "strider")
       .put("password", "54321");
 
+  public static final String REFRESH_TOKEN = "dummyrefreshtoken";
+  public static final String ACCESS_TOKEN = "dummyaccesstoken";
+  public static final int REFRESH_TOKEN_EXPIRATION = 604800;
+  public static final int ACCESS_TOKEN_EXPIRATION = 600;
+
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
   private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
   private JsonObject admin = new JsonObject()
@@ -261,13 +266,13 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void returnTokens(RoutingContext context) {
-    var atExpiration = Instant.now().plusSeconds(10 * 60).toString();
-    var rtExpiration = Instant.now().plusSeconds(604800).toString();
+    var atExpiration = Instant.now().plusSeconds(ACCESS_TOKEN_EXPIRATION).toString();
+    var rtExpiration = Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION).toString();
     var response = new JsonObject()
       .put("accessTokenExpiration", atExpiration)
       .put("refreshTokenExpiration",rtExpiration)
-      .put("accessToken", "dummyaccesstoken")
-      .put("refreshToken", "dummyrefreshtoken");
+      .put("accessToken", ACCESS_TOKEN)
+      .put("refreshToken", REFRESH_TOKEN);
     context.response()
       .setStatusCode(201)
       .putHeader("Content-Type", "application/json")
