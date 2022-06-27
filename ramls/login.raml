@@ -177,9 +177,6 @@ traits:
       description: Logs the user out on their current device
       responses:
         200:
-          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
-          # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple haders with the same value, which we need to do here.
         400:
           description: "Bad request"
           body:
@@ -200,9 +197,6 @@ traits:
       description: Logs the user out on all of their devices
       responses:
         200:
-          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
-          # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple haders with the same value, which we need to do here.
         400:
           description: "Bad request"
           body:
