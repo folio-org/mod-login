@@ -35,7 +35,7 @@
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
     <vertx.version>4.2.4</vertx.version>
-    <raml-module-builder-version>34.1.0-SNAPSHOT</raml-module-builder-version>
+    <raml-module-builder-version>35.0.0-SNAPSHOT</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
