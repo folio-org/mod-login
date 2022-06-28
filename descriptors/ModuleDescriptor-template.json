@@ -41,6 +41,28 @@
             "configuration.entries.collection.get" ]
         },
         {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/login-with-expiry",
+          "permissionsRequired" : [ ],
+          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
+            "users.collection.get", "users.item.put", "users.item.get",
+            "configuration.entries.collection.get" ]
+        },
+        {
+          "methods" : [ "DELETE" ],
+          "pathPattern" : "/authn/logout"
+        },
+        {
+          "methods" : [ "DELETE" ],
+          "pathPattern" : "/authn/logout-all"
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/refresh",
+          "permissionsRequired" : [ ],
+          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken" ]
+        },
+        {
           "methods" : [ "GET" ],
           "pathPattern" : "/authn/loginAttempts/{id}",
           "permissionsRequired" : [ "login.attempts.item.get" ]
