@@ -310,7 +310,7 @@ public class Mocks extends AbstractVerticle {
       return;
     }
     context.response()
-      .setStatusCode(200)
+      .setStatusCode(204)
       .end();
   }
 

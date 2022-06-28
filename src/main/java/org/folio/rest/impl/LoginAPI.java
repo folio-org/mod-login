@@ -226,11 +226,21 @@ public class LoginAPI implements Authn {
   }
 
   private Future<HttpResponse<Buffer>> logout(String tenant,
-      String okapiURL, String accessToken, String endpoint) {
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + endpoint);
+      String okapiURL, String accessToken, String refreshToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_LOGOUT_ENDPOINT);
 
-    // It's ok that we use x-okapi-token here because mod-authtoken's filter will accept both. But we could
-    // just as well use a cookie header.
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+
+      return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken)).map(response -> {
+        return response;
+      });
+  }
+
+  private Future<HttpResponse<Buffer>> logoutAll(String tenant,
+      String okapiURL, String accessToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_LOGOUT_ALL_ENDPOINT);
+
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, accessToken);
 
@@ -262,6 +272,7 @@ public class LoginAPI implements Authn {
 
     // Path indicates the path that must exist in the requested URL for the client to send the
     // Cookie header.
+    // TODO Add a second path for logout.
     sb.append("; HttpOnly; Secure; Path=/authn/refresh; ");
 
     // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
@@ -315,7 +326,7 @@ public class LoginAPI implements Authn {
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
-    return Response.status(200)
+    return Response.status(204)
         .header(SET_COOKIE, REFRESH_TOKEN + "=")
         .header(SET_COOKIE, ACCESS_TOKEN + "=")
         .build();
@@ -328,14 +339,22 @@ public class LoginAPI implements Authn {
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
-  private void handleLogout(Map<String, String> okapiHeaders,
-  Handler<AsyncResult<Response>> asyncResultHandler, String endpoint) {
+  private void handleLogout(String cookieHeader, Map<String, String> okapiHeaders,
+  Handler<AsyncResult<Response>> asyncResultHandler) {
     try {
+      logger.debug("Cookie in handleLogout is: {}", cookieHeader);
+
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
       String accessToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
 
-      Future<HttpResponse<Buffer>> logoutFuture = logout(tenantId, okapiURL, accessToken, endpoint);
+      Future<HttpResponse<Buffer>> logoutFuture;
+      if (cookieHeader == null) {
+        logoutFuture = logoutAll(tenantId, okapiURL, accessToken);
+      } else {
+        var p = new TokenCookieParser(cookieHeader);
+        logoutFuture = logout(tenantId, okapiURL, accessToken, p.refreshToken);
+      }
 
       logoutFuture.onSuccess(r -> {
       if (r.statusCode() >= 400) {
@@ -355,22 +374,22 @@ public class LoginAPI implements Authn {
           getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
       });
     } catch (Exception e) {
-      String msg = "Unexpected exception when refreshing token";
+      String msg = "Unexpected exception when handling logout";
       logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
       asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
   @Override
-  public void deleteAuthnLogout(Map<String, String> okapiHeaders,
+  public void deleteAuthnLogout(String cookieHeader, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
-    handleLogout(okapiHeaders, asyncResultHandler, TOKEN_LOGOUT_ENDPOINT);
+    handleLogout(cookieHeader, okapiHeaders, asyncResultHandler);
   }
 
   @Override
   public void deleteAuthnLogoutAll(Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
-    handleLogout(okapiHeaders, asyncResultHandler, TOKEN_LOGOUT_ALL_ENDPOINT);
+    handleLogout(null, okapiHeaders, asyncResultHandler);
   }
 
   @Override

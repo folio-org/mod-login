@@ -175,8 +175,10 @@ traits:
   /logout:
     delete:
       description: Logs the user out on their current device
+      headers:
+        Cookie:
       responses:
-        200:
+        204:
         400:
           description: "Bad request"
           body:
@@ -196,7 +198,7 @@ traits:
     delete:
       description: Logs the user out on all of their devices
       responses:
-        200:
+        204:
         400:
           description: "Bad request"
           body:

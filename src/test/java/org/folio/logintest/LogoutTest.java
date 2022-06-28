@@ -29,8 +29,10 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 public class LogoutTest {
 
   private static Vertx vertx;
-  private static RequestSpecification spec;
-  private static RequestSpecification specExpiredToken;
+  private static RequestSpecification specLogout;
+  private static RequestSpecification specLogoutExpiredToken;
+  private static RequestSpecification specLogoutAll;
+  private static RequestSpecification specLogoutAllExpiredToken;
 
   private static final String TENANT_DIKU = "diku";
   private static final String LOGOUT_PATH = "/authn/logout";
@@ -55,14 +57,30 @@ public class LogoutTest {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
 
-    spec = new RequestSpecBuilder()
+    specLogout = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
+        .addHeader(XOkapiHeaders.TOKEN, "accesstoken")
+        .addHeader("Cookie", "accessToken=123; refreshToken=321")
         .build();
 
-    specExpiredToken = new RequestSpecBuilder()
+    specLogoutExpiredToken = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "expiredtoken")
+        .addHeader("Cookie", "accessToken=expiredtoken; refreshToken=321")
+        .build();
+
+    specLogoutAll = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "accesstoken")
+        .build();
+
+    specLogoutAllExpiredToken = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
@@ -79,12 +97,12 @@ public class LogoutTest {
   @Test
   public void testLogout(final TestContext context) {
     RestAssured.given()
-      .spec(spec)
+      .spec(specLogout)
       .when()
       .delete(LOGOUT_PATH)
       .then()
       .log().all()
-      .statusCode(200)
+      .statusCode(204)
       .cookie("refreshToken", "")
       .cookie("accessToken", "");
   }
@@ -92,7 +110,7 @@ public class LogoutTest {
   @Test
   public void testLogoutBadRequest(final TestContext context) {
     RestAssured.given()
-      .spec(specExpiredToken)
+      .spec(specLogoutExpiredToken)
       .when()
       .delete(LOGOUT_PATH)
       .then()
@@ -103,12 +121,12 @@ public class LogoutTest {
   @Test
   public void testLogoutAll(final TestContext context) {
     RestAssured.given()
-      .spec(spec)
+      .spec(specLogoutAll)
       .when()
       .delete(LOGOUT_ALL_PATH)
       .then()
       .log().all()
-      .statusCode(200)
+      .statusCode(204)
       .cookie("refreshToken", "")
       .cookie("accessToken", "");
   }
@@ -116,7 +134,7 @@ public class LogoutTest {
   @Test
   public void testLogoutBadRequestAll(final TestContext context) {
     RestAssured.given()
-      .spec(specExpiredToken)
+      .spec(specLogoutAllExpiredToken)
       .when()
       .delete(LOGOUT_ALL_PATH)
       .then()
