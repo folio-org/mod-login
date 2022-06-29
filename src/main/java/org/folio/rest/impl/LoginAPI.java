@@ -272,8 +272,7 @@ public class LoginAPI implements Authn {
 
     // Path indicates the path that must exist in the requested URL for the client to send the
     // Cookie header.
-    // TODO Add a second path for logout.
-    sb.append("; HttpOnly; Secure; Path=/authn/refresh; ");
+    sb.append("; HttpOnly; Secure; Path=/authn; ");
 
     // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
     // that the cookie will persist between browser tab sessions.
