@@ -50,11 +50,13 @@
         },
         {
           "methods" : [ "DELETE" ],
-          "pathPattern" : "/authn/logout"
+          "pathPattern" : "/authn/logout",
+          "permissionsRequired" : [ ]
         },
         {
           "methods" : [ "DELETE" ],
-          "pathPattern" : "/authn/logout-all"
+          "pathPattern" : "/authn/logout-all",
+          "permissionsRequired" : [ ]
         },
         {
           "methods" : [ "POST" ],
