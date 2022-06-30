@@ -51,7 +51,6 @@ public class LoginWithExpiryTest {
   private static Vertx vertx;
   private static RequestSpecification spec;
   private static RequestSpecification specWithoutUrl;
-  private static RequestSpecification specWithoutToken;
 
   private static final String TENANT_DIKU = "diku";
   private static final String LOGIN_WITH_EXPIRY_PATH = "/authn/login-with-expiry";
@@ -93,14 +92,6 @@ public class LoginWithExpiryTest {
         .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
         .build();
 
-    specWithoutToken = new RequestSpecBuilder()
-        .setContentType(ContentType.JSON)
-        .setBaseUri("http://localhost:" + port)
-        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
-        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
-        .build();
-
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
     vertx.deployVerticle(Mocks.class.getName(), mockOptions)
         .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
@@ -118,17 +109,6 @@ public class LoginWithExpiryTest {
         .then()
         .log().all()
         .statusCode(201);
-
-    RestAssured.given()
-        .spec(specWithoutToken)
-        .body(credsNoPassword.encode())
-        .when()
-        .post(LOGIN_WITH_EXPIRY_PATH)
-        .then()
-        .log().all()
-        .statusCode(400)
-        .contentType("text/plain")
-        .body(is("Missing Okapi token header"));
 
     RestAssured.given()
         .spec(specWithoutUrl)
