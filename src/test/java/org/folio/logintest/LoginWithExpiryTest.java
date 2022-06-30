@@ -305,7 +305,7 @@ public class LoginWithExpiryTest {
             .value(Mocks.REFRESH_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
-            .path("/authn/refresh")
+            .path("/authn")
             .httpOnly(true)
             .secured(true))
         .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
