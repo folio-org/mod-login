@@ -417,15 +417,15 @@ public class LoginAPI implements Authn {
       Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
 
       fetchTokenFuture.onSuccess(r -> {
-      // The authorization server uses a number of 400-level responses.
-      // It will log those. Aggregate all of those possible responses to a single 422
-      // to not duplicate its API. This is consistent with other mod-login APIs.
-      if (r.statusCode() >= 400) {
-          logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
-          asyncResultHandler.handle(Future.succeededFuture(
-            PostAuthnRefreshResponse.respond422WithApplicationJson(getErrors(
-            TOKEN_REFRESH_UNPROCESSABLE, TOKEN_REFRESH_UNPROCESSABLE_CODE))));
-          return;
+        // The authorization server uses a number of 400-level responses.
+        // It will log those. Aggregate all of those possible responses to a single 422
+        // to not duplicate its API. This is consistent with other mod-login APIs.
+        if (r.statusCode() >= 400) {
+            logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
+            asyncResultHandler.handle(Future.succeededFuture(
+              PostAuthnRefreshResponse.respond422WithApplicationJson(getErrors(
+              TOKEN_REFRESH_UNPROCESSABLE, TOKEN_REFRESH_UNPROCESSABLE_CODE))));
+            return;
         }
 
         Response tr = tokenResponse(r.bodyAsJsonObject());
