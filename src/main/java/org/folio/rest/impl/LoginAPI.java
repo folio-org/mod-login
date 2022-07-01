@@ -297,11 +297,11 @@ public class LoginAPI implements Authn {
       .encode();
   }
 
-  private Response tokenResponse(JsonObject fetchTokenFuture) {
-    String accessToken = fetchTokenFuture.getString(ACCESS_TOKEN);
-    String refreshToken = fetchTokenFuture.getString(REFRESH_TOKEN);
-    String accessTokenExpiration = fetchTokenFuture.getString(ACCESS_TOKEN_EXPIRATION);
-    String refreshTokenExpiration = fetchTokenFuture.getString(REFRESH_TOKEN_EXPIRATION);
+  private Response tokenResponse(JsonObject tokens) {
+    String accessToken = tokens.getString(ACCESS_TOKEN);
+    String refreshToken = tokens.getString(REFRESH_TOKEN);
+    String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
+    String refreshTokenExpiration = tokens.getString(REFRESH_TOKEN_EXPIRATION);
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
