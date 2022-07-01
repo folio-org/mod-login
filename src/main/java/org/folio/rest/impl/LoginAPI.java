@@ -71,10 +71,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
+
 
 /**
  * @author kurt
@@ -107,6 +109,14 @@ public class LoginAPI implements Authn {
   private static final String TOKEN_SIGN_ENDPOINT = "/token/sign";
   private static final String TOKEN_SIGN_ENDPOINT_LEGACY = "/token";
   private static final String TOKEN_REFRESH_ENDPOINT = "/token/refresh";
+
+  /**
+   * A time in the past which can be used in the Expires cookie attribute.
+   * Setting the cookie to a time in the past will cause the UA to delete it.
+   * See https://datatracker.ietf.org/doc/html/rfc6265#section-3.1.
+   */
+  private static final String COOKIE_EXPIRES_FOR_DELETE = "Thu, 01 Jan 1970 00:00:00 GMT";
+
   public static final String TOKEN_REFRESH_UNPROCESSABLE = "Authorization server unable to process token refresh request";
   public static final String TOKEN_REFRESH_UNPROCESSABLE_CODE = "token.refresh.unprocessable";
   public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
@@ -261,44 +271,30 @@ public class LoginAPI implements Authn {
     return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
   }
 
+
   // For documentation of the cookie attributes please see:
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
   private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var sb = new StringBuilder("refreshToken=");
-    sb.append(refreshToken);
-
-    // Path indicates the path that must exist in the requested URL for the client to send the
-    // Cookie header.
-    sb.append("; HttpOnly; Secure; Path=/authn; ");
-
-    // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
-    // that the cookie will persist between browser tab sessions.
-    sb.append("Max-Age=");
-    sb.append(ttlSeconds);
-
-    return sb.toString();
+    return Cookie.cookie(REFRESH_TOKEN, refreshToken)
+        .setMaxAge(ttlSeconds)
+        .setSecure(true)
+        .setPath("/authn")
+        .setHttpOnly(true)
+        .encode();
   }
 
   private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var sb = new StringBuilder("accessToken=");
-    sb.append(accessToken);
-
-    // Path indicates the path that must exist in the requested URL for the client to send the
-    // Cookie header.
-    sb.append("; HttpOnly; Secure; ");
-
-    // The Max-Age attribute is the number seconds until the token and cookie expires. It also ensures
-    // that the cookie will persist between browser tab sessions.
-    sb.append("Max-Age=");
-    sb.append(ttlSeconds);
-
-    return sb.toString();
+    return Cookie.cookie(ACCESS_TOKEN, accessToken)
+      .setMaxAge(ttlSeconds)
+      .setSecure(true)
+      .setHttpOnly(true)
+      .encode();
   }
 
   private Response tokenResponse(JsonObject fetchTokenFuture) {
@@ -326,8 +322,8 @@ public class LoginAPI implements Authn {
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
     return Response.status(204)
-        .header(SET_COOKIE, REFRESH_TOKEN + "=")
-        .header(SET_COOKIE, ACCESS_TOKEN + "=")
+        .header(SET_COOKIE, REFRESH_TOKEN + "=; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, ACCESS_TOKEN + "=; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
         .build();
   }
 
@@ -336,6 +332,10 @@ public class LoginAPI implements Authn {
     var response = new LoginResponse().withOkapiToken(authToken);
     return PostAuthnLoginResponse.respond201WithApplicationJson(response,
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
+  }
+
+  private Response test(JsonObject fetchTokenFuture) {
+    return PostAuthnLoginResponse.respond400WithTextPlain("");
   }
 
   private void handleLogout(String cookieHeader, Map<String, String> okapiHeaders,

@@ -1,8 +1,6 @@
 package org.folio.logintest;
 
-
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.hasKey;
 
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
@@ -16,14 +14,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import io.restassured.RestAssured;
-import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.matcher.RestAssuredMatchers;
+import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+
+import java.util.Date;
 
 @RunWith(VertxUnitRunner.class)
 public class LogoutTest {
@@ -96,16 +96,8 @@ public class LogoutTest {
 
   @Test
   public void testLogout(final TestContext context) {
-    RestAssured.given()
-      .spec(specLogout)
-      .when()
-      .delete(LOGOUT_PATH)
-      .then()
-      .log().all()
-      .statusCode(204)
-      .cookie("refreshToken", "")
-      .cookie("accessToken", "");
-  }
+      testLogoutCookieResponse(specLogout, LOGOUT_PATH);
+    }
 
   @Test
   public void testLogoutBadRequest(final TestContext context) {
@@ -120,15 +112,7 @@ public class LogoutTest {
 
   @Test
   public void testLogoutAll(final TestContext context) {
-    RestAssured.given()
-      .spec(specLogoutAll)
-      .when()
-      .delete(LOGOUT_ALL_PATH)
-      .then()
-      .log().all()
-      .statusCode(204)
-      .cookie("refreshToken", "")
-      .cookie("accessToken", "");
+    testLogoutCookieResponse(specLogoutAll, LOGOUT_ALL_PATH);
   }
 
   @Test
@@ -140,5 +124,22 @@ public class LogoutTest {
       .then()
       .log().all()
       .statusCode(422);
+  }
+
+  private void testLogoutCookieResponse(RequestSpecification spec, String path) {
+    RestAssured.given()
+        .spec(spec)
+        .when()
+        .delete(path)
+        .then()
+        .log().all()
+        .statusCode(204)
+        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value("")
+            .expiryDate(new Date(0))
+            .path("/authn"))
+        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+            .value("")
+            .expiryDate(new Date(0)));
   }
 }
