@@ -143,6 +143,10 @@
     {
       "id" : "authtoken",
       "version" : "2.0"
+    },
+    {
+      "id" : "authtoken2",
+      "version" : "1.0"
     }
   ],
   "permissionSets" : [
