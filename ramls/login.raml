@@ -173,7 +173,7 @@ traits:
             text/plain:
               example: "Internal server error"
   /logout:
-    delete:
+    post:
       description: Logs the user out on their current device
       headers:
         Cookie:
@@ -195,7 +195,7 @@ traits:
             text/plain:
               example: "Internal server error"
   /logout-all:
-    delete:
+    post:
       description: Logs the user out on all of their devices
       responses:
         204:

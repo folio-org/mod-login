@@ -359,7 +359,7 @@ public class LoginAPI implements Authn {
       if (r.statusCode() >= 400) {
           logger.error("{} (status code: {})", TOKEN_LOGOUT_UNPROCESSABLE, r.statusCode());
           asyncResultHandler.handle(Future.succeededFuture(
-            DeleteAuthnLogoutResponse.respond422WithApplicationJson(getErrors(
+            PostAuthnLogoutResponse.respond422WithApplicationJson(getErrors(
               TOKEN_LOGOUT_UNPROCESSABLE, TOKEN_LOGOUT_UNPROCESSABLE_CODE))));
           return;
         }
@@ -369,24 +369,24 @@ public class LoginAPI implements Authn {
 
       logoutFuture.onFailure(e -> {
         logger.error("{}: {} {}", INTERNAL_ERROR, e.getMessage(), e.getStackTrace());
-        asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnLogoutResponse.respond500WithTextPlain(
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(
           getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
       });
     } catch (Exception e) {
       String msg = "Unexpected exception when handling logout";
       logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
-      asyncResultHandler.handle(Future.succeededFuture(DeleteAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
   @Override
-  public void deleteAuthnLogout(String cookieHeader, Map<String, String> okapiHeaders,
+  public void postAuthnLogout(String cookieHeader, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
     handleLogout(cookieHeader, okapiHeaders, asyncResultHandler);
   }
 
   @Override
-  public void deleteAuthnLogoutAll(Map<String, String> okapiHeaders,
+  public void postAuthnLogoutAll(Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
     handleLogout(null, okapiHeaders, asyncResultHandler);
   }

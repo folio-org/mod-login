@@ -104,7 +104,7 @@ public class LogoutTest {
     RestAssured.given()
       .spec(specLogoutExpiredToken)
       .when()
-      .delete(LOGOUT_PATH)
+      .post(LOGOUT_PATH)
       .then()
       .log().all()
       .statusCode(422);
@@ -120,7 +120,7 @@ public class LogoutTest {
     RestAssured.given()
       .spec(specLogoutAllExpiredToken)
       .when()
-      .delete(LOGOUT_ALL_PATH)
+      .post(LOGOUT_ALL_PATH)
       .then()
       .log().all()
       .statusCode(422);
@@ -130,7 +130,7 @@ public class LogoutTest {
     RestAssured.given()
         .spec(spec)
         .when()
-        .delete(path)
+        .post(path)
         .then()
         .log().all()
         .statusCode(204)
