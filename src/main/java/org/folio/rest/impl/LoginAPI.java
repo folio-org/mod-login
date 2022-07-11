@@ -113,7 +113,7 @@ public class LoginAPI implements Authn {
   /**
    * A time in the past which can be used in the Expires cookie attribute.
    * Setting the cookie to a time in the past will cause the UA to delete it.
-   * See https://datatracker.ietf.org/doc/html/rfc6265#section-3.1.
+   * See <a href="https://datatracker.ietf.org/doc/html/rfc6265#section-3.1">https://datatracker.ietf.org/doc/html/rfc6265#section-3.1</a>
    */
   private static final String COOKIE_EXPIRES_FOR_DELETE = "Thu, 01 Jan 1970 00:00:00 GMT";
 
@@ -327,15 +327,11 @@ public class LoginAPI implements Authn {
         .build();
   }
 
-  private Response tokenResponseLegacy(JsonObject fetchTokenFuture) {
-    String authToken = fetchTokenFuture.getString("token");
+  private Response tokenResponseLegacy(JsonObject tokenJson) {
+    String authToken = tokenJson.getString("token");
     var response = new LoginResponse().withOkapiToken(authToken);
     return PostAuthnLoginResponse.respond201WithApplicationJson(response,
         PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
-  }
-
-  private Response test(JsonObject fetchTokenFuture) {
-    return PostAuthnLoginResponse.respond400WithTextPlain("");
   }
 
   private void handleLogout(String cookieHeader, Map<String, String> okapiHeaders,
