@@ -99,8 +99,8 @@ public class Mocks extends AbstractVerticle {
     router.route("/token").handler(this::handleTokenLegacy);
     router.route("/token/sign").handler(this::handleTokenSign);
     router.route("/token/refresh").handler(this::handleTokenRefresh);
-    router.route("/token/logout").handler(this::handleLogout);
-    router.route("/token/logout-all").handler(this::handleLogoutAll);
+    router.route("/token/invalidate").handler(this::handleLogout);
+    router.route("/token/invalidate-all").handler(this::handleLogoutAll);
     router.route("/configurations/entries").handler(this::handleConfig);
     logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {

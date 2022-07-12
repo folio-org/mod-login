@@ -131,8 +131,8 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_LOGOUT_UNPROCESSABLE = "Authorization server unable to process token logout request";
   public static final String TOKEN_LOGOUT_UNPROCESSABLE_CODE = "token.logout.unprocessable";
   public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
-  public static final String TOKEN_LOGOUT_ENDPOINT = "/token/logout";
-  public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/logout-all";
+  public static final String TOKEN_LOGOUT_ENDPOINT = "/token/invalidate";
+  public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/invalidate-all";
 
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
