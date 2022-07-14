@@ -242,9 +242,7 @@ public class LoginAPI implements Authn {
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, accessToken);
 
-      return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken)).map(response -> {
-        return response;
-      });
+      return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
   }
 
   private Future<HttpResponse<Buffer>> logoutAll(String tenant,
@@ -348,7 +346,7 @@ public class LoginAPI implements Authn {
         logoutFuture = logoutAll(tenantId, okapiURL, accessToken);
       } else {
         var p = new TokenCookieParser(cookieHeader);
-        logoutFuture = logout(tenantId, okapiURL, accessToken, p.refreshToken);
+        logoutFuture = logout(tenantId, okapiURL, accessToken, p.getRefreshToken());
       }
 
       logoutFuture.onSuccess(r -> {
@@ -364,13 +362,13 @@ public class LoginAPI implements Authn {
       });
 
       logoutFuture.onFailure(e -> {
-        logger.error("{}: {} {}", INTERNAL_ERROR, e.getMessage(), e.getStackTrace());
+        logger.error("{}: {}", INTERNAL_ERROR, e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(
           getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
       });
     } catch (Exception e) {
       String msg = "Unexpected exception when handling logout";
-      logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
+      logger.error("{}: {}", msg, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -396,10 +394,10 @@ public class LoginAPI implements Authn {
     String refreshToken = "";
     try {
       var p = new TokenCookieParser(cookieHeader);
-      accessToken = p.accessToken;
-      refreshToken = p.refreshToken;
+      accessToken = p.getAccessToken();
+      refreshToken = p.getRefreshToken();
     } catch (Exception e) {
-      logger.error("{}: {} {}", TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e.getStackTrace());
+      logger.error("{}: {}", TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
           PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
           BAD_REQUEST, TOKEN_PARSE_BAD_CODE))));
@@ -429,13 +427,13 @@ public class LoginAPI implements Authn {
       });
 
       fetchTokenFuture.onFailure(e -> {
-        logger.error("{}: {} {}", INTERNAL_ERROR, e.getMessage(), e.getStackTrace());
+        logger.error("{}: {}", INTERNAL_ERROR, e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(
           getErrors(INTERNAL_ERROR, TOKEN_REFRESH_FAIL_CODE))));
       });
     } catch (Exception e) {
       String msg = "Unexpected exception when refreshing token";
-      logger.error("{}: {} {}", msg, e.getMessage(), e.getStackTrace());
+      logger.error("{}: {}", msg, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -571,9 +569,8 @@ public class LoginAPI implements Authn {
             PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                 TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
                 true, getReply-> {
-                  // TODO And now we're actually getting a user's credentials.
                   if (getReply.failed()) {
-                    logger.error("Error in postgres get operation: " + getReply.cause().getLocalizedMessage());
+                    logger.error("Error in postgres get operation: {}", getReply.cause().getLocalizedMessage());
                     asyncResultHandler.handle(Future.succeededFuture(
                         PostAuthnLoginResponse.respond500WithTextPlain(
                             INTERNAL_ERROR)));
@@ -581,7 +578,7 @@ public class LoginAPI implements Authn {
                     try {
                       List<Credential> credList = getReply.result().getResults();
                       if (credList.isEmpty()) {
-                        logger.error("No matching credentials found for userid " + userObject.getString("id"));
+                        logger.error("No matching credentials found for userid {}", userObject.getString("id"));
                         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("No credentials match that login")));
                       } else {
                         Credential userCred = credList.get(0);
