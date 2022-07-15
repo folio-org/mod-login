@@ -1,7 +1,5 @@
 package org.folio.logintest;
 
-import static org.hamcrest.Matchers.is;
-
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;

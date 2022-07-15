@@ -276,6 +276,7 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
+    logger.debug("Cookie expires is {}", ttlSeconds);
     return Cookie.cookie(REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)

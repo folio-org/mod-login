@@ -1,9 +1,18 @@
 package org.folio.util;
 
-import org.apache.commons.lang3.StringUtils;
+import java.util.List;
+
 import org.folio.rest.impl.LoginAPI;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import io.netty.handler.codec.http.cookie.Cookie;
+import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
+
 public class TokenCookieParser {
+  private static final Logger logger = LogManager.getLogger(TokenCookieParser.class);
+
   public String getAccessToken() {
     return accessToken;
   }
@@ -15,40 +24,33 @@ public class TokenCookieParser {
   private String refreshToken;
 
   public TokenCookieParser(String cookieHeader) {
-    accessToken = getCookieValue(cookieHeader, LoginAPI.ACCESS_TOKEN);
-    refreshToken = getCookieValue(cookieHeader, LoginAPI.REFRESH_TOKEN);
+    logger.debug("Cookie header received by parser {}", cookieHeader);
+
+    List<Cookie> cookies = ServerCookieDecoder.STRICT.decodeAll(cookieHeader.trim());
+
+    accessToken = getCookieValue(cookies, LoginAPI.ACCESS_TOKEN);
+    refreshToken = getCookieValue(cookies, LoginAPI.REFRESH_TOKEN);
   }
 
-  private String getCookieValue(String cookieHeader, String name) {
-    String headerStripped = StringUtils.strip(cookieHeader, "\t");
-    String[] cookies = headerStripped.split(";");
-
+  private String getCookieValue(List<Cookie> cookies, String name) {
     if (cookieNameOccursMoreThanOnce(cookies, name)) {
       throw new IllegalArgumentException("Cookie name occurs more than once: " + name);
     }
 
-    for (String c : cookies) {
-      String[] cookeNameValue = getCookieNameValue(c);
-      String cookieName = cookeNameValue[0].trim();
-      String cookieValue = cookeNameValue[1].trim();
-      if (cookieName.equals(name)) {
-        return cookieValue;
+    for (Cookie c : cookies) {
+      if (c.name().equals(name)) {
+        return c.value();
       }
     }
 
     throw new IllegalArgumentException("No cookie found for name: " + name);
   }
 
-  private String[] getCookieNameValue(String c) {
-    return c.split("=", 2);
-  }
-
-  private boolean cookieNameOccursMoreThanOnce(String[] cookies, String cookieName) {
+  private boolean cookieNameOccursMoreThanOnce(List<Cookie> cookies, String cookieName) {
     int count = 0;
 
-    for (String c : cookies) {
-      String[] cookeNameValue = getCookieNameValue(c);
-      if (cookieName.equals(cookeNameValue[0])) {
+    for (Cookie c : cookies) {
+      if (cookieName.equals(c.name().trim())) {
         count++;
       }
     }

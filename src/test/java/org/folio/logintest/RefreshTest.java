@@ -36,6 +36,7 @@ public class RefreshTest {
   private static RequestSpecification specBadRequestMissingAccessTokenCookie;
   private static RequestSpecification specBadRequestNoCookie;
   private static RequestSpecification specBadRequestEmptyCookie;
+  private static RequestSpecification specDuplicateKeyCookie;
 
   private static final String TENANT_DIKU = "diku";
   private static final String REFRESH_PATH = "/authn/refresh";
@@ -87,6 +88,12 @@ public class RefreshTest {
     specBadRequestNoCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .build();
+
+    specDuplicateKeyCookie = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader("Cookie", "accessToken=098;refreshToken=321;refreshToken=456")
         .build();
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
@@ -164,9 +171,22 @@ public class RefreshTest {
   }
 
   @Test
-  public void MissingAccessTokenCookie(final TestContext context) {
+  public void testMissingAccessTokenCookie(final TestContext context) {
     RestAssured.given()
         .spec(specBadRequestMissingAccessTokenCookie)
+        .when()
+        .post(REFRESH_PATH)
+        .then()
+        .log().all()
+        .statusCode(400)
+        .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
+        .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
+ }
+
+  @Test
+  public void testDuplicateKeyCookie(final TestContext context) {
+    RestAssured.given()
+        .spec(specDuplicateKeyCookie)
         .when()
         .post(REFRESH_PATH)
         .then()
