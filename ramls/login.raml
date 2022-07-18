@@ -124,7 +124,7 @@ traits:
         201:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
           # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple haders with the same value, which we need to do here.
+          # let us do multiple headers with the same name, which we need to do here.
           body:
             application/json:
               type: loginResponseWithExpiry
@@ -153,7 +153,7 @@ traits:
         201:
           # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
           # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple haders with the same value, which we need to do here.
+          # let us do multiple haders with the same name, which we need to do here.
           body:
             application/json:
               type: loginResponseWithExpiry

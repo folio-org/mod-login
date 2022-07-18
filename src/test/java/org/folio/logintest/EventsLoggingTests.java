@@ -340,18 +340,9 @@ public class EventsLoggingTests {
 
     mockServer.stubFor(
       WireMock.post("/token")
-        // TODO Why was this header being checked?
-        // .willReturn(WireMock.ok().withHeader(XOkapiHeaders.TOKEN, TOKEN))
         .willReturn(WireMock.okJson(new JsonObject().put("token", "dummytoken").encode())
         .withStatus(201))
     );
-
-    // TODO Remove because we're no longer using this endpoint.
-    // mockServer.stubFor(
-    //   WireMock.post("/refreshtoken")
-    //     .willReturn(WireMock.okJson(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode())
-    //       .withStatus(201))
-    // );
   }
 
   private Future<String> deployVerticle() {

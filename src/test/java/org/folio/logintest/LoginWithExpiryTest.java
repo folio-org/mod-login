@@ -291,10 +291,10 @@ public class LoginWithExpiryTest {
         .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
-            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
             .httpOnly(true)
             .secured(true))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
-        .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION));
+        .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
   }
 }

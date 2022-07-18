@@ -33,28 +33,24 @@ public class TokenCookieParser {
   }
 
   private String getCookieValue(List<Cookie> cookies, String name) {
-    if (cookieNameOccursMoreThanOnce(cookies, name)) {
-      throw new IllegalArgumentException("Cookie name occurs more than once: " + name);
-    }
+    String value = null;
 
-    for (Cookie c : cookies) {
-      if (c.name().equals(name)) {
-        return c.value();
+    for (var cookie : cookies) {
+      logger.debug("Cookie name is {}", cookie.name());
+      logger.debug("Cookie value is {}", cookie.value());
+
+      if (!name.equals(cookie.name())) {
+        continue;
       }
-    }
-
-    throw new IllegalArgumentException("No cookie found for name: " + name);
-  }
-
-  private boolean cookieNameOccursMoreThanOnce(List<Cookie> cookies, String cookieName) {
-    int count = 0;
-
-    for (Cookie c : cookies) {
-      if (cookieName.equals(c.name().trim())) {
-        count++;
+      if (value != null) {
+        throw new IllegalArgumentException("Duplicate cookie for name " + name);
       }
+      value = cookie.value();
     }
 
-    return count > 1;
+    if (value == null) {
+      throw new IllegalArgumentException("No cookie found for name: " + name);
+    }
+    return value;
   }
 }
