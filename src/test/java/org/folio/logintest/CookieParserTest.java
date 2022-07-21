@@ -36,7 +36,7 @@ public class CookieParserTest {
 
   @Test
   public void testParseCookieDuplicateKey() {
-    var header = LoginAPI.ACCESS_TOKEN + "=xyz;" + LoginAPI.ACCESS_TOKEN + "=xyz";
+    var header = LoginAPI.ACCESS_TOKEN + "=xyz;" + LoginAPI.REFRESH_TOKEN + "=xyz;" + LoginAPI.ACCESS_TOKEN + "=xyz";
     assertThrows(IllegalArgumentException.class, () -> {
       new TokenCookieParser(header);
     });

@@ -45,6 +45,7 @@ public class TokenCookieParser {
       if (value != null) {
         throw new IllegalArgumentException("Duplicate cookie for name " + name);
       }
+      logger.debug("Reached cookie.value");
       value = cookie.value();
     }
 

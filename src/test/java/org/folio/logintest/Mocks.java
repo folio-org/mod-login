@@ -281,10 +281,11 @@ public class Mocks extends AbstractVerticle {
 
   private void handleTokenRefresh(RoutingContext context) {
     if (context.request().headers().get(XOkapiHeaders.TOKEN).equals("expiredtoken")) {
+      logger.debug("Returning 401 for expired token");
       context.response()
-      .setStatusCode(401)
-      .end();
-      return;
+        .setStatusCode(401)
+        .end();
+        return;
     }
     returnTokens(context);
   }

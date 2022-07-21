@@ -55,12 +55,15 @@ public class LogoutTest {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
 
+    var cookieHeader = LoginAPI.REFRESH_TOKEN + "=123;" + LoginAPI.ACCESS_TOKEN + "=321";
+    var cookieHeaderExpired = LoginAPI.REFRESH_TOKEN + "=expiredToken;" + LoginAPI.ACCESS_TOKEN + "=321";
+
     specLogout = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader(XOkapiHeaders.TOKEN, "accesstoken")
-        .addHeader("Cookie", "accessToken=123; refreshToken=321")
+        .addHeader(XOkapiHeaders.TOKEN, "123")
+        .addHeader("Cookie", cookieHeader)
         .build();
 
     specLogoutExpiredToken = new RequestSpecBuilder()
@@ -68,14 +71,14 @@ public class LogoutTest {
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader(XOkapiHeaders.TOKEN, "expiredtoken")
-        .addHeader("Cookie", "accessToken=expiredtoken; refreshToken=321")
+        .addHeader("Cookie", cookieHeaderExpired)
         .build();
 
     specLogoutAll = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader(XOkapiHeaders.TOKEN, "accesstoken")
+        .addHeader(XOkapiHeaders.TOKEN, "123")
         .build();
 
     specLogoutAllExpiredToken = new RequestSpecBuilder()

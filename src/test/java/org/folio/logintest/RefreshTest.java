@@ -59,24 +59,29 @@ public class RefreshTest {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
 
+    var cookieHeader = LoginAPI.ACCESS_TOKEN + "=321;" + LoginAPI.REFRESH_TOKEN + "=123";
+    var cookieHeaderExpired = LoginAPI.REFRESH_TOKEN + "=abc;" + LoginAPI.ACCESS_TOKEN + "=expiredtoken";
+    var cookieHeaderMissingAccessToken = LoginAPI.REFRESH_TOKEN + "=123;";
+    var cookieHeaderDuplicateKey = LoginAPI.ACCESS_TOKEN + "=xyz;" + LoginAPI.REFRESH_TOKEN + "=xyz;" + LoginAPI.ACCESS_TOKEN + "=xyz";
+
     spec = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=123; refreshToken=321")
+        .addHeader("Cookie", cookieHeader)
         .build();
 
     specExpiredToken = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=expiredtoken; refreshToken=321")
+        .addHeader("Cookie", cookieHeaderExpired)
         .build();
 
     specBadRequestMissingAccessTokenCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "refreshToken=321")
+        .addHeader("Cookie", cookieHeaderMissingAccessToken)
         .build();
 
     specBadRequestEmptyCookie = new RequestSpecBuilder()
@@ -93,7 +98,7 @@ public class RefreshTest {
     specDuplicateKeyCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", "accessToken=098;refreshToken=321;refreshToken=456")
+        .addHeader("Cookie", cookieHeaderDuplicateKey)
         .build();
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");

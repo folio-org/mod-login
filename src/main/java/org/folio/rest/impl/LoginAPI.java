@@ -124,8 +124,8 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
   public static final String TOKEN_PARSE_BAD_MESSAGE = "Unable to parse token cookies";
   public static final String TOKEN_PARSE_BAD_CODE = "token.parse.failure";
-  public static final String REFRESH_TOKEN = "refreshToken";
-  public static final String ACCESS_TOKEN = "accessToken";
+  public static final String REFRESH_TOKEN = "folioRefreshToken";
+  public static final String ACCESS_TOKEN = "folioAccessToken";
   public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
   public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
   public static final String SET_COOKIE = "Set-Cookie";
@@ -304,8 +304,8 @@ public class LoginAPI implements Authn {
   }
 
   private Response tokenResponse(JsonObject tokens, String okapiUrl) {
-    String accessToken = tokens.getString(ACCESS_TOKEN);
-    String refreshToken = tokens.getString(REFRESH_TOKEN);
+    String accessToken = tokens.getString("accessToken");
+    String refreshToken = tokens.getString("refreshToken");
     String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
     String refreshTokenExpiration = tokens.getString(REFRESH_TOKEN_EXPIRATION);
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
