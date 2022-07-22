@@ -5,8 +5,6 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.emptyOrNullString;
 
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
@@ -126,7 +124,6 @@ public class RefreshTest {
             .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
             .path("/authn")
             .httpOnly(true)
-            .domain(is(not(emptyOrNullString())))
             .sameSite("None")
             .secured(true))
         .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
@@ -134,7 +131,6 @@ public class RefreshTest {
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
             .httpOnly(true)
-            .domain(is(not(emptyOrNullString())))
             .sameSite("None")
             .path((String) null) // Access token should not have a path. It is sent on every request.
             .secured(true))

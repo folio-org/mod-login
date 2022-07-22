@@ -9,7 +9,7 @@ import org.junit.Test;
 import org.folio.rest.impl.LoginAPI;
 import org.folio.util.TokenCookieParser;
 
-public class CookieParserTest {
+public class TokenCookieParserTest {
   @Test
   public void testParseCookie() {
     var header = LoginAPI.REFRESH_TOKEN + "=123;" + LoginAPI.ACCESS_TOKEN + "=xyz";

@@ -274,36 +274,32 @@ public class LoginAPI implements Authn {
 
   // For documentation of the cookie attributes please see:
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
-  private String refreshTokenCookie(String refreshToken, String okapiUrl, String refreshTokenExpiration) {
+  private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var domain = URI.create(okapiUrl).getHost();
     return Cookie.cookie(REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)
         .setPath("/authn")
         .setHttpOnly(true)
-        .setDomain(domain)
         .setSameSite(CookieSameSite.NONE)
         .encode();
   }
 
-  private String accessTokenCookie(String accessToken, String okapiUrl, String accessTokenExpiration) {
+  private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var domain = URI.create(okapiUrl).getHost();
     return Cookie.cookie(ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
       .setHttpOnly(true)
-      .setDomain(domain)
       .setSameSite(CookieSameSite.NONE)
       .encode();
   }
 
-  private Response tokenResponse(JsonObject tokens, String okapiUrl) {
+  private Response tokenResponse(JsonObject tokens) {
     String accessToken = tokens.getString("accessToken");
     String refreshToken = tokens.getString("refreshToken");
     String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
@@ -316,8 +312,8 @@ public class LoginAPI implements Authn {
         .put(REFRESH_TOKEN_EXPIRATION, refreshTokenExpiration)
         .toString();
     return Response.status(201)
-        .header(SET_COOKIE, refreshTokenCookie(refreshToken, okapiUrl, refreshTokenExpiration))
-        .header(SET_COOKIE, accessTokenCookie(accessToken, okapiUrl, accessTokenExpiration))
+        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
+        .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration))
         .type(MediaType.APPLICATION_JSON)
         .entity(body)
         .build();
@@ -430,7 +426,7 @@ public class LoginAPI implements Authn {
             return;
         }
 
-        Response tr = tokenResponse(r.bodyAsJsonObject(), okapiURL);
+        Response tr = tokenResponse(r.bodyAsJsonObject());
         asyncResultHandler.handle(Future.succeededFuture(tr));
       });
 
@@ -637,7 +633,7 @@ public class LoginAPI implements Authn {
                                       if (usesTokenSignLegacy(tokenSignEndpoint)) {
                                         asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture.result())));
                                       } else {
-                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result(), okapiURL)));
+                                        asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result())));
                                       }
                                     }
                                   });
