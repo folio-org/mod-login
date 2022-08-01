@@ -324,8 +324,8 @@ public class LoginAPI implements Authn {
         .put(REFRESH_TOKEN_EXPIRATION, refreshTokenExpiration)
         .toString();
     return Response.status(201)
-        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
         .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration))
+        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
         .type(MediaType.APPLICATION_JSON)
         .entity(body)
         .build();
