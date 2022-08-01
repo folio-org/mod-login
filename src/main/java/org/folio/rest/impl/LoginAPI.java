@@ -300,6 +300,7 @@ public class LoginAPI implements Authn {
     var atCookie = Cookie.cookie(ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
+      .setPath("/")
       .setHttpOnly(true)
       .setSameSite(CookieSameSite.NONE)
       .encode();

@@ -295,11 +295,11 @@ public class LoginWithExpiryTest {
             .value(Mocks.ACCESS_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
+            .path("/") // Path must be set in this way for it to mean "all paths".
             .httpOnly(true)
             .secured(true)
             .domain(is(nullValue())) // Not setting domain disables subdomains.
-            .sameSite("None")
-            .path((String) null)) // Access token should not have a path. It is sent on every request.
+            .sameSite("None"))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
   }
