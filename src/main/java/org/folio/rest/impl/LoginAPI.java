@@ -278,25 +278,36 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    return Cookie.cookie(REFRESH_TOKEN, refreshToken)
+    var rtCookie = Cookie.cookie(REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)
         .setPath("/authn")
         .setHttpOnly(true)
         .setSameSite(CookieSameSite.NONE)
+        .setDomain(null)
         .encode();
+
+    // TODO Change to debug statement!
+    logger.info("refreshToken cookie: {}", rtCookie);
+
+    return rtCookie;
   }
 
   private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    return Cookie.cookie(ACCESS_TOKEN, accessToken)
+    var atCookie = Cookie.cookie(ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
       .setHttpOnly(true)
       .setSameSite(CookieSameSite.NONE)
       .encode();
+
+    // TODO Change to degug statement!
+    logger.info("accessToken cookie: {}", atCookie);
+
+    return atCookie;
   }
 
   private Response tokenResponse(JsonObject tokens) {
