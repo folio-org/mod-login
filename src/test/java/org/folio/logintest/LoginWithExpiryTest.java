@@ -19,6 +19,7 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.nullValue;
 
 import org.folio.rest.impl.LoginAPI;
 
@@ -288,6 +289,7 @@ public class LoginWithExpiryTest {
             .path("/authn") // Refresh is restricted to this domain.
             .httpOnly(true)
             .secured(true)
+            .domain(is(nullValue())) // Not setting domain disables subdomains.
             .sameSite("None"))
         .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
@@ -295,6 +297,7 @@ public class LoginWithExpiryTest {
             .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
             .httpOnly(true)
             .secured(true)
+            .domain(is(nullValue())) // Not setting domain disables subdomains.
             .sameSite("None")
             .path((String) null)) // Access token should not have a path. It is sent on every request.
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
