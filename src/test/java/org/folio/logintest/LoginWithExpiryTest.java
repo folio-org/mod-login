@@ -282,7 +282,7 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(201)
         .contentType("application/json")
-        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
@@ -291,7 +291,7 @@ public class LoginWithExpiryTest {
             .secured(true)
             .domain(is(nullValue())) // Not setting domain disables subdomains.
             .sameSite("None"))
-        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))

@@ -12,7 +12,7 @@ import org.folio.util.TokenCookieParser;
 public class TokenCookieParserTest {
   @Test
   public void testParseCookie() {
-    var header = LoginAPI.REFRESH_TOKEN + "=123;" + LoginAPI.ACCESS_TOKEN + "=xyz";
+    var header = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
     var p = new TokenCookieParser(header);
     assertThat(p.getAccessToken(), is("xyz"));
     assertThat(p.getRefreshToken(), is("123"));
@@ -20,7 +20,7 @@ public class TokenCookieParserTest {
 
   @Test
   public void testParseCookieWithWhitespaceTabAndLF() {
-    var header = "  \t  \t  " + LoginAPI.REFRESH_TOKEN + "=123;  " +  LoginAPI.ACCESS_TOKEN + "=xyz  \r\n\n";
+    var header = "  \t  \t  " + LoginAPI.FOLIO_REFRESH_TOKEN + "=123;  " +  LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz  \r\n\n";
     var p = new TokenCookieParser(header);
     assertThat(p.getAccessToken(), is("xyz"));
     assertThat(p.getRefreshToken(), is("123"));
@@ -28,7 +28,7 @@ public class TokenCookieParserTest {
 
   @Test
   public void testParseCookieMissingKey() {
-    var header = LoginAPI.ACCESS_TOKEN + "=xyz";
+    var header = LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
     assertThrows(IllegalArgumentException.class, () -> {
       new TokenCookieParser(header);
     });
@@ -36,7 +36,7 @@ public class TokenCookieParserTest {
 
   @Test
   public void testParseCookieDuplicateKey() {
-    var header = LoginAPI.ACCESS_TOKEN + "=xyz;" + LoginAPI.REFRESH_TOKEN + "=xyz;" + LoginAPI.ACCESS_TOKEN + "=xyz";
+    var header = LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz;" + LoginAPI.FOLIO_REFRESH_TOKEN + "=xyz;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
     assertThrows(IllegalArgumentException.class, () -> {
       new TokenCookieParser(header);
     });

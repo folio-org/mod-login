@@ -28,8 +28,8 @@ public class TokenCookieParser {
 
     List<Cookie> cookies = ServerCookieDecoder.STRICT.decodeAll(cookieHeader.trim());
 
-    accessToken = getCookieValue(cookies, LoginAPI.ACCESS_TOKEN);
-    refreshToken = getCookieValue(cookies, LoginAPI.REFRESH_TOKEN);
+    accessToken = getCookieValue(cookies, LoginAPI.FOLIO_ACCESS_TOKEN);
+    refreshToken = getCookieValue(cookies, LoginAPI.FOLIO_REFRESH_TOKEN);
   }
 
   private String getCookieValue(List<Cookie> cookies, String name) {

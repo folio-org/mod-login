@@ -60,15 +60,16 @@ public class RefreshTest {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
 
-    var cookieHeader = LoginAPI.ACCESS_TOKEN + "=321;" + LoginAPI.REFRESH_TOKEN + "=123";
-    var cookieHeaderExpired = LoginAPI.REFRESH_TOKEN + "=abc;" + LoginAPI.ACCESS_TOKEN + "=expiredtoken";
-    var cookieHeaderMissingAccessToken = LoginAPI.REFRESH_TOKEN + "=123;";
-    var cookieHeaderDuplicateKey = LoginAPI.ACCESS_TOKEN + "=xyz;" + LoginAPI.REFRESH_TOKEN + "=xyz;" + LoginAPI.ACCESS_TOKEN + "=xyz";
+    var cookieHeader = LoginAPI.FOLIO_ACCESS_TOKEN + "=321;" + LoginAPI.FOLIO_REFRESH_TOKEN + "=123";
+    var cookieHeaderExpired = LoginAPI.FOLIO_REFRESH_TOKEN + "=abc;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=expiredtoken";
+    var cookieHeaderMissingAccessToken = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;";
+    var cookieHeaderDuplicateKey = LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz;" + LoginAPI.FOLIO_REFRESH_TOKEN + "=xyz;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
 
     spec = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "abc123")
         .addHeader("Cookie", cookieHeader)
         .build();
 
@@ -119,7 +120,7 @@ public class RefreshTest {
         .log().all()
         .statusCode(201)
         .contentType("application/json")
-        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
@@ -128,13 +129,13 @@ public class RefreshTest {
             .sameSite("None")
             .domain(is(nullValue())) // Not setting domain disables subdomains.
             .secured(true))
-        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
             // Account for time drift because we're using Now.Instant to compute max-age.
             .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
             .httpOnly(true)
             .sameSite("None")
-            .path((String) null) // Access token should not have a path. It is sent on every request.
+            .path("/") // Access token path is '/'. It is sent on every request.
             .domain(is(nullValue())) // Not setting domain disables subdomains.
             .secured(true))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))

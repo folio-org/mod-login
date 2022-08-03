@@ -79,7 +79,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
-
 /**
  * @author kurt
  */
@@ -124,8 +123,10 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
   public static final String TOKEN_PARSE_BAD_MESSAGE = "Unable to parse token cookies";
   public static final String TOKEN_PARSE_BAD_CODE = "token.parse.failure";
-  public static final String REFRESH_TOKEN = "folioRefreshToken";
-  public static final String ACCESS_TOKEN = "folioAccessToken";
+  public static final String FOLIO_REFRESH_TOKEN = "folioRefreshToken";
+  public static final String REFRESH_TOKEN = "refreshToken";
+  public static final String ACCESS_TOKEN = "accessToken";
+  public static final String FOLIO_ACCESS_TOKEN = "folioAccessToken";
   public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
   public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
   public static final String SET_COOKIE = "Set-Cookie";
@@ -244,7 +245,8 @@ public class LoginAPI implements Authn {
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, accessToken);
 
-      return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
+    // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
+    return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
   }
 
   private Future<HttpResponse<Buffer>> logoutAll(String tenant,
@@ -258,12 +260,13 @@ public class LoginAPI implements Authn {
   }
 
   private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
-      String okapiURL, String accessToken, String refreshToken) {
+      String okapiURL, String okapiToken, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
 
     request.putHeader(XOkapiHeaders.TENANT, tenant)
-      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+      .putHeader(XOkapiHeaders.TOKEN, okapiToken);
 
+    // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
     return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
   }
 
@@ -278,7 +281,7 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var rtCookie = Cookie.cookie(REFRESH_TOKEN, refreshToken)
+    var rtCookie = Cookie.cookie(FOLIO_REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)
         .setPath("/authn")
@@ -287,8 +290,7 @@ public class LoginAPI implements Authn {
         .setDomain(null)
         .encode();
 
-    // TODO Change to debug statement!
-    logger.info("refreshToken cookie: {}", rtCookie);
+    logger.debug("refreshToken cookie: {}", rtCookie);
 
     return rtCookie;
   }
@@ -297,7 +299,7 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
-    var atCookie = Cookie.cookie(ACCESS_TOKEN, accessToken)
+    var atCookie = Cookie.cookie(FOLIO_ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
       .setPath("/")
@@ -305,15 +307,14 @@ public class LoginAPI implements Authn {
       .setSameSite(CookieSameSite.NONE)
       .encode();
 
-    // TODO Change to degug statement!
-    logger.info("accessToken cookie: {}", atCookie);
+    logger.debug("accessToken cookie: {}", atCookie);
 
     return atCookie;
   }
 
   private Response tokenResponse(JsonObject tokens) {
-    String accessToken = tokens.getString("accessToken");
-    String refreshToken = tokens.getString("refreshToken");
+    String accessToken = tokens.getString(ACCESS_TOKEN);
+    String refreshToken = tokens.getString(REFRESH_TOKEN);
     String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
     String refreshTokenExpiration = tokens.getString(REFRESH_TOKEN_EXPIRATION);
     // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
@@ -336,8 +337,8 @@ public class LoginAPI implements Authn {
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
     return Response.status(204)
-        .header(SET_COOKIE, ACCESS_TOKEN + "=; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
-        .header(SET_COOKIE, REFRESH_TOKEN + "=; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, FOLIO_ACCESS_TOKEN + "=; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, FOLIO_REFRESH_TOKEN + "=; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
         .build();
   }
 
@@ -355,14 +356,14 @@ public class LoginAPI implements Authn {
 
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
-      String accessToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+      String okapiToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
 
       Future<HttpResponse<Buffer>> logoutFuture;
       if (cookieHeader == null) {
-        logoutFuture = logoutAll(tenantId, okapiURL, accessToken);
+        logoutFuture = logoutAll(tenantId, okapiURL, okapiToken);
       } else {
         var p = new TokenCookieParser(cookieHeader);
-        logoutFuture = logout(tenantId, okapiURL, accessToken, p.getRefreshToken());
+        logoutFuture = logout(tenantId, okapiURL, okapiToken, p.getRefreshToken());
       }
 
       logoutFuture.onSuccess(r -> {
@@ -406,11 +407,9 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
     logger.debug("Cookie is {}", cookieHeader);
 
-    String accessToken = "";
     String refreshToken = "";
     try {
       var p = new TokenCookieParser(cookieHeader);
-      accessToken = p.getAccessToken();
       refreshToken = p.getRefreshToken();
     } catch (Exception e) {
       logger.error("{}: {}", TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e);
@@ -423,8 +422,9 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(otherHeaders);
       String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
+      String okapiToken = otherHeaders.get(XOkapiHeaders.TOKEN);
 
-      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, accessToken, refreshToken);
+      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, okapiToken, refreshToken);
 
       fetchTokenFuture.onSuccess(r -> {
         // The authorization server uses a number of 400-level responses.

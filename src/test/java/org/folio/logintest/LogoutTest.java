@@ -55,8 +55,8 @@ public class LogoutTest {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
 
-    var cookieHeader = LoginAPI.REFRESH_TOKEN + "=123;" + LoginAPI.ACCESS_TOKEN + "=321";
-    var cookieHeaderExpired = LoginAPI.REFRESH_TOKEN + "=expiredToken;" + LoginAPI.ACCESS_TOKEN + "=321";
+    var cookieHeader = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=321";
+    var cookieHeaderExpired = LoginAPI.FOLIO_REFRESH_TOKEN + "=expiredToken;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=321";
 
     specLogout = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
@@ -135,11 +135,11 @@ public class LogoutTest {
         .then()
         .log().all()
         .statusCode(204)
-        .cookie(LoginAPI.REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value("")
             .expiryDate(new Date(0))
             .path("/authn"))
-        .cookie(LoginAPI.ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value("")
             .expiryDate(new Date(0)));
   }
