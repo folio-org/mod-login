@@ -337,8 +337,8 @@ public class LoginAPI implements Authn {
     // RMB generated-code does not allow multiple headers with the same key -- which is what we need
     // here.
     return Response.status(204)
-        .header(SET_COOKIE, FOLIO_ACCESS_TOKEN + "=; Path=/; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
-        .header(SET_COOKIE, FOLIO_REFRESH_TOKEN + "=; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, FOLIO_ACCESS_TOKEN + "=; SameSite=None; Path=/; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, FOLIO_REFRESH_TOKEN + "=; SameSite=None; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
         .build();
   }
 
