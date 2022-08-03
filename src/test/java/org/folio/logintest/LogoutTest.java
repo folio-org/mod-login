@@ -141,6 +141,7 @@ public class LogoutTest {
             .path("/authn"))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value("")
+            .path("/")
             .expiryDate(new Date(0)));
   }
 }
