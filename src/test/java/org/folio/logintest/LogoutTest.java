@@ -11,6 +11,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import io.netty.handler.codec.http.cookie.CookieHeaderNames.SameSite;
 import io.restassured.RestAssured;
 import io.restassured.matcher.RestAssuredMatchers;
 import io.restassured.builder.RequestSpecBuilder;
@@ -138,10 +139,14 @@ public class LogoutTest {
         .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value("")
             .expiryDate(new Date(0))
+            .sameSite("None")
+            .secured(true)
             .path("/authn"))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value("")
             .path("/")
+            .secured(true)
+            .sameSite("None")
             .expiryDate(new Date(0)));
   }
 }
