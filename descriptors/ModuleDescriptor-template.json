@@ -132,7 +132,7 @@
   "requires" : [
     {
       "id" : "users",
-      "version" : "15.4"
+      "version" : "15.4 16.0"
     }
   ],
   "optional" : [
