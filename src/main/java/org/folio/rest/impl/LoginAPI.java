@@ -10,7 +10,6 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
