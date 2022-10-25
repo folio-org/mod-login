@@ -1,3 +1,8 @@
+## 2022-10-25 v7.8.0
+
+* [MODLOGIN-193](https://issues.folio.org/browse/MODLOGIN-193) Allow users interface to 14 thru 16.0
+* [MODLOGIN-197](https://issues.folio.org/browse/MODLOGIN-197) Upgrade to RMB 35.0.2, Vert.x 4.3.4
+
 ## 2022-06-14 v7.7.0
 
 * [MODLOGIN-190](https://issues.folio.org/browse/MODLOGIN-190) Upgrade to RMB 34.0.0
