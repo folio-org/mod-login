@@ -43,7 +43,7 @@ public class RefreshTest {
   private static final String REFRESH_PATH = "/authn/refresh";
 
   @BeforeClass
-  public static void setup(final TestContext context) throws Exception {
+  public static void setup(final TestContext context) {
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -122,8 +122,7 @@ public class RefreshTest {
         .contentType("application/json")
         .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
-            // Account for time drift because we're using Now.Instant to compute max-age.
-            .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .maxAge(Mocks.REFRESH_TOKEN_EXPIRATION)
             .path("/authn")
             .httpOnly(true)
             .sameSite("None")
@@ -131,8 +130,7 @@ public class RefreshTest {
             .secured(true))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
-            // Account for time drift because we're using Now.Instant to compute max-age.
-            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
+            .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
             .httpOnly(true)
             .sameSite("None")
             .path("/") // Access token path is '/'. It is sent on every request.

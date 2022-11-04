@@ -59,7 +59,7 @@ public class LoginWithExpiryTest {
   private static final String UPDATE_PATH = "/authn/update";
 
   @BeforeClass
-  public static void setup(final TestContext context) throws Exception {
+  public static void setup(final TestContext context) {
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -284,8 +284,7 @@ public class LoginWithExpiryTest {
         .contentType("application/json")
         .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
-            // Account for time drift because we're using Now.Instant to compute max-age.
-            .maxAge(allOf(greaterThan(Mocks.REFRESH_TOKEN_EXPIRATION - 2), lessThan(Mocks.REFRESH_TOKEN_EXPIRATION + 1)))
+            .maxAge(Mocks.REFRESH_TOKEN_EXPIRATION)
             .path("/authn") // Refresh is restricted to this domain.
             .httpOnly(true)
             .secured(true)
@@ -293,8 +292,7 @@ public class LoginWithExpiryTest {
             .sameSite("None"))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
-            // Account for time drift because we're using Now.Instant to compute max-age.
-            .maxAge(allOf(greaterThan(Mocks.ACCESS_TOKEN_EXPIRATION - 2), lessThan(Mocks.ACCESS_TOKEN_EXPIRATION + 1)))
+            .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
             .path("/") // Path must be set in this way for it to mean "all paths".
             .httpOnly(true)
             .secured(true)
