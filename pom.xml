@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-login</artifactId>
-  <version>7.8.0-SNAPSHOT</version>
+  <version>7.9.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -34,8 +34,8 @@
     <release>11</release>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <vertx.version>4.3.1</vertx.version>
-    <raml-module-builder-version>35.0.0-SNAPSHOT</raml-module-builder-version>
+    <vertx.version>4.3.4</vertx.version>
+    <raml-module-builder-version>35.0.2</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
@@ -52,7 +52,7 @@
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>5.8.1</version>
+        <version>5.9.1</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -114,7 +114,7 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
-      <version>4.4.0</version>
+      <version>5.2.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -128,29 +128,7 @@
     <dependency>
       <groupId>com.github.tomakehurst</groupId>
       <artifactId>wiremock</artifactId>
-      <version>2.18.0</version>
-      <exclusions>
-        <exclusion>
-          <groupId>net.sf.jopt-simple</groupId>
-          <artifactId>jopt-simple</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.github.jknack</groupId>
-          <artifactId>handlebars</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.flipkart.zjsonpatch</groupId>
-          <artifactId>zjsonpatch</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.xmlunit</groupId>
-          <artifactId>xmlunit-legacy</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.jayway.jsonpath</groupId>
-          <artifactId>json-path</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>2.27.2</version>
       <scope>test</scope>
     </dependency>
 
@@ -168,26 +146,9 @@
     <dependency>
       <groupId>org.awaitility</groupId>
       <artifactId>awaitility</artifactId>
-      <version>4.1.0</version>
+      <version>4.2.0</version>
       <scope>test</scope>
     </dependency>
-
-    <dependency>
-      <groupId>javax.xml.bind</groupId>
-      <artifactId>jaxb-api</artifactId>
-      <version>2.3.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.sun.xml.bind</groupId>
-      <artifactId>jaxb-core</artifactId>
-      <version>2.3.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.sun.xml.bind</groupId>
-      <artifactId>jaxb-impl</artifactId>
-      <version>2.3.0</version>
-    </dependency>
-
   </dependencies>
 
   <build>

@@ -172,7 +172,7 @@ public class RestVerticleTest {
       .compose(w -> deleteCredentialsById(context, credsObject1.getString("id")))
       .compose(w -> deleteCredentialsByUserId(context, credsObject1.getString("userId")))
       .compose(w -> deleteCredentialsByUserIdNotFound(context, "nobody"))
-      .compose(w -> deleteCredentialsByUserIdPgError(context, "anything"))
+      .compose(w -> deleteCredentialsByUserIdPgError("anything"))
       .onComplete(context.asyncAssertSuccess());
   }
 
@@ -315,7 +315,7 @@ public class RestVerticleTest {
       404, "Delete credentials by user id - user not found");
   }
 
-  private Future<Void> deleteCredentialsByUserIdPgError(TestContext context, String userId) {
+  private Future<Void> deleteCredentialsByUserIdPgError(String userId) {
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.0.0");
     List<Parameter> parameters = new LinkedList<>();
     parameters.add(new Parameter().withKey("loadSample").withValue("true"));
@@ -324,6 +324,7 @@ public class RestVerticleTest {
         .execute("DROP TABLE " + PasswordStorageServiceImpl.TABLE_NAME_CREDENTIALS + " CASCADE")
         .compose(ar -> doRequest(vertx, credentialsUrl + "?userId=" + userId, HttpMethod.DELETE, null, null,
             500, "Postgres Error on Delete credentials by userId"))
+        .compose(r -> TestUtil.postSync(new TenantAttributes().withPurge(true), "diku", port, vertx))
         .compose(r -> TestUtil.postSync(ta, "diku", port, vertx));
   }
 
