@@ -475,20 +475,6 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(okapiHeaders);
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
-      Future<JsonObject> userVerifyFuture;
-      if (entity.getUserId() != null) {
-        userVerifyFuture = Future.succeededFuture(new JsonObject().put("id",
-            entity.getUserId()));
-      } else {
-        String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
-        if (okapiURL == null) {
-          asyncResultHandler.handle(Future.succeededFuture(
-              PostAuthnCredentialsResponse.respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
-          return;
-        }
-        userVerifyFuture = lookupUser(entity.getUsername(), null,
-            tenantId, okapiURL, requestToken);
-      }
       if (entity.getPassword() == null || entity.getPassword().isEmpty()) {
         asyncResultHandler.handle(Future.succeededFuture(
             PostAuthnCredentialsResponse.respond422WithApplicationJson(
@@ -496,7 +482,20 @@ public class LoginAPI implements Authn {
                     CREDENTIAL_USERID_FIELD, entity.getUserId(), "Password is missing or empty"))));
         return;
       }
-      userVerifyFuture.onComplete(verifyRes -> {
+      Future<UUID> userIdFuture;
+      if (entity.getUserId() != null) {
+        userIdFuture = Future.succeededFuture(UUID.fromString(entity.getUserId()));
+      } else {
+        String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+        if (okapiURL == null) {
+          asyncResultHandler.handle(Future.succeededFuture(
+              PostAuthnCredentialsResponse.respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
+          return;
+        }
+        userIdFuture = lookupUser(entity.getUsername(), null, tenantId, okapiURL,
+            requestToken).map(userObj -> UUID.fromString(userObj.getString("id")));
+      }
+      userIdFuture.onComplete(verifyRes -> {
         if (verifyRes.failed()) {
           String message = "Error looking up user: " + verifyRes.cause()
               .getLocalizedMessage();
@@ -504,11 +503,11 @@ public class LoginAPI implements Authn {
           asyncResultHandler.handle(Future.succeededFuture(PostAuthnCredentialsResponse
               .respond400WithTextPlain(message)));
         } else {
-          JsonObject userOb = verifyRes.result();
+          UUID userId = verifyRes.result();
           Criteria userIdCrit = new Criteria();
           userIdCrit.addField(CREDENTIAL_USERID_FIELD);
           userIdCrit.setOperation("=");
-          userIdCrit.setVal(userOb.getString("id"));
+          userIdCrit.setVal(userId.toString());
           try {
             PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                 TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(userIdCrit),
@@ -523,17 +522,17 @@ public class LoginAPI implements Authn {
                       List<Credential> credList = getCredReply.result().getResults();
                       if (!credList.isEmpty()) {
                         String message = "There already exists credentials for user id '"
-                            + userOb.getString("id") + "'";
+                            + userId + "'";
                         logger.error(message);
                         asyncResultHandler.handle(Future.succeededFuture(
                             PostAuthnCredentialsResponse.respond422WithApplicationJson(
                                 ValidationHelper.createValidationErrorMessage(
-                                    CREDENTIAL_USERID_FIELD, userOb.getString("id"), message))));
+                                    CREDENTIAL_USERID_FIELD, userId.toString(), message))));
                       } else {
                         //Now we can create a new Credential
                         Credential credential = new Credential();
                         credential.setId(UUID.randomUUID().toString());
-                        credential.setUserId(userOb.getString("id"));
+                        credential.setUserId(userId.toString());
                         credential.setSalt(authUtil.getSalt());
                         credential.setHash(authUtil.calculateHash(entity.getPassword(),
                             credential.getSalt()));
