@@ -259,6 +259,17 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testAuthnCredentialsNoUserNotFound(TestContext context) {
+    doRequest(vertx, credentialsUrl, HttpMethod.POST, headers,
+        new JsonObject()
+            .put("username", "nonexistinguser")
+            .put("password", "bar")
+            .encode(),
+        400, "Add credentials with username not found")
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
   public void testAuthnLoginNoOkapiUrl(TestContext context) {
     MultiMap testHeaders = MultiMap.caseInsensitiveMultiMap();
     testHeaders.addAll(headers);

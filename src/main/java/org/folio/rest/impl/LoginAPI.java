@@ -484,6 +484,9 @@ public class LoginAPI implements Authn {
       }
       Future<UUID> userIdFuture;
       if (entity.getUserId() != null) {
+        // in reality there should be a lookup of user with the id here,
+        // We leave it as is to preserve compatibility as one could add credentials
+        // before adding a user.
         userIdFuture = Future.succeededFuture(UUID.fromString(entity.getUserId()));
       } else {
         String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
