@@ -23,6 +23,7 @@ import javax.ws.rs.core.Response;
 
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -475,7 +476,7 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(okapiHeaders);
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
-      if (entity.getPassword() == null || entity.getPassword().isEmpty()) {
+      if (StringUtils.isEmpty(entity.getPassword())) {
         asyncResultHandler.handle(Future.succeededFuture(
             PostAuthnCredentialsResponse.respond422WithApplicationJson(
                 ValidationHelper.createValidationErrorMessage(

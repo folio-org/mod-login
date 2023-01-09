@@ -260,7 +260,7 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testAuthnCredentialsNoUserNotFound(TestContext context) {
+  public void testAuthnCredentialsUserNotFound(TestContext context) {
     doRequest(vertx, credentialsUrl, HttpMethod.POST, headers,
         new JsonObject()
             .put("username", "nonexistinguser")
