@@ -21,6 +21,7 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.services.impl.PasswordStorageServiceImpl;
+import org.folio.util.PercentCodec;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -256,6 +257,32 @@ public class RestVerticleTest {
         async.complete();
       }
     });
+  }
+
+  @Test
+  public void testAuthnCredentialsUserNotFound(TestContext context) {
+    doRequest(vertx, credentialsUrl, HttpMethod.POST, headers,
+        new JsonObject()
+            .put("username", "nonexistinguser")
+            .put("password", "bar")
+            .encode(),
+        400, "Add credentials with username not found")
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testAuthnCredentialsUppercaseUUID(TestContext context) {
+    doRequest(vertx, credentialsUrl, HttpMethod.POST, headers,
+        new JsonObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("username", "gollum")
+            .put("userId", gollumId.toUpperCase())
+            .put("password", "12345")
+            .encode(),
+        201, "Add credentials with uppercase UUID userId")
+        .compose(x -> doRequest(vertx, credentialsUrl + "?userId=" + PercentCodec.encode(gollumId),
+            HttpMethod.DELETE, headers, null, 204, "delete the user again"))
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
