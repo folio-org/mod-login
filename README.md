@@ -16,7 +16,7 @@ default implementation uses a simple username and password for authentication.
 # Module properties
 
 The following module parameters can be specified on the command line.
-See https://github.com/folio-org/raml-module-builder#command-line-options
+See <https://github.com/folio-org/raml-module-builder#command-line-options>
 When specified, these will take precedence over the hard-coded defaults.
 
 * login.fail.to.warn.attempts - number of login attempts before warn (default value - 3)
