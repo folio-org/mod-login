@@ -15,7 +15,7 @@ default implementation uses a simple username and password for authentication.
 
 # Module properties
 
-The following module parameters can be specified on the command line.  
+The following module parameters can be specified on the command line.
 See https://github.com/folio-org/raml-module-builder#command-line-options
 When specified, these will take precedence over the hard-coded defaults.
 
@@ -26,7 +26,7 @@ When specified, these will take precedence over the hard-coded defaults.
 # Mod-configuration entries
 
 The following configuration entries can be specified in mod-configuration.
-When present, these will take precedence over the 
+When present, these will take precedence over the
 hard-coded defaults and the module parameter values specified on the command line.
 
 | Module    | Code                    | configName                  | Description                                                                        |
