@@ -6,4 +6,4 @@ CREATE TABLE IF NOT EXISTS user_tenant (
     creation_date timestamp without time zone
 );
 
-CREATE INDEX IF NOT EXISTS tenant_id_index ON user_tenant USING BTREE (tenant_id);
+CREATE INDEX IF NOT EXISTS tenant_id_username_index ON user_tenant USING BTREE (tenant_id, username);
