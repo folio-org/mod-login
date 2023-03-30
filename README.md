@@ -29,19 +29,20 @@ The following configuration entries can be specified in mod-configuration.
 When present, these will take precedence over the hard-coded defaults and
 the module parameter values specified on the command line.
 
-| module    | code                    | configName                  | Description                                                                        |
-|:----------|:------------------------|:----------------------------|:-----------------------------------------------------------------------------------|
-| EVENT_LOG | STATUS                  | {any}                       | Enable/disable event logging.  If disabled, events will not be logged, nor will you be able to retreive previously logged entries (default: enabled=false) |
-| EVENT_LOG | SUCESSFUL_LOGIN_ATTEMPT | {any}                       | If enabled, log successful login attempts to the event log (default: enabled=false) |
-| EVENT_LOG | FAILED_LOGIN_ATTEMPT    | {any}                       | If enabled, log failed login attempts to the event log (default: enabled=false)     |
-| EVENT_LOG | PASSWORD_RESET          | {any}                       | If enabled, log password reset events to the event log (default: enabled=false)     |
-| EVENT_LOG | PASSWORD_CREATE         | {any}                       | If enabled, log password creation events to the event log (default: enabled=false)  |
-| EVENT_LOG | PASSWORD_CHANGE         | {any}                       | If enabled, log password change events to the event log (default: enabled=false)    |
-| EVENT_LOG | USER_BLOCK              | {any}                       | If enabled, log user blocked events to the event log (default: enabled=false)       |
-| {any}     | {any}                   | login.fail.attempts         | Number of login attempts before block user account (default: value=5)               |
-| {any}     | {any}                   | login.fail.to.warn.attempts | Number of login attempts before warn (default: value=3)                             |
-| {any}     | {any}                   | login.fail.timeout          | After timeout in minutes, fail login attempts will be dropped (default: value=10)   |
-| {any}     | {any}                   | login.history.number        | Number of previously used passwords which should factor into the "has this password been previously used" check (default: value=10) |
+| module    | code                        | configName           | Description                                                                         |
+|:----------|:----------------------------|:---------------------|:------------------------------------------------------------------------------------|
+| EVENT_LOG | STATUS                      | {any}                | Enable/disable event logging.  If disabled, events will not be logged, nor will you be able to retreive previously logged entries (default: enabled=false) |
+| EVENT_LOG | SUCESSFUL_LOGIN_ATTEMPT     | {any}                | If enabled, log successful login attempts to the event log (default: enabled=false) |
+| EVENT_LOG | FAILED_LOGIN_ATTEMPT        | {any}                | If enabled, log failed login attempts to the event log (default: enabled=false)     |
+| EVENT_LOG | PASSWORD_RESET              | {any}                | If enabled, log password reset events to the event log (default: enabled=false)     |
+| EVENT_LOG | PASSWORD_CREATE             | {any}                | If enabled, log password creation events to the event log (default: enabled=false)  |
+| EVENT_LOG | PASSWORD_CHANGE             | {any}                | If enabled, log password change events to the event log (default: enabled=false)    |
+| EVENT_LOG | USER_BLOCK                  | {any}                | If enabled, log user blocked events to the event log (default: enabled=false)       |
+| {any}     | login.fail.attempts         | {any}                | Number of login attempts before block user account (default: value=5)               |
+| {any}     | login.fail.to.warn.attempts | {any}                | Number of login attempts before warn (default: value=3)                             |
+| {any}     | login.fail.timeout          | {any}                | After timeout in minutes, fail login attempts will be dropped (default: value=10)   |
+| {any}     | {any}                       | login.history.number | Number of previously used passwords which should factor into the "has this password been previously used" check (default: value=10) |
+
 # Additional information
 
 The [raml-module-builder](https://github.com/folio-org/raml-module-builder) framework.
