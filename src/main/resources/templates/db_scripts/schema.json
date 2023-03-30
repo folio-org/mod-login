@@ -1,5 +1,11 @@
 {
-  "scripts": [],
+  "scripts": [
+    {
+      "run": "after",
+      "snippetPath": "consortia/create_user_tenant_table.sql",
+      "fromModuleVersion": "mod-login-7.10.0"
+    }
+  ],
   "tables": [
     {
       "tableName": "auth_credentials",
