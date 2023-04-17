@@ -34,7 +34,7 @@ public class InitAPIs implements InitAPI {
   public void init(Vertx vertx, Context context, Handler<AsyncResult<Boolean>> resultHandler) {
     WebClientFactory.init(vertx);
     URL u = InitAPIs.class.getClassLoader().getResource(CREDENTIAL_SCHEMA_PATH);
-    if (false) {
+    if (u == null) {
       resultHandler.handle(Future.failedFuture(new MissingResourceException(CREDENTIAL_SCHEMA_PATH, InitAPIs.class.getName(), CREDENTIAL_SCHEMA_PATH)));
     } else {
       new ServiceBinder(vertx)
