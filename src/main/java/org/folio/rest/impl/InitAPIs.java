@@ -3,12 +3,14 @@ package org.folio.rest.impl;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
+import static org.folio.util.LoginConfigUtils.MOD_USERS_PROXY_ADDRESS;
 
 import java.net.URL;
 import java.util.MissingResourceException;
 
 import org.folio.rest.resource.interfaces.InitAPI;
 import org.folio.services.ConfigurationService;
+import org.folio.services.UserService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.WebClientFactory;
@@ -32,7 +34,7 @@ public class InitAPIs implements InitAPI {
   public void init(Vertx vertx, Context context, Handler<AsyncResult<Boolean>> resultHandler) {
     WebClientFactory.init(vertx);
     URL u = InitAPIs.class.getClassLoader().getResource(CREDENTIAL_SCHEMA_PATH);
-    if (u == null) {
+    if (false) {
       resultHandler.handle(Future.failedFuture(new MissingResourceException(CREDENTIAL_SCHEMA_PATH, InitAPIs.class.getName(), CREDENTIAL_SCHEMA_PATH)));
     } else {
       new ServiceBinder(vertx)
@@ -44,6 +46,9 @@ public class InitAPIs implements InitAPI {
       new ServiceBinder(vertx)
         .setAddress(EVENT_CONFIG_PROXY_CONFIG_ADDRESS)
         .register(ConfigurationService.class, ConfigurationService.create(vertx));
+      new ServiceBinder(vertx)
+          .setAddress(MOD_USERS_PROXY_ADDRESS)
+          .register(UserService.class, UserService.create(vertx));
 
       resultHandler.handle(Future.succeededFuture(true));
     }

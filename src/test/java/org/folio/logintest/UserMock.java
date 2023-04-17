@@ -27,6 +27,7 @@ public class UserMock extends AbstractVerticle {
   public static final String bombadilId = "35bbcda7-866a-4231-b478-59b9dd2eb3ee";
   public static final String sarumanId = "340bafb8-ea74-4f51-be8c-ec6493fd517e";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String TENANT_OTHER = "other";
 
   private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
 
@@ -51,6 +52,7 @@ public class UserMock extends AbstractVerticle {
     router.route("/token").handler(this::handleToken);
     router.route("/refreshtoken").handler(this::handleRefreshToken);
     router.route("/configurations/entries").handler(this::handleConfig);
+    router.route("/user-tenants").handler(this::handleUserTenants);
     logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {
       if (result.failed()) {
@@ -303,6 +305,57 @@ public class UserMock extends AbstractVerticle {
       }
     });
   }
-}
 
+  private void handleUserTenants(RoutingContext context) {
+    String username = context.request().getParam("username");
+    String userId = context.request().getParam("userId");
+    String tenantId = context.request().getParam("tenantId");
+    if ("admin".equals(username) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", adminId)
+        .put("username", "admin")
+        .put("tenantId", TENANT_OTHER);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("missing".equals(username) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray())
+        .put("totalRecords", 0);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("admin".equals(username) && "missing".equals(tenantId)) {
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray())
+        .put("totalRecords", 0);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if (adminId.equals(userId) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", adminId)
+        .put("username", "admin")
+        .put("tenantId", TENANT_OTHER);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else {
+      throw new RuntimeException("unknown test values");
+    }
+  }}
 
