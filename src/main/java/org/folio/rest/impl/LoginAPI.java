@@ -303,22 +303,22 @@ public class LoginAPI implements Authn {
       return Future.succeededFuture(tenantId);
     Promise<String> promise = Promise.promise();
     userService.getUserTenant(tenantId, entity.getUsername(), entity.getUserId(), entity.getTenantId(),
-        LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
-          if (ar.failed()) {
-            promise.fail(ar.cause());
+      LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
+          return;
+        }
+        try {
+          String newTenantId = ar.result().mapTo(UserTenant.class).getTenantId();
+          if (newTenantId == null) {
+            promise.fail("The matching user-tenant record does not have a tenant id ???");
             return;
           }
-          try {
-            String newTenantId = ar.result().mapTo(UserTenant.class).getTenantId();
-            if (newTenantId == null) {
-              promise.fail("The matching user-tenant record does not have a tenant id ???");
-              return;
-            }
-            promise.complete(newTenantId);
-          } catch (Exception ex) {
-            promise.fail(ex);
-          }
-      });
+          promise.complete(newTenantId);
+        } catch (Exception ex) {
+          promise.fail(ex);
+        }
+    });
     return promise.future();
   }
 
