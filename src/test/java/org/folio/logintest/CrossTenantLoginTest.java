@@ -32,7 +32,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
-public class ConsortiaLoginTest {
+public class CrossTenantLoginTest {
 
   private static Vertx vertx;
   private static RequestSpecification spec;
@@ -63,6 +63,14 @@ public class ConsortiaLoginTest {
     .put("userId", adminId)
     .put("password", "admin1")
     .put("tenantId", TENANT_OTHER);
+
+  final private JsonObject credsWithoutTenant1 = new JsonObject()
+      .put("username", "single")
+      .put("password", "secret");
+
+  final private JsonObject credsWithoutTenant2 = new JsonObject()
+      .put("username", "multiple")
+      .put("password", "secret");
 
   private static Map<String, String> moduleArgs;
 
@@ -179,6 +187,35 @@ public class ConsortiaLoginTest {
       .then()
       .log().all()
       .statusCode(201);
+
+    RestAssured.given()
+      .spec(specWithOtherTenant)
+      .body(credsWithoutTenant1.encode())
+      .when()
+      .post(CRED_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsWithoutTenant1.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(201);
+
+    RestAssured.given()
+      .spec(spec)
+      .body(credsWithoutTenant2.encode())
+      .when()
+      .post(LOGIN_PATH)
+      .then()
+      .log().all()
+      .statusCode(422)
+      .body("errors[0].code", equalTo("multiple.matching.users"))
+      .body("errors[0].parameters[0].value", equalTo("[other, diku]"));
   }
 
 }

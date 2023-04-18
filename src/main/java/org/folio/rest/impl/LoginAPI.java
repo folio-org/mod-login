@@ -1,7 +1,7 @@
 package org.folio.rest.impl;
 
+import static java.util.stream.Collectors.toList;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.services.impl.UserServiceImpl.USER_TENANT_NOT_FOUND;
 import static org.folio.util.LoginAttemptsHelper.TABLE_NAME_LOGIN_ATTEMPTS;
 import static org.folio.util.LoginAttemptsHelper.buildCriteriaForUserAttempts;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
@@ -106,7 +106,13 @@ public class LoginAPI implements Authn {
   public static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   private static final String MISSING_USER_TENANT_ASSOCIATION = "Missing consortium user-tenant association";
+  private static final String MISSING_USER_TENANT_ASSOCIATION_LOG = MISSING_USER_TENANT_ASSOCIATION +
+      " username={} userId={}, requestedTenantId={}";
   public static final String CODE_MISSING_USER_TENANT_ASSOCIATION = "user-tenant.not.found";
+  public static final String CODE_MULTIPLE_MATCHING_USERS = "multiple.matching.users";
+  public static final String MULTIPLE_MATCHING_USERS = "Multiple matching users";
+  public static final String MULTIPLE_MATCHING_USERS_LOG = MULTIPLE_MATCHING_USERS +
+      " username={} userId={}, tenants={}";
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -262,16 +268,10 @@ public class LoginAPI implements Authn {
             .respond400WithTextPlain("You must provide a password")));
         return;
       }
-      handleConsortiaLogin(entity, tenantId, okapiHeaders)
+      handleCrossTenantLogin(entity, tenantId, okapiHeaders, asyncResultHandler)
         .onComplete(ar -> {
           if (ar.failed()) {
-            if (USER_TENANT_NOT_FOUND.equals(ar.cause().getMessage())) {
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
-                  LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
-            } else {
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(
-                  INTERNAL_ERROR)));
-            }
+            // asyncResultHandler was updated in handleCrossTenantLogin()
             return;
           }
           String newTenantId = ar.result();
@@ -298,28 +298,63 @@ public class LoginAPI implements Authn {
     }
   }
 
-  private Future<String> handleConsortiaLogin(LoginCredentials entity, String tenantId, Map<String, String> okapiHeaders) {
-    if (entity.getTenantId() == null || entity.getTenantId().equals(okapiHeaders.get(XOkapiHeaders.TENANT)))
+  private Future<String> handleCrossTenantLogin(LoginCredentials credentials, String tenantId,
+                                                Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
+    if (credentials.getTenantId() == null || credentials.getTenantId().equals(okapiHeaders.get(XOkapiHeaders.TENANT)))
       return Future.succeededFuture(tenantId);
     Promise<String> promise = Promise.promise();
-    userService.getUserTenant(tenantId, entity.getUsername(), entity.getUserId(), entity.getTenantId(),
+    userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenantId(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
         if (ar.failed()) {
           promise.fail(ar.cause());
           return;
         }
         try {
-          String newTenantId = ar.result().mapTo(UserTenant.class).getTenantId();
-          if (newTenantId == null) {
-            promise.fail("The matching user-tenant record does not have a tenant id ???");
-            return;
+          List<UserTenant> userTenants = ar.result().stream()
+            .map(obj -> ((JsonObject)obj).mapTo(UserTenant.class))
+            .collect(toList());
+          if (userTenants.isEmpty()) {
+            if (StringUtils.isNotBlank(credentials.getTenantId())) {
+              logger.info(MISSING_USER_TENANT_ASSOCIATION_LOG, credentials.getUsername(), credentials.getUserId(),
+                  credentials.getTenantId());
+              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
+                  LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
+              promise.fail(new Exception(MISSING_USER_TENANT_ASSOCIATION));
+            } else {
+              promise.complete(tenantId);
+            }
+          } else if (userTenants.size() > 1) {
+            List<String> matchingTenants = userTenants.stream()
+                .map(UserTenant::getTenantId)
+                .collect(toList());
+            logger.debug(MULTIPLE_MATCHING_USERS_LOG, credentials.getUsername(), credentials.getUserId(),
+                matchingTenants.toString());
+            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
+                LoginAPI.getErrors(MULTIPLE_MATCHING_USERS, CODE_MULTIPLE_MATCHING_USERS,
+                    Pair.of("matchingTenants", matchingTenants.toString())))));
+            promise.fail(new Exception(MULTIPLE_MATCHING_USERS));
+          } else {
+            String newTenantId = userTenants.get(0).getTenantId();
+            if (StringUtils.isBlank(newTenantId)) {
+              failWithInternalError(promise, asyncResultHandler,
+                  new Exception("The matching user-tenant record does not have a tenant id ???"));
+              return;
+            }
+            promise.complete(newTenantId);
           }
-          promise.complete(newTenantId);
         } catch (Exception ex) {
-          promise.fail(ex);
+          failWithInternalError(promise, asyncResultHandler, ex);
         }
     });
     return promise.future();
+  }
+
+  private void failWithInternalError(Promise<String> promise, Handler<AsyncResult<Response>> asyncResultHandler,
+                                     Throwable cause) {
+    logger.error(cause);
+    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(
+        INTERNAL_ERROR)));
+    promise.fail(cause);
   }
 
   private void loginAfterUserVerified(AsyncResult<JsonObject> verifyResult, LoginCredentials entity, String tenantId,

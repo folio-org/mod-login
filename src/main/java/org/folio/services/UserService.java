@@ -5,8 +5,8 @@ import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.folio.rest.jaxrs.model.UserTenant;
 import org.folio.services.impl.UserServiceImpl;
 
 /**
@@ -53,10 +53,10 @@ public interface UserService {
    * @param userId             user identifier possibly used for login
    * @param requestedTenantId  identifier of the tenant requested by the user
    * @param headers            okapi headers
-   * @return asyncResult with the response entity {@link UserTenant} as a JsonObject
+   * @return asyncResult with the response entity JsonArray of user-tenant associations
    */
   @Fluent
-  UserService getUserTenant(String currentTenantId, String username, String userId, String requestedTenantId,
-      JsonObject headers, Handler<AsyncResult<JsonObject>> asyncResultHandler);
+  UserService getUserTenants(String currentTenantId, String username, String userId, String requestedTenantId,
+      JsonObject headers, Handler<AsyncResult<JsonArray>> asyncResultHandler);
 
 }
