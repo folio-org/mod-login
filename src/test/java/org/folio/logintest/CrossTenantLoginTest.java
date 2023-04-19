@@ -13,7 +13,6 @@ import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -27,7 +26,6 @@ import io.restassured.specification.RequestSpecification;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 
@@ -65,12 +63,12 @@ public class CrossTenantLoginTest {
     .put("tenantId", TENANT_OTHER);
 
   final private JsonObject credsWithoutTenant1 = new JsonObject()
-      .put("username", "single")
-      .put("password", "secret");
+    .put("username", "single")
+    .put("password", "secret");
 
   final private JsonObject credsWithoutTenant2 = new JsonObject()
-      .put("username", "multiple")
-      .put("password", "secret");
+    .put("username", "multiple")
+    .put("password", "secret");
 
   private static Map<String, String> moduleArgs;
 
@@ -126,17 +124,9 @@ public class CrossTenantLoginTest {
   }
 
   private void dBCleanupWithTenant(TestContext context, String tenant) {
-    Async async = context.async();
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
-    pgClient.withTrans(conn ->
-      conn.delete("auth_attempts", new Criterion())
-        .compose(reply -> conn.delete("auth_credentials", new Criterion()))
-        .compose(reply -> conn.delete("auth_credentials_history", new Criterion()))
-        .map(reply -> {
-          async.complete();
-          return null;
-        })
-    );
+    PostgresClient.getInstance(vertx, tenant)
+      .execute("TRUNCATE auth_attempts, auth_credentials, auth_credentials_history")
+      .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

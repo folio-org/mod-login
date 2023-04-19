@@ -18,14 +18,12 @@
     "tenantId": {
       "description": "Tenant identifier",
       "type": "string"
-    },
-    "tenantName": {
-      "description": "Tenant name",
-      "type": "string"
-    },
-    "isPrimary": {
-      "description": "True if it is the primary tenant for the user",
-      "type": "boolean"
     }
-  }
+  },
+  "required": [
+    "id",
+    "userId",
+    "username",
+    "tenantId"
+  ]
 }

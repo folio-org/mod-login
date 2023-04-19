@@ -117,12 +117,15 @@ public class UserServiceImpl implements UserService {
     String requestUrl = String.format(REQUEST_URL_TEMPLATE, okapiUrl, USER_TENANTS_URI_PATH);
 
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestUrl);
-    if (userId != null)
+    if (userId != null) {
       request.addQueryParam("userId", userId);
-    if (username != null)
+    }
+    if (username != null) {
       request.addQueryParam("username", username);
-    if (requestedTenantId != null)
+    }
+    if (requestedTenantId != null) {
       request.addQueryParam("tenantId", requestedTenantId);
+    }
 
     return request.putHeader(XOkapiHeaders.TOKEN, okapiToken)
       .putHeader(XOkapiHeaders.TENANT, currentTenantId)

@@ -6,7 +6,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class UserServiceImplTest {
+class UserServiceImplTest {
 
   @ParameterizedTest
   @CsvSource({

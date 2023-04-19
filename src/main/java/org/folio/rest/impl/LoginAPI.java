@@ -160,14 +160,7 @@ public class LoginAPI implements Authn {
   */
   private Future<JsonObject> lookupUser(String username, String userId, String tenant,
       final String okapiURL, String requestToken) {
-    Promise<JsonObject> promise = Promise.promise();
-    userService.lookupUser(username, userId, tenant, okapiURL, requestToken, ar -> {
-      if (ar.failed())
-        promise.fail(ar.cause());
-      else
-        promise.complete(ar.result());
-    });
-    return promise.future();
+    return Future.future(promise -> userService.lookupUser(username, userId, tenant, okapiURL, requestToken, promise));
   }
 
   private Future<String> fetchToken(JsonObject payload, String tenant,
@@ -314,6 +307,7 @@ public class LoginAPI implements Authn {
             .map(obj -> ((JsonObject)obj).mapTo(UserTenant.class))
             .collect(toList());
           if (userTenants.isEmpty()) {
+            // No matching tenant - if a tenant was specified, return an error
             if (StringUtils.isNotBlank(credentials.getTenantId())) {
               logger.info(MISSING_USER_TENANT_ASSOCIATION_LOG, credentials.getUsername(), credentials.getUserId(),
                   credentials.getTenantId());
@@ -324,6 +318,7 @@ public class LoginAPI implements Authn {
               promise.complete(tenantId);
             }
           } else if (userTenants.size() > 1) {
+            // Multiple matching user-tenants, return an error with the list
             List<String> matchingTenants = userTenants.stream()
                 .map(UserTenant::getTenantId)
                 .collect(toList());
@@ -334,6 +329,7 @@ public class LoginAPI implements Authn {
                     Pair.of("matchingTenants", matchingTenants.toString())))));
             promise.fail(new Exception(MULTIPLE_MATCHING_USERS));
           } else {
+            // Single matching user-tenant, continue with the related tenant
             String newTenantId = userTenants.get(0).getTenantId();
             if (StringUtils.isBlank(newTenantId)) {
               failWithInternalError(promise, asyncResultHandler,
