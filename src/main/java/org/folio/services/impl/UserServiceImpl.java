@@ -26,8 +26,7 @@ import java.util.Map;
 public class UserServiceImpl implements UserService {
   private static final String USER_TENANTS_URI_PATH = "/user-tenants";
   private static final String REQUEST_URL_TEMPLATE = "%s%s";
-  private static final String USER_TENANT_GET_ERROR =
-    "Error getting user-tenant record; username=%s; userId=%s; tenantId=%s; statusCode=%s; response=%s";
+  private static final String USER_TENANT_GET_ERROR = "Error getting user-tenant record; username=%s; userId=%s; tenantId=%s: %s";
   private static final Logger logger = LogManager.getLogger();
 
   private final Vertx vertx;
@@ -51,9 +50,9 @@ public class UserServiceImpl implements UserService {
       .onComplete(ar -> {
         if (ar.failed()) {
           asyncResultHandler.handle(Future.failedFuture(ar.cause()));
-          return;
+        } else {
+          asyncResultHandler.handle(Future.succeededFuture(ar.result()));
         }
-        asyncResultHandler.handle(Future.succeededFuture(ar.result()));
       });
     return this;
   }
@@ -67,9 +66,9 @@ public class UserServiceImpl implements UserService {
         .onComplete(ar -> {
           if (ar.failed()) {
             asyncResultHandler.handle(Future.failedFuture(ar.cause()));
-            return;
+          } else {
+            asyncResultHandler.handle(Future.succeededFuture(ar.result()));
           }
-          asyncResultHandler.handle(Future.succeededFuture(ar.result()));
         });
     } catch (Exception ex) {
       logger.error(ex.getMessage(), ex);
@@ -130,16 +129,11 @@ public class UserServiceImpl implements UserService {
     return request.putHeader(XOkapiHeaders.TOKEN, okapiToken)
       .putHeader(XOkapiHeaders.TENANT, currentTenantId)
       .send()
-      .map(response -> {
-        if (response.statusCode() != 200) {
-          String message = String.format(USER_TENANT_GET_ERROR, username, userId, requestedTenantId,
-            response.statusCode(), response.bodyAsString());
-          logger.info(message);
-          throw new RuntimeException(message);
-        }
-        JsonObject json = response.bodyAsJsonObject();
-        return json.getJsonArray("userTenants");
-      });
+        .map(response -> response.bodyAsJsonObject().getJsonArray("userTenants"))
+        .recover(e -> {
+          String message = String.format(USER_TENANT_GET_ERROR, username, userId, requestedTenantId, e.getMessage());
+          logger.info("{}", message, e);
+          return Future.failedFuture(message);
+        });
   }
-
 }
