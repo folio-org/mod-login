@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class InitAPIsTest {
 
   @Test
-  void test() {
+  void checkResourceNotFound() {
     var future = InitAPIs.checkResource("gone");
     assertThat(future.cause().getMessage(), containsString("gone"));
   }
