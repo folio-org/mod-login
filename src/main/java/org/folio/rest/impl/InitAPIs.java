@@ -9,6 +9,7 @@ import org.folio.rest.resource.interfaces.InitAPI;
 import org.folio.services.ConfigurationService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
+import org.folio.util.ResourceUtil;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
@@ -47,9 +48,9 @@ public class InitAPIs implements InitAPI {
   }
 
   static Future<Void> checkResource(String name) {
-    // when running tests in IDEs (Eclipse, ...) getResourceAsStream works, getResource doesn't
-    try (var x = InitAPIs.class.getResourceAsStream(name)) {
-      x.read();
+    try {
+      // works without jar, with jar, and without and with IDEs (Eclipse, ...)
+      ResourceUtil.asString(name);
       return Future.succeededFuture();
     } catch (Exception e) {
       var e2 = new MissingResourceException(name, InitAPIs.class.getName(), name);
