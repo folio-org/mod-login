@@ -46,12 +46,13 @@ public class InitAPIs implements InitAPI {
     .onComplete(resultHandler::handle);
   }
 
-  private Future<Void> checkResource(String name) {
+  static Future<Void> checkResource(String name) {
     // when running tests in IDEs (Eclipse, ...) getResourceAsStream works, getResource doesn't
-    try (var x = InitAPIs.class.getResourceAsStream(CREDENTIAL_SCHEMA_PATH)) {
+    try (var x = InitAPIs.class.getResourceAsStream(name)) {
+      x.read();
       return Future.succeededFuture();
     } catch (Exception e) {
-      var e2 = new MissingResourceException(CREDENTIAL_SCHEMA_PATH, InitAPIs.class.getName(), CREDENTIAL_SCHEMA_PATH);
+      var e2 = new MissingResourceException(name, InitAPIs.class.getName(), name);
       return Future.failedFuture(e2);
     }
   }
