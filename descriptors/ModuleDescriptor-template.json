@@ -12,6 +12,7 @@
           "permissionsRequired" : [ "login.event.collection.post" ],
           "modulePermissions" : [
             "users.collection.get",
+            "user-tenants.collection.get",
             "configuration.entries.collection.get",
             "configuration.entries.item.get"
           ]

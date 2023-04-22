@@ -293,8 +293,9 @@ public class LoginAPI implements Authn {
 
   private Future<String> handleCrossTenantLogin(LoginCredentials credentials, String tenantId,
                                                 Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
-    if (credentials.getTenantId() == null || credentials.getTenantId().equals(okapiHeaders.get(XOkapiHeaders.TENANT)))
+    if (credentials.getTenantId() == null || credentials.getTenantId().equals(okapiHeaders.get(XOkapiHeaders.TENANT))) {
       return Future.succeededFuture(tenantId);
+    }
     Promise<String> promise = Promise.promise();
     userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenantId(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {

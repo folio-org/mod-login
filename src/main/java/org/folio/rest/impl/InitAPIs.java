@@ -47,8 +47,8 @@ public class InitAPIs implements InitAPI {
         .setAddress(EVENT_CONFIG_PROXY_CONFIG_ADDRESS)
         .register(ConfigurationService.class, ConfigurationService.create(vertx));
       new ServiceBinder(vertx)
-          .setAddress(MOD_USERS_PROXY_ADDRESS)
-          .register(UserService.class, UserService.create(vertx));
+        .setAddress(MOD_USERS_PROXY_ADDRESS)
+        .register(UserService.class, UserService.create(vertx));
 
       resultHandler.handle(Future.succeededFuture(true));
     }
