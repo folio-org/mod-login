@@ -47,13 +47,7 @@ public class UserServiceImpl implements UserService {
       .expect(ResponsePredicate.JSON)
       .send()
       .map(res -> extractUserFromLookupResponse(res, requestURL, username))
-      .onComplete(ar -> {
-        if (ar.failed()) {
-          asyncResultHandler.handle(Future.failedFuture(ar.cause()));
-        } else {
-          asyncResultHandler.handle(Future.succeededFuture(ar.result()));
-        }
-      });
+      .onComplete(asyncResultHandler);
     return this;
   }
 
@@ -63,13 +57,7 @@ public class UserServiceImpl implements UserService {
     try {
       Map<String,String> okapiHeaders = LoginConfigUtils.decodeJsonHeaders(headers);
       getUserTenants(okapiHeaders, currentTenantId, username, userId, requestedTenantId)
-        .onComplete(ar -> {
-          if (ar.failed()) {
-            asyncResultHandler.handle(Future.failedFuture(ar.cause()));
-          } else {
-            asyncResultHandler.handle(Future.succeededFuture(ar.result()));
-          }
-        });
+        .onComplete(asyncResultHandler);
     } catch (Exception ex) {
       logger.error(ex.getMessage(), ex);
       asyncResultHandler.handle(Future.failedFuture(ex));
@@ -127,8 +115,9 @@ public class UserServiceImpl implements UserService {
     }
 
     return request.putHeader(XOkapiHeaders.TOKEN, okapiToken)
-      .putHeader(XOkapiHeaders.TENANT, currentTenantId)
-      .send()
+        .putHeader(XOkapiHeaders.TENANT, currentTenantId)
+        .expect(ResponsePredicate.status(200))
+        .send()
         .map(response -> response.bodyAsJsonObject().getJsonArray("userTenants"))
         .recover(e -> {
           String message = String.format(USER_TENANT_GET_ERROR, username, userId, requestedTenantId, e.getMessage());

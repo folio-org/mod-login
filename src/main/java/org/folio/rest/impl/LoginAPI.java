@@ -261,7 +261,7 @@ public class LoginAPI implements Authn {
             .respond400WithTextPlain("You must provide a password")));
         return;
       }
-      handleCrossTenantLogin(entity, tenantId, okapiHeaders, asyncResultHandler)
+      handleLogin(entity, tenantId, okapiHeaders, asyncResultHandler)
         .onComplete(ar -> {
           if (ar.failed()) {
             // asyncResultHandler was updated in handleCrossTenantLogin()
@@ -291,11 +291,8 @@ public class LoginAPI implements Authn {
     }
   }
 
-  private Future<String> handleCrossTenantLogin(LoginCredentials credentials, String tenantId,
-                                                Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
-    if (credentials.getTenantId() == null || credentials.getTenantId().equals(okapiHeaders.get(XOkapiHeaders.TENANT))) {
-      return Future.succeededFuture(tenantId);
-    }
+  private Future<String> handleLogin(LoginCredentials credentials, String tenantId,
+                                     Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
     Promise<String> promise = Promise.promise();
     userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenantId(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
