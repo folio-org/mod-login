@@ -12,7 +12,6 @@
           "permissionsRequired" : [ "login.event.collection.post" ],
           "modulePermissions" : [
             "users.collection.get",
-            "user-tenants.collection.get",
             "configuration.entries.collection.get",
             "configuration.entries.item.get"
           ]
@@ -37,9 +36,15 @@
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "permissionsRequired" : [ ],
-          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
-            "users.collection.get", "users.item.put", "users.item.get",
-            "configuration.entries.collection.get" ]
+          "modulePermissions" : [
+            "auth.signtoken",
+            "auth.signrefreshtoken",
+            "users.collection.get",
+            "users.item.put",
+            "users.item.get",
+            "configuration.entries.collection.get",
+            "user-tenants.collection.get"
+          ]
         },
         {
           "methods" : [ "GET" ],

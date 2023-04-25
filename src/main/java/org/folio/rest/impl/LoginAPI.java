@@ -284,7 +284,8 @@ public class LoginAPI implements Authn {
           }
           userVerified.onComplete(verifyResult -> loginAfterUserVerified(verifyResult, entity, newTenantId, okapiURL,
               requestToken, userAgent, xForwardedFor, okapiHeaders, asyncResultHandler, vertxContext));
-        });
+        })
+        .onFailure(e -> asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(e.getMessage()))));
     } catch(Exception e) {
       logger.debug("Error running on verticle for postAuthnLogin: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
