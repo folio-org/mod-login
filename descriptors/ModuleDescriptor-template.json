@@ -115,6 +115,10 @@
     {
       "id" : "users",
       "version" : "15.4 16.0"
+    },
+    {
+      "id" : "user-tenants",
+      "version" : "1.0"
     }
   ],
   "optional" : [
