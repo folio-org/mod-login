@@ -36,15 +36,9 @@
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "permissionsRequired" : [ ],
-          "modulePermissions" : [
-            "auth.signtoken",
-            "auth.signrefreshtoken",
-            "users.collection.get",
-            "users.item.put",
-            "users.item.get",
-            "configuration.entries.collection.get",
-            "user-tenants.collection.get"
-          ]
+          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
+            "users.collection.get", "users.item.put", "users.item.get",
+            "configuration.entries.collection.get" ]
         },
         {
           "methods" : [ "GET" ],
@@ -115,10 +109,6 @@
     {
       "id" : "users",
       "version" : "15.4 16.0"
-    },
-    {
-      "id" : "user-tenants",
-      "version" : "1.0"
     }
   ],
   "optional" : [
