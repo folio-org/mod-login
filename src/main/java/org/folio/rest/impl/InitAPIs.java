@@ -1,6 +1,5 @@
 package org.folio.rest.impl;
 
-import java.net.URL;
 import java.util.MissingResourceException;
 
 import org.folio.rest.resource.interfaces.InitAPI;
@@ -9,7 +8,6 @@ import org.folio.services.UserService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.ResourceUtil;
-import org.folio.services.UserService;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
