@@ -41,6 +41,7 @@ public class UserServiceImpl implements UserService {
       String requestToken, Handler<AsyncResult<JsonObject>> asyncResultHandler) {
     final String requestURL = buildUserLookupURL(okapiURL, username, userId);
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).getAbs(requestURL);
+    logger.info(String.format("Lookup to username: %s; userId: %s; tenant: %s", username, userId, tenant));
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, requestToken);
     request
