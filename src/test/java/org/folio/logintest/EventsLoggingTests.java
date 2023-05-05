@@ -262,6 +262,14 @@ public class EventsLoggingTests {
         .willReturn(WireMock.noContent())
     );
 
+    JsonObject userTenantsResponse = new JsonObject()
+      .put("userTenants", new JsonArray())
+      .put("totalRecords", 0);
+    mockServer.stubFor(
+      WireMock.get(WireMock.urlPathEqualTo("/user-tenants"))
+        .willReturn(WireMock.okJson(userTenantsResponse.encode()))
+    );
+
     List<Config> configs = new ArrayList<>();
     configs.add(new Config()
       .withModule(EVENT_LOG_API_MODULE)

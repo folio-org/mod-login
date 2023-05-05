@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "login",
-      "version": "7.1",
+      "version": "7.2",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -36,9 +36,15 @@
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/login",
           "permissionsRequired" : [ ],
-          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken",
-            "users.collection.get", "users.item.put", "users.item.get",
-            "configuration.entries.collection.get" ]
+          "modulePermissions" : [
+            "auth.signtoken",
+            "auth.signrefreshtoken",
+            "users.collection.get",
+            "users.item.put",
+            "users.item.get",
+            "configuration.entries.collection.get",
+            "user-tenants.collection.get"
+          ]
         },
         {
           "methods" : [ "GET" ],
@@ -109,6 +115,10 @@
     {
       "id" : "users",
       "version" : "15.4 16.0"
+    },
+    {
+      "id" : "user-tenants",
+      "version" : "1.0"
     }
   ],
   "optional" : [

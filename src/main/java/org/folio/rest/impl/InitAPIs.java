@@ -1,12 +1,10 @@
 package org.folio.rest.impl;
 
-import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_CONFIG_ADDRESS;
-import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
-import static org.folio.util.LoginConfigUtils.PW_CONFIG_PROXY_STORY_ADDRESS;
-
 import java.util.MissingResourceException;
+
 import org.folio.rest.resource.interfaces.InitAPI;
 import org.folio.services.ConfigurationService;
+import org.folio.services.UserService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.ResourceUtil;
@@ -18,6 +16,8 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.serviceproxy.ServiceBinder;
+
+import static org.folio.util.LoginConfigUtils.*;
 
 /**
  * Performs preprocessing operations before the verticle is deployed,
@@ -42,6 +42,9 @@ public class InitAPIs implements InitAPI {
       new ServiceBinder(vertx)
         .setAddress(EVENT_CONFIG_PROXY_CONFIG_ADDRESS)
         .register(ConfigurationService.class, ConfigurationService.create(vertx));
+      new ServiceBinder(vertx)
+          .setAddress(MOD_USERS_PROXY_ADDRESS)
+          .register(UserService.class, UserService.create(vertx));
       return true;
     })
     .onComplete(resultHandler::handle);
