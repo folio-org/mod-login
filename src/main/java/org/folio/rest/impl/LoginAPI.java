@@ -268,7 +268,7 @@ public class LoginAPI implements Authn {
             return;
           }
           String newTenantId = ar.result();
-          logger.info("Logging to tenantId: " + newTenantId);
+          logger.info("Logging to tenantId: {}", newTenantId);
           Future<JsonObject> userVerified;
           if (entity.getUserId() != null && !requireActiveUser) {
             logger.debug("No need to look up user id");
