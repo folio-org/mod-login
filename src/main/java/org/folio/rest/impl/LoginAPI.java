@@ -62,7 +62,7 @@ import org.folio.services.UserService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
-import org.folio.util.TenantInfo;
+import org.folio.util.TenantContext;
 import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.WebClientFactory;
@@ -268,8 +268,8 @@ public class LoginAPI implements Authn {
             // asyncResultHandler was updated in handleCrossTenantLogin()
             return;
           }
-          TenantInfo newTenantInfo = ar.result();
-          String newTenantId = newTenantInfo.getNewTenantId();
+          TenantContext newTenantContext = ar.result();
+          String newTenantId = newTenantContext.getNewTenantId();
           logger.info("Logging to tenantId: {}", newTenantId);
           Future<JsonObject> userVerified;
           if (entity.getUserId() != null && !requireActiveUser) {
@@ -285,7 +285,7 @@ public class LoginAPI implements Authn {
               userVerified = lookupUser(entity.getUsername(), null, newTenantId, okapiURL, requestToken);
             }
           }
-          userVerified.onComplete(verifyResult -> loginAfterUserVerified(verifyResult, entity, newTenantInfo, okapiURL,
+          userVerified.onComplete(verifyResult -> loginAfterUserVerified(verifyResult, entity, newTenantContext, okapiURL,
               requestToken, userAgent, xForwardedFor, okapiHeaders, asyncResultHandler, vertxContext));
         })
         .onFailure(e -> asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(e.getMessage()))));
@@ -295,9 +295,9 @@ public class LoginAPI implements Authn {
     }
   }
 
-  private Future<TenantInfo> handleLogin(LoginCredentials credentials, String tenantId,
-                                     Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
-    Promise<TenantInfo> promise = Promise.promise();
+  private Future<TenantContext> handleLogin(LoginCredentials credentials, String tenantId,
+                                            Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
+    Promise<TenantContext> promise = Promise.promise();
     userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenant(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
         if (ar.failed()) {
@@ -305,7 +305,7 @@ public class LoginAPI implements Authn {
           return;
         }
         try {
-          TenantInfo tenantInfo = new TenantInfo();
+          TenantContext tenantContext = new TenantContext();
           List<UserTenant> userTenants = ar.result().stream()
             .map(obj -> ((JsonObject)obj).mapTo(UserTenant.class))
             .collect(toList());
@@ -318,8 +318,8 @@ public class LoginAPI implements Authn {
                   LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
               promise.fail(new Exception(MISSING_USER_TENANT_ASSOCIATION));
             } else {
-              tenantInfo.setNewTenantId(tenantId);
-              promise.complete(tenantInfo);
+              tenantContext.setNewTenantId(tenantId);
+              promise.complete(tenantContext);
             }
           } else if (userTenants.size() > 1) {
             // Multiple matching user-tenants, return an error with the list
@@ -340,9 +340,9 @@ public class LoginAPI implements Authn {
                   new Exception("The matching user-tenant record does not have a tenant id ???"));
               return;
             }
-            tenantInfo.setNewTenantId(newTenantId);
-            tenantInfo.setConsortiaTenant(true);
-            promise.complete(tenantInfo);
+            tenantContext.setCrossTenantUser(true);
+            tenantContext.setNewTenantId(newTenantId);
+            promise.complete(tenantContext);
           }
         } catch (Exception ex) {
           failWithInternalError(promise, asyncResultHandler, ex);
@@ -351,7 +351,7 @@ public class LoginAPI implements Authn {
     return promise.future();
   }
 
-  private void failWithInternalError(Promise<TenantInfo> promise, Handler<AsyncResult<Response>> asyncResultHandler,
+  private void failWithInternalError(Promise<TenantContext> promise, Handler<AsyncResult<Response>> asyncResultHandler,
                                      Throwable cause) {
     logger.error(cause);
     asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(
@@ -359,10 +359,10 @@ public class LoginAPI implements Authn {
     promise.fail(cause);
   }
 
-  private void loginAfterUserVerified(AsyncResult<JsonObject> verifyResult, LoginCredentials entity, TenantInfo newTenantInfo,
+  private void loginAfterUserVerified(AsyncResult<JsonObject> verifyResult, LoginCredentials entity, TenantContext newTenantContext,
       String okapiURL, String requestToken, String userAgent, String xForwardedFor, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    String tenantId = newTenantInfo.getNewTenantId();
+    String tenantId = newTenantContext.getNewTenantId();
     if (verifyResult.failed()) {
       String errMsg = "Error verifying user existence: " + verifyResult
           .cause().getLocalizedMessage();
@@ -435,7 +435,7 @@ public class LoginAPI implements Authn {
                       if (!userObject.isEmpty()) {
                         payload.put("user_id", userObject.getString("id"));
                       }
-                      if (newTenantInfo.isConsortiaTenant()) {
+                      if (newTenantContext.isCrossTenantUser()) {
                         payload.put("cross_tenant", true);
                       }
                       Future<String> fetchTokenFuture;
