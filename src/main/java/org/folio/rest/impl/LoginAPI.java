@@ -296,7 +296,7 @@ public class LoginAPI implements Authn {
   private Future<String> handleLogin(LoginCredentials credentials, String tenantId,
                                      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
     Promise<String> promise = Promise.promise();
-    userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenantId(),
+    userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenant(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
         if (ar.failed()) {
           promise.fail(ar.cause());
@@ -308,9 +308,9 @@ public class LoginAPI implements Authn {
             .collect(toList());
           if (userTenants.isEmpty()) {
             // No matching tenant - if a tenant was specified, return an error
-            if (StringUtils.isNotBlank(credentials.getTenantId())) {
+            if (StringUtils.isNotBlank(credentials.getTenant())) {
               logger.info(MISSING_USER_TENANT_ASSOCIATION_LOG, credentials.getUsername(), credentials.getUserId(),
-                  credentials.getTenantId());
+                  credentials.getTenant());
               asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
                   LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
               promise.fail(new Exception(MISSING_USER_TENANT_ASSOCIATION));

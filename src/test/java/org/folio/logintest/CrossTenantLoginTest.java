@@ -45,22 +45,22 @@ public class CrossTenantLoginTest {
   final private JsonObject credsWithTenant1 = new JsonObject()
     .put("username", "admin")
     .put("password", "admin1")
-    .put("tenantId", TENANT_OTHER);
+    .put("tenant", TENANT_OTHER);
 
   final private JsonObject credsWithTenant2 = new JsonObject()
     .put("username", "missing")
     .put("password", "admin1")
-    .put("tenantId", TENANT_OTHER);
+    .put("tenant", TENANT_OTHER);
 
   final private JsonObject credsWithTenant3 = new JsonObject()
     .put("username", "admin")
     .put("password", "admin1")
-    .put("tenantId", "missing");
+    .put("tenant", "missing");
 
   final private JsonObject credsWithTenant4 = new JsonObject()
     .put("userId", adminId)
     .put("password", "admin1")
-    .put("tenantId", TENANT_OTHER);
+    .put("tenant", TENANT_OTHER);
 
   final private JsonObject credsWithoutTenant1 = new JsonObject()
     .put("username", "single")
