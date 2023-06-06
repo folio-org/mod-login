@@ -306,30 +306,7 @@ public class LoginAPI implements Authn {
           List<UserTenant> userTenants = ar.result().stream()
             .map(obj -> ((JsonObject)obj).mapTo(UserTenant.class))
             .collect(toList());
-          if (userTenants.isEmpty()) {
-            // No matching tenant - if a tenant was specified, return an error
-            if (StringUtils.isNotBlank(credentials.getTenant())) {
-              logger.info(MISSING_USER_TENANT_ASSOCIATION_LOG, credentials.getUsername(), credentials.getUserId(),
-                  credentials.getTenant());
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
-                  LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
-              promise.fail(new Exception(MISSING_USER_TENANT_ASSOCIATION));
-            } else {
-              promise.complete(tenantId);
-            }
-          } else if (userTenants.size() > 1) {
-            // Multiple matching user-tenants, return an error with the list
-            List<String> matchingTenants = userTenants.stream()
-                .map(UserTenant::getTenantId)
-                .collect(toList());
-            logger.debug(MULTIPLE_MATCHING_USERS_LOG, credentials.getUsername(), credentials.getUserId(),
-                matchingTenants.toString());
-            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
-                LoginAPI.getErrors(MULTIPLE_MATCHING_USERS, CODE_MULTIPLE_MATCHING_USERS,
-                    Pair.of("matchingTenants", matchingTenants.toString())))));
-            promise.fail(new Exception(MULTIPLE_MATCHING_USERS));
-          } else {
-            // Single matching user-tenant, continue with the related tenant
+          if (userTenants.size() == 1) {
             String newTenantId = userTenants.get(0).getTenantId();
             if (StringUtils.isBlank(newTenantId)) {
               failWithInternalError(promise, asyncResultHandler,
@@ -337,6 +314,9 @@ public class LoginAPI implements Authn {
               return;
             }
             promise.complete(newTenantId);
+          } else {
+            // Single matching user-tenant, continue with the related tenant
+            promise.complete(tenantId);
           }
         } catch (Exception ex) {
           failWithInternalError(promise, asyncResultHandler, ex);
