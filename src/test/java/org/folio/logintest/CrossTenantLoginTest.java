@@ -204,8 +204,7 @@ public class CrossTenantLoginTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("multiple.matching.users"))
-      .body("errors[0].parameters[0].value", equalTo("[other, diku]"));
+      .body("errors[0].code", equalTo("bad.credentials"));
   }
 
 }
