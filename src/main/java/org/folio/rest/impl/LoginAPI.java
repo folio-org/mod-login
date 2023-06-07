@@ -105,14 +105,9 @@ public class LoginAPI implements Authn {
   public static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
   public static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
-  private static final String MISSING_USER_TENANT_ASSOCIATION = "Missing consortium user-tenant association";
-  private static final String MISSING_USER_TENANT_ASSOCIATION_LOG = MISSING_USER_TENANT_ASSOCIATION +
-      " username={} userId={}, requestedTenantId={}";
-  public static final String CODE_MISSING_USER_TENANT_ASSOCIATION = "user-tenant.not.found";
-  public static final String CODE_MULTIPLE_MATCHING_USERS = "multiple.matching.users";
-  public static final String MULTIPLE_MATCHING_USERS = "Multiple matching users";
-  public static final String MULTIPLE_MATCHING_USERS_LOG = MULTIPLE_MATCHING_USERS +
-      " username={} userId={}, tenants={}";
+  public static final String CODE_BAD_CREDENTIALS = "bad.credentials";
+  public static final String BAD_CREDENTIALS = "Bad credentials";
+  public static final String MULTIPLE_MATCHING_USERS_LOG = "Multiple matching users username={} userId={}, tenants={}";
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
@@ -307,16 +302,7 @@ public class LoginAPI implements Authn {
             .map(obj -> ((JsonObject)obj).mapTo(UserTenant.class))
             .collect(toList());
           if (userTenants.isEmpty()) {
-            // No matching tenant - if a tenant was specified, return an error
-            if (StringUtils.isNotBlank(credentials.getTenant())) {
-              logger.info(MISSING_USER_TENANT_ASSOCIATION_LOG, credentials.getUsername(), credentials.getUserId(),
-                  credentials.getTenant());
-              asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
-                  LoginAPI.getErrors(MISSING_USER_TENANT_ASSOCIATION, CODE_MISSING_USER_TENANT_ASSOCIATION))));
-              promise.fail(new Exception(MISSING_USER_TENANT_ASSOCIATION));
-            } else {
-              promise.complete(tenantId);
-            }
+            promise.complete(tenantId);
           } else if (userTenants.size() > 1) {
             // Multiple matching user-tenants, return an error with the list
             List<String> matchingTenants = userTenants.stream()
@@ -325,9 +311,8 @@ public class LoginAPI implements Authn {
             logger.debug(MULTIPLE_MATCHING_USERS_LOG, credentials.getUsername(), credentials.getUserId(),
                 matchingTenants.toString());
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
-                LoginAPI.getErrors(MULTIPLE_MATCHING_USERS, CODE_MULTIPLE_MATCHING_USERS,
-                    Pair.of("matchingTenants", matchingTenants.toString())))));
-            promise.fail(new Exception(MULTIPLE_MATCHING_USERS));
+                LoginAPI.getErrors(BAD_CREDENTIALS, CODE_BAD_CREDENTIALS))));
+            promise.fail(new Exception(BAD_CREDENTIALS));
           } else {
             // Single matching user-tenant, continue with the related tenant
             String newTenantId = userTenants.get(0).getTenantId();
