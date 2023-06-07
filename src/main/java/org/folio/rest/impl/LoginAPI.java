@@ -308,7 +308,7 @@ public class LoginAPI implements Authn {
             List<String> matchingTenants = userTenants.stream()
                 .map(UserTenant::getTenantId)
                 .collect(toList());
-            logger.debug(MULTIPLE_MATCHING_USERS_LOG, credentials.getUsername(), credentials.getUserId(),
+            logger.warn(MULTIPLE_MATCHING_USERS_LOG, credentials.getUsername(), credentials.getUserId(),
                 matchingTenants.toString());
             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond422WithApplicationJson(
                 LoginAPI.getErrors(BAD_CREDENTIALS, CODE_BAD_CREDENTIALS))));
