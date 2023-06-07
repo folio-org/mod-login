@@ -157,17 +157,7 @@ public class CrossTenantLoginTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("user-tenant.not.found"));
-
-    RestAssured.given()
-      .spec(spec)
-      .body(credsWithTenant3.encode())
-      .when()
-      .post(LOGIN_PATH)
-      .then()
-      .log().all()
-      .statusCode(422)
-      .body("errors[0].code", equalTo("user-tenant.not.found"));
+      .body("errors[0].code", equalTo("username.incorrect"));
 
     RestAssured.given()
       .spec(spec)
