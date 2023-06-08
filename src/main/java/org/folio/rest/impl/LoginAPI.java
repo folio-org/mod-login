@@ -303,7 +303,7 @@ public class LoginAPI implements Authn {
             // No matching tenant - if a tenant was specified
             promise.complete(tenantId);
           } else if (userTenants.size() > 1) {
-            // Multiple matching user-tenants
+            // Multiple matching user-tenants, using tenant from okapi headers
             List<String> matchingTenants = userTenants.stream()
                 .map(UserTenant::getTenantId)
                 .collect(toList());
