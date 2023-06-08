@@ -105,7 +105,6 @@ public class LoginAPI implements Authn {
   public static final String MESSAGE_LOG_CONFIGURATION_IS_DISABLED = "Logging settings are disabled";
   public static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
-  private static final String MISSING_USER_TENANT_ASSOCIATION = "Missing consortium user-tenant association";
   public static final String MULTIPLE_MATCHING_USERS_LOG = "Multiple matching users username={} userId={}, tenants={}";
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
