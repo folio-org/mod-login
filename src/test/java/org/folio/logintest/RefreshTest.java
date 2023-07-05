@@ -2,8 +2,6 @@ package org.folio.logintest;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -32,9 +30,9 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 public class RefreshTest {
 
   private static Vertx vertx;
-  private static RequestSpecification spec;
+  private static RequestSpecification specWithBothAccessAndRefreshTokenCookie;
   private static RequestSpecification specExpiredToken;
-  private static RequestSpecification specBadRequestMissingAccessTokenCookie;
+  private static RequestSpecification specWithoutAccessTokenCookie;
   private static RequestSpecification specBadRequestNoCookie;
   private static RequestSpecification specBadRequestEmptyCookie;
   private static RequestSpecification specDuplicateKeyCookie;
@@ -61,27 +59,21 @@ public class RefreshTest {
     PostgresClient.getInstance(vertx);
 
     var cookieHeader = LoginAPI.FOLIO_ACCESS_TOKEN + "=321;" + LoginAPI.FOLIO_REFRESH_TOKEN + "=123";
-    var cookieHeaderExpired = LoginAPI.FOLIO_REFRESH_TOKEN + "=abc;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=expiredtoken";
     var cookieHeaderMissingAccessToken = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;";
     var cookieHeaderDuplicateKey = LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz;" + LoginAPI.FOLIO_REFRESH_TOKEN + "=xyz;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
 
-    spec = new RequestSpecBuilder()
+    // This kind of request will arrive from browser clients.
+    specWithBothAccessAndRefreshTokenCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader(XOkapiHeaders.TOKEN, "abc123")
         .addHeader("Cookie", cookieHeader)
         .build();
 
-    specExpiredToken = new RequestSpecBuilder()
+    // This kind of request can arrive from non-browser clients (without the 'automatic' cookie sending).
+    specWithoutAccessTokenCookie = new RequestSpecBuilder()
         .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
-        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
-        .addHeader("Cookie", cookieHeaderExpired)
-        .build();
-
-    specBadRequestMissingAccessTokenCookie = new RequestSpecBuilder()
-        .setBaseUri("http://localhost:" + port)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader("Cookie", cookieHeaderMissingAccessToken)
         .build();
@@ -112,6 +104,15 @@ public class RefreshTest {
 
   @Test
   public void testRefreshCreated(final TestContext context) {
+    validateSpecWithCookieResponse(specWithBothAccessAndRefreshTokenCookie);
+  }
+
+  @Test
+  public void testOkMissingAccessTokenCookie(final TestContext context) {
+    validateSpecWithCookieResponse(specWithoutAccessTokenCookie);
+  }
+
+  private void validateSpecWithCookieResponse(RequestSpecification spec) {
     RestAssured.given()
         .spec(spec)
         .when()
@@ -141,19 +142,6 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshUnprocessable(final TestContext context) {
-    RestAssured.given()
-        .spec(specExpiredToken)
-        .when()
-        .post(REFRESH_PATH)
-        .then()
-        .log().all()
-        .statusCode(422)
-        .body("errors[0].code", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE_CODE))
-        .body("errors[0].message", is(LoginAPI.TOKEN_REFRESH_UNPROCESSABLE));
-  }
-
-  @Test
   public void testRefreshBadRequestEmptyCookie(final TestContext context) {
     RestAssured.given()
         .spec(specBadRequestEmptyCookie)
@@ -178,19 +166,6 @@ public class RefreshTest {
         .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
         .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
   }
-
-  @Test
-  public void testMissingAccessTokenCookie(final TestContext context) {
-    RestAssured.given()
-        .spec(specBadRequestMissingAccessTokenCookie)
-        .when()
-        .post(REFRESH_PATH)
-        .then()
-        .log().all()
-        .statusCode(400)
-        .body("errors[0].code", is(LoginAPI.TOKEN_PARSE_BAD_CODE))
-        .body("errors[0].message", is(LoginAPI.BAD_REQUEST));
- }
 
   @Test
   public void testDuplicateKeyCookie(final TestContext context) {

@@ -270,7 +270,7 @@ public class Mocks extends AbstractVerticle {
     var rtExpiration = Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION).toString();
     var response = new JsonObject()
       .put("accessTokenExpiration", atExpiration)
-      .put("refreshTokenExpiration",rtExpiration)
+      .put("refreshTokenExpiration", rtExpiration)
       .put("accessToken", ACCESS_TOKEN)
       .put("refreshToken", REFRESH_TOKEN);
     context.response()
@@ -280,13 +280,6 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenRefresh(RoutingContext context) {
-    if (context.request().headers().get(XOkapiHeaders.TOKEN).equals("expiredtoken")) {
-      logger.debug("Returning 401 for expired token");
-      context.response()
-        .setStatusCode(401)
-        .end();
-        return;
-    }
     returnTokens(context);
   }
 

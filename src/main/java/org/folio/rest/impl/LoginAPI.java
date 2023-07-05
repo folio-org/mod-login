@@ -259,11 +259,10 @@ public class LoginAPI implements Authn {
   }
 
   private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
-      String okapiURL, String okapiToken, String refreshToken) {
+      String okapiURL, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
 
-    request.putHeader(XOkapiHeaders.TENANT, tenant)
-      .putHeader(XOkapiHeaders.TOKEN, okapiToken);
+    request.putHeader(XOkapiHeaders.TENANT, tenant);
 
     // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
     return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
@@ -406,7 +405,7 @@ public class LoginAPI implements Authn {
       Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
     logger.debug("Cookie is {}", cookieHeader);
 
-    String refreshToken = "";
+    String refreshToken;
     try {
       var p = new TokenCookieParser(cookieHeader);
       refreshToken = p.getRefreshToken();
@@ -421,9 +420,8 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(otherHeaders);
       String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
-      String okapiToken = otherHeaders.get(XOkapiHeaders.TOKEN);
 
-      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, okapiToken, refreshToken);
+      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, refreshToken);
 
       fetchTokenFuture.onSuccess(r -> {
         // The authorization server uses a number of 400-level responses.

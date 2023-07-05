@@ -1,6 +1,7 @@
 package org.folio.logintest;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -15,6 +16,14 @@ public class TokenCookieParserTest {
     var header = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;" + LoginAPI.FOLIO_ACCESS_TOKEN + "=xyz";
     var p = new TokenCookieParser(header);
     assertThat(p.getAccessToken(), is("xyz"));
+    assertThat(p.getRefreshToken(), is("123"));
+  }
+
+  @Test
+  public void testParseCookieWithoutAccessToken() {
+    var header = LoginAPI.FOLIO_REFRESH_TOKEN + "=123;";
+    var p = new TokenCookieParser(header);
+    assertThat(p.getAccessToken(), is(nullValue()));
     assertThat(p.getRefreshToken(), is("123"));
   }
 
