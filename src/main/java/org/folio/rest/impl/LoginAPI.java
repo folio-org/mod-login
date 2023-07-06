@@ -259,10 +259,14 @@ public class LoginAPI implements Authn {
   }
 
   private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
-      String okapiURL, String refreshToken) {
+      String okapiURL, String okapiToken, String refreshToken) {
     HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
 
-    request.putHeader(XOkapiHeaders.TENANT, tenant);
+    // Here the okapiToken is a ModuleToken not an AccessToken. This module token is made available by okapi
+    // from mod-authtoken for inter-module communication. ModuleTokens don't expire so there is no risk of mod-authtoken
+    // invalidating this request because of that.,
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+        .putHeader(XOkapiHeaders.TOKEN, okapiToken);
 
     // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
     return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
@@ -420,8 +424,9 @@ public class LoginAPI implements Authn {
     try {
       String tenantId = getTenant(otherHeaders);
       String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
+      String okapiToken = otherHeaders.get(XOkapiHeaders.TOKEN);
 
-      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, refreshToken);
+      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, okapiToken, refreshToken);
 
       fetchTokenFuture.onSuccess(r -> {
         // The authorization server uses a number of 400-level responses.
