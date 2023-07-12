@@ -1,3 +1,8 @@
+## 2023-02-16 v7.9.0
+
+* [MODLOGIN-200](https://issues.folio.org/browse/MODLOGIN-200) Upgrade to RMB 35.0.6, Vert.x 4.3.8
+* [MODLOGIN-199](https://issues.folio.org/browse/MODLOGIN-199) Validate and store normalized UserId
+
 ## 2022-10-25 v7.8.0
 
 * [MODLOGIN-193](https://issues.folio.org/browse/MODLOGIN-193) Allow users interface to 14 thru 16.0

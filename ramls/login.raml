@@ -28,6 +28,7 @@ types:
   loginResponse: !include loginResponse.json
   loginResponseWithExpiry: !include loginResponseWithExpiry.json
   credentialsExistence: !include credentialsExistence.json
+  userTenant: !include userTenant.json
 
 traits:
   validate: !include raml-util/traits/validation.raml
@@ -454,3 +455,4 @@ traits:
           body:
             text/plain:
               example: "Internal server error"
+

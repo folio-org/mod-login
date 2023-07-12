@@ -77,6 +77,12 @@ public class Mocks extends AbstractVerticle {
   public static final int ACCESS_TOKEN_EXPIRATION = 600;
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
+  private static final String userWithSingleTenantId = "08b9e1c4-a0b2-4c64-8d57-2e18784ac7fe";
+  private static final String userWithMultipleTenantsId1 = "01e683a0-6a07-4c3f-81fd-3355feddc884";
+  private static final String userWithMultipleTenantsId2 = "e72968cd-062e-4625-936f-8dc9c523b359";
+  private static final String TENANT_DIKU = "diku";
+  private static final String TENANT_OTHER = "other";
+
   private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
   private JsonObject admin = new JsonObject()
     .put("username", "admin")
@@ -102,6 +108,7 @@ public class Mocks extends AbstractVerticle {
     router.route("/token/invalidate").handler(this::handleLogout);
     router.route("/token/invalidate-all").handler(this::handleLogoutAll);
     router.route("/configurations/entries").handler(this::handleConfig);
+    router.route("/user-tenants").handler(this::handleUserTenants);
     logger.info("Running UserMock on port {}", port);
     server.requestHandler(router::handle).listen(port, result -> {
       if (result.failed()) {
@@ -248,6 +255,20 @@ public class Mocks extends AbstractVerticle {
             .putHeader("Content-Type", "application/json")
             .end(responseAdmin.encode());
           break;
+        case "username==\"single\"":
+          userOb = new JsonObject()
+            .put("username", "single")
+            .put("id", userWithSingleTenantId)
+            .put("active", true);
+          responseOb = new JsonObject()
+            .put("users", new JsonArray()
+              .add(userOb))
+            .put("totalRecords", 1);
+          context.response()
+            .setStatusCode(200)
+            .putHeader("Content-Type", "application/json")
+            .end(responseOb.encode());
+          break;
         default:
           responseOb = new JsonObject()
             .put("users", new JsonArray())
@@ -388,4 +409,105 @@ public class Mocks extends AbstractVerticle {
       }
     });
   }
-}
+
+  private void handleUserTenants(RoutingContext context) {
+    String username = context.request().getParam("username");
+    String userId = context.request().getParam("userId");
+    String tenantId = context.request().getParam("tenantId");
+    if ("admin".equals(username) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", adminId)
+        .put("username", "admin")
+        .put("tenantId", TENANT_OTHER);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("missing".equals(username) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray())
+        .put("totalRecords", 0);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("admin".equals(username) && "missing".equals(tenantId)) {
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray())
+        .put("totalRecords", 0);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if (adminId.equals(userId) && TENANT_OTHER.equals(tenantId)) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", adminId)
+        .put("username", "admin")
+        .put("tenantId", TENANT_OTHER);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("single".equals(username) && tenantId == null) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", userWithSingleTenantId)
+        .put("username", username)
+        .put("tenantId", TENANT_OTHER);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if ("multiple".equals(username) && tenantId == null) {
+      JsonObject ut1 = new JsonObject()
+        .put("id", "id")
+        .put("userId", userWithMultipleTenantsId1)
+        .put("username", username)
+        .put("tenantId", TENANT_OTHER);
+      JsonObject ut2 = new JsonObject()
+        .put("id", "id")
+        .put("userId", userWithMultipleTenantsId2)
+        .put("username", username)
+        .put("tenantId", TENANT_DIKU);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(ut1)
+          .add(ut2))
+        .put("totalRecords", 2);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else if (tenantId == null) {
+      JsonObject userTenants = new JsonObject()
+        .put("id", "id")
+        .put("userId", userId)
+        .put("username", username)
+        .put("tenantId", TENANT_DIKU);
+      JsonObject response = new JsonObject()
+        .put("userTenants", new JsonArray()
+          .add(userTenants))
+        .put("totalRecords", 1);
+      context.response()
+        .setStatusCode(200)
+        .putHeader("Content-Type", "application/json")
+        .end(response.encode());
+    } else {
+      throw new RuntimeException("unknown test values");
+    }
+  }}
+

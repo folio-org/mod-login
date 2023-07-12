@@ -1,6 +1,6 @@
 # mod-login
 
-Copyright (C) 2016-2022 The Open Library Foundation
+Copyright (C) 2016-2023 The Open Library Foundation
 
 This software is distributed under the terms of the Apache License,
 Version 2.0. See the file "[LICENSE](LICENSE)" for more information.
@@ -13,11 +13,35 @@ this module may vary (username/password, SAML, OAuth, etc.), and it is possible
 for more than one Authentication module to exist in a running system. The
 default implementation uses a simple username and password for authentication.
 
-# Module properties to set up at mod-configuration
+# Module properties
+
+The following module parameters can be specified on the command line.
+See <https://github.com/folio-org/raml-module-builder#command-line-options>
+When specified, these will take precedence over the hard-coded defaults.
 
 * login.fail.to.warn.attempts - number of login attempts before warn (default value - 3)
 * login.fail.attempts - number of login attempts before block user account (default value - 5)
 * login.fail.timeout - after timeout in minutes, fail login attempts will be dropped (default value - 10)
+
+# Mod-configuration entries
+
+The following configuration entries can be specified in mod-configuration.
+When present, these will take precedence over the hard-coded defaults and
+the module parameter values specified on the command line.
+
+| module    | code                        | configName           | Description                                                                         |
+|:----------|:----------------------------|:---------------------|:------------------------------------------------------------------------------------|
+| EVENT_LOG | STATUS                      | {any}                | Enable/disable event logging.  If disabled, events will not be logged, nor will you be able to retreive previously logged entries (default: enabled=false) |
+| EVENT_LOG | SUCESSFUL_LOGIN_ATTEMPT     | {any}                | If enabled, log successful login attempts to the event log (default: enabled=false) |
+| EVENT_LOG | FAILED_LOGIN_ATTEMPT        | {any}                | If enabled, log failed login attempts to the event log (default: enabled=false)     |
+| EVENT_LOG | PASSWORD_RESET              | {any}                | If enabled, log password reset events to the event log (default: enabled=false)     |
+| EVENT_LOG | PASSWORD_CREATE             | {any}                | If enabled, log password creation events to the event log (default: enabled=false)  |
+| EVENT_LOG | PASSWORD_CHANGE             | {any}                | If enabled, log password change events to the event log (default: enabled=false)    |
+| EVENT_LOG | USER_BLOCK                  | {any}                | If enabled, log user blocked events to the event log (default: enabled=false)       |
+| {any}     | login.fail.attempts         | {any}                | Number of login attempts before block user account (default: value=5)               |
+| {any}     | login.fail.to.warn.attempts | {any}                | Number of login attempts before warn (default: value=3)                             |
+| {any}     | login.fail.timeout          | {any}                | After timeout in minutes, fail login attempts will be dropped (default: value=10)   |
+| {any}     | {any}                       | login.history.number | Number of previously used passwords which should factor into the "has this password been previously used" check (default: value=10) |
 
 # Additional information
 

@@ -17,6 +17,7 @@ public class LoginConfigUtils {
   public static final String EVENT_CONFIG_PROXY_STORY_ADDRESS = "event-store-service.queue";
   public static final String EVENT_CONFIG_PROXY_CONFIG_ADDRESS = "event-config-service.queue";
   public static final String PW_CONFIG_PROXY_STORY_ADDRESS = "password-store-service.queue";
+  public static final String MOD_USERS_PROXY_ADDRESS = "mod-users-service.queue";
 
   public static final String EVENT_LOG_API_MODULE = "EVENT_LOG";
   public static final String EVENT_LOG_API_CODE_STATUS = "STATUS";

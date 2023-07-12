@@ -1,0 +1,29 @@
+{
+  "title": "User Tenant Association Schema",
+  "type": "object",
+  "description": "An entity that describes an association between a user and a tenant in a consortium",
+  "properties": {
+    "id": {
+      "description": "identifier",
+      "type": "string"
+    },
+    "userId": {
+      "description": "User identifier",
+      "type": "string"
+    },
+    "username": {
+      "description": "Username",
+      "type": "string"
+    },
+    "tenantId": {
+      "description": "Tenant identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "userId",
+    "username",
+    "tenantId"
+  ]
+}
