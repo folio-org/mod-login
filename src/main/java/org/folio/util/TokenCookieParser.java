@@ -43,9 +43,6 @@ public class TokenCookieParser {
     String value = null;
 
     for (var cookie : cookies) {
-      logger.debug("Cookie name is {}", cookie.name());
-      logger.debug("Cookie value is {}", cookie.value());
-
       if (!name.equals(cookie.name())) {
         continue;
       }

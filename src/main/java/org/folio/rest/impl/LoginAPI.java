@@ -24,7 +24,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -65,8 +64,6 @@ import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
-import org.folio.util.PercentCodec;
-import org.folio.util.StringUtil;
 import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
 
@@ -141,6 +138,10 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
   public static final String TOKEN_LOGOUT_ENDPOINT = "/token/invalidate";
   public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/invalidate-all";
+  public static final String COOKIE_SAME_SITE = "login.cookie.samesite";
+  public static final String COOKIE_SAME_SITE_ENV = "LOGIN_COOKIE_SAMESITE";
+  public static final String COOKIE_SAME_SITE_LAX = "Lax";
+  public static final String COOKIE_SAME_SITE_NONE = "None";
 
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
@@ -148,6 +149,7 @@ public class LoginAPI implements Authn {
       .getOrDefault("require.active", "true"));
 
   private static final Logger logger = LogManager.getLogger(LoginAPI.class);
+  private static final String DUAL_MSG = "{}: {}";
 
   private String vTenantId;
   private LogStorageService logStorageService;
@@ -254,12 +256,18 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
+
+    // RFC 6265 mandates that MaxAge is >= 1: https://datatracker.ietf.org/doc/html/rfc6265#page-9
+    if (ttlSeconds < 1) {
+      throw new RuntimeException("MaxAge of cookie is < 1. This is not permitted.");
+    }
+
     var rtCookie = Cookie.cookie(FOLIO_REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)
         .setPath("/authn")
         .setHttpOnly(true)
-        .setSameSite(CookieSameSite.NONE)
+        .setSameSite(getSameSiteAttribute())
         .setDomain(null)
         .encode();
 
@@ -272,17 +280,36 @@ public class LoginAPI implements Authn {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
+
+    // RFC 6265 mandates that MaxAge is >= 1: https://datatracker.ietf.org/doc/html/rfc6265#page-9
+    if (ttlSeconds < 1) {
+      throw new RuntimeException("MaxAge of cookie is < 1. This is not permitted.");
+    }
+
     var atCookie = Cookie.cookie(FOLIO_ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
       .setPath("/")
       .setHttpOnly(true)
-      .setSameSite(CookieSameSite.NONE)
+      .setSameSite(getSameSiteAttribute())
       .encode();
 
     logger.debug("accessToken cookie: {}", atCookie);
 
     return atCookie;
+  }
+
+  private CookieSameSite getSameSiteAttribute() {
+    return isSameSiteLax() ? CookieSameSite.LAX : CookieSameSite.NONE;
+  }
+
+  private boolean isSameSiteLax() {
+    if (System.getProperty(COOKIE_SAME_SITE) != null &&
+        System.getProperty(COOKIE_SAME_SITE).equals(COOKIE_SAME_SITE_LAX)) {
+      return true;
+    }
+    return System.getenv(COOKIE_SAME_SITE_ENV) != null &&
+        System.getenv(COOKIE_SAME_SITE_ENV).equals(COOKIE_SAME_SITE_LAX);
   }
 
   private Response tokenResponse(JsonObject tokens) {
@@ -352,13 +379,13 @@ public class LoginAPI implements Authn {
       });
 
       logoutFuture.onFailure(e -> {
-        logger.error("{}: {}", INTERNAL_ERROR, e.getMessage(), e);
+        logger.error(DUAL_MSG, INTERNAL_ERROR, e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(
           getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
       });
     } catch (Exception e) {
       String msg = "Unexpected exception when handling logout";
-      logger.error("{}: {}", msg, e.getMessage(), e);
+      logger.error(DUAL_MSG, msg, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
@@ -385,7 +412,7 @@ public class LoginAPI implements Authn {
       var p = new TokenCookieParser(cookieHeader);
       refreshToken = p.getRefreshToken();
     } catch (Exception e) {
-      logger.error("{}: {}", TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e);
+      logger.error(DUAL_MSG, TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
           PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
           BAD_REQUEST, TOKEN_PARSE_BAD_CODE))));
@@ -416,13 +443,13 @@ public class LoginAPI implements Authn {
       });
 
       fetchTokenFuture.onFailure(e -> {
-        logger.error("{}: {}", INTERNAL_ERROR, e.getMessage(), e);
+        logger.error(DUAL_MSG, INTERNAL_ERROR, e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(
           getErrors(INTERNAL_ERROR, TOKEN_REFRESH_FAIL_CODE))));
       });
     } catch (Exception e) {
       String msg = "Unexpected exception when refreshing token";
-      logger.error("{}: {}", msg, e.getMessage(), e);
+      logger.error(DUAL_MSG, msg, e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }

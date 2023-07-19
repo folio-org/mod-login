@@ -16,9 +16,6 @@ import static org.folio.logintest.Mocks.credsUserWithNoId;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.lessThan;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.nullValue;
 
 import org.folio.rest.impl.LoginAPI;
@@ -204,8 +201,16 @@ public class LoginWithExpiryTest {
         .contentType("text/plain")
         .body(is("No user id could be found"));
 
-    testCookieResponse(credsObject1);
-    testCookieResponse(credsObject2);
+    // SameSite=None is the default and required if the origin for the HTML and the host
+    // for the backend are different.
+    testCookieResponse(credsObject1, LoginAPI.COOKIE_SAME_SITE_NONE);
+    testCookieResponse(credsObject2, LoginAPI.COOKIE_SAME_SITE_NONE);
+
+    // Setting SameSite=Lax is an option if the origin for the HTML and the backed are the same. This is more secure.
+    System.setProperty(LoginAPI.COOKIE_SAME_SITE, LoginAPI.COOKIE_SAME_SITE_LAX);
+    testCookieResponse(credsObject1, LoginAPI.COOKIE_SAME_SITE_LAX);
+    testCookieResponse(credsObject2, LoginAPI.COOKIE_SAME_SITE_LAX);
+    System.clearProperty(LoginAPI.COOKIE_SAME_SITE);
 
     // Post a credentials object which doesn't have an id property.
     RestAssured.given()
@@ -268,11 +273,11 @@ public class LoginWithExpiryTest {
         .statusCode(204);
 
     // These should now succeed.
-    testCookieResponse(credsObject4);
-    testCookieResponse(credsObject5);
+    testCookieResponse(credsObject4, LoginAPI.COOKIE_SAME_SITE_NONE);
+    testCookieResponse(credsObject5, LoginAPI.COOKIE_SAME_SITE_NONE);
   }
 
-  private void testCookieResponse(JsonObject creds) {
+  private void testCookieResponse(JsonObject creds, String sameSite) {
     RestAssured.given()
         .spec(spec)
         .body(creds.encode())
@@ -289,7 +294,7 @@ public class LoginWithExpiryTest {
             .httpOnly(true)
             .secured(true)
             .domain(is(nullValue())) // Not setting domain disables subdomains.
-            .sameSite("None"))
+            .sameSite(sameSite))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
             .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
@@ -297,7 +302,7 @@ public class LoginWithExpiryTest {
             .httpOnly(true)
             .secured(true)
             .domain(is(nullValue())) // Not setting domain disables subdomains.
-            .sameSite("None"))
+            .sameSite(sameSite))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
   }
