@@ -367,7 +367,7 @@ public class LoginAPI implements Authn {
       }
 
       logoutFuture.onSuccess(r -> {
-      if (r.statusCode() >= 400) {
+        if (r.statusCode() >= 400) {
           logger.error("{} (status code: {})", TOKEN_LOGOUT_UNPROCESSABLE, r.statusCode());
           asyncResultHandler.handle(Future.succeededFuture(
             PostAuthnLogoutResponse.respond422WithApplicationJson(getErrors(
