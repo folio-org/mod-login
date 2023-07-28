@@ -348,13 +348,8 @@ public class EventsLoggingTests {
 
     mockServer.stubFor(
       WireMock.post("/token")
-        .willReturn(WireMock.ok().withHeader(XOkapiHeaders.TOKEN, TOKEN))
-    );
-
-    mockServer.stubFor(
-      WireMock.post("/refreshtoken")
-        .willReturn(WireMock.okJson(new JsonObject().put("refreshToken", "dummyrefreshtoken").encode())
-          .withStatus(201))
+        .willReturn(WireMock.okJson(new JsonObject().put("token", "dummytoken").encode())
+        .withStatus(201))
     );
   }
 

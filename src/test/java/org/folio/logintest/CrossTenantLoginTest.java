@@ -96,7 +96,7 @@ public class CrossTenantLoginTest {
     specWithOtherTenant = initSpec(TENANT_OTHER, port, mockPort);
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+    vertx.deployVerticle(Mocks.class.getName(), mockOptions)
       .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
       .compose(res -> TestUtil.postSync(ta, TENANT_DIKU, port, vertx))
       .compose(res -> TestUtil.postSync(ta, TENANT_OTHER, port, vertx))
@@ -118,7 +118,7 @@ public class CrossTenantLoginTest {
   public void setUp(TestContext context) {
     MODULE_SPECIFIC_ARGS.clear();
     MODULE_SPECIFIC_ARGS.putAll(moduleArgs);
-    UserMock.resetConfigs();
+    Mocks.resetConfigs();
     dBCleanupWithTenant(context, TENANT_DIKU);
     dBCleanupWithTenant(context, TENANT_OTHER);
   }

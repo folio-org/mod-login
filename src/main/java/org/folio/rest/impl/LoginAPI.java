@@ -12,6 +12,7 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +24,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -64,18 +64,21 @@ import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
 import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
+import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
 
 import io.vertx.core.AsyncResult;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
+import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
 
 /**
  * @author kurt
@@ -106,12 +109,47 @@ public class LoginAPI implements Authn {
   public static final String MESSAGE_LOG_EVENT_IS_DISABLED = "For event logging `%s` is disabled";
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   public static final String MULTIPLE_MATCHING_USERS_LOG = "Multiple matching users username={} userId={}, tenants={}";
+  private static final String TOKEN_SIGN_ENDPOINT = "/token/sign";
+  private static final String TOKEN_SIGN_ENDPOINT_LEGACY = "/token";
+  private static final String TOKEN_REFRESH_ENDPOINT = "/token/refresh";
+
+  /**
+   * A time in the past which can be used in the Expires cookie attribute.
+   * Setting the cookie to a time in the past will cause the UA to delete it.
+   * See <a href="https://datatracker.ietf.org/doc/html/rfc6265#section-3.1">https://datatracker.ietf.org/doc/html/rfc6265#section-3.1</a>
+   */
+  private static final String COOKIE_EXPIRES_FOR_DELETE = "Thu, 01 Jan 1970 00:00:00 GMT";
+
+  public static final String TOKEN_REFRESH_UNPROCESSABLE = "Authorization server unable to process token refresh request";
+  public static final String TOKEN_REFRESH_UNPROCESSABLE_CODE = "token.refresh.unprocessable";
+  public static final String TOKEN_REFRESH_FAIL_CODE = "token.refresh.failure";
+  public static final String TOKEN_PARSE_BAD_MESSAGE = "Unable to parse token cookies";
+  public static final String TOKEN_PARSE_BAD_CODE = "token.parse.failure";
+  public static final String FOLIO_REFRESH_TOKEN = "folioRefreshToken";
+  public static final String REFRESH_TOKEN = "refreshToken";
+  public static final String ACCESS_TOKEN = "accessToken";
+  public static final String FOLIO_ACCESS_TOKEN = "folioAccessToken";
+  public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
+  public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
+  public static final String SET_COOKIE = "Set-Cookie";
+  public static final String BAD_REQUEST = "Bad request";
+  public static final String TOKEN_LOGOUT_UNPROCESSABLE = "Authorization server unable to process token logout request";
+  public static final String TOKEN_LOGOUT_UNPROCESSABLE_CODE = "token.logout.unprocessable";
+  public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
+  public static final String TOKEN_LOGOUT_ENDPOINT = "/token/invalidate";
+  public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/invalidate-all";
+  public static final String COOKIE_SAME_SITE = "login.cookie.samesite";
+  public static final String COOKIE_SAME_SITE_ENV = "LOGIN_COOKIE_SAMESITE";
+  public static final String COOKIE_SAME_SITE_LAX = "Lax";
+  public static final String COOKIE_SAME_SITE_NONE = "None";
+
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
   private boolean requireActiveUser = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
       .getOrDefault("require.active", "true"));
 
   private static final Logger logger = LogManager.getLogger(LoginAPI.class);
+  private static final String DUAL_MSG = "{}: {}";
 
   private String vTenantId;
   private LogStorageService logStorageService;
@@ -156,9 +194,9 @@ public class LoginAPI implements Authn {
     return Future.future(promise -> userService.lookupUser(username, userId, tenant, okapiURL, requestToken, promise));
   }
 
-  private Future<String> fetchToken(JsonObject payload, String tenant,
-    String okapiURL, String requestToken) {
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/token");
+  private Future<JsonObject> fetchSignToken(JsonObject payload, String tenant,
+    String okapiURL, String requestToken, String endpoint) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + endpoint);
 
     request.putHeader(XOkapiHeaders.TENANT, tenant)
       .putHeader(XOkapiHeaders.TOKEN, requestToken);
@@ -167,31 +205,253 @@ public class LoginAPI implements Authn {
       if (response.statusCode() != 200 && response.statusCode() != 201) {
         throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
       }
-      String token = response.statusCode() == 200
-        ? response.getHeader(XOkapiHeaders.TOKEN)
-        : response.bodyAsJsonObject().getString("token");
-      if (token == null) {
-        throw new RuntimeException(String.format("Got response %s fetching token, but content is null",
-          response.statusCode()));
-      }
-      logger.debug("Got token " + token + " from authz");
-      return token;
+
+      return response.bodyAsJsonObject();
     });
   }
 
-  private Future<String> fetchRefreshToken(String userId, String sub, String tenant,
-    String okapiURL, String requestToken) {
-    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + "/refreshtoken");
-    request.putHeader(XOkapiHeaders.TENANT, tenant)
-      .putHeader(XOkapiHeaders.TOKEN, requestToken);
+  private Future<HttpResponse<Buffer>> logout(String tenant,
+      String okapiURL, String accessToken, String refreshToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_LOGOUT_ENDPOINT);
 
-    JsonObject payload = new JsonObject().put("userId", userId).put("sub", sub);
-    return request
-      .expect(ResponsePredicate.SC_CREATED)
-      .expect(ResponsePredicate.JSON)
-      .sendJsonObject(payload)
-      .map(response -> response.bodyAsJsonObject().getString("refreshToken")
-      );
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+
+    // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
+    return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
+  }
+
+  private Future<HttpResponse<Buffer>> logoutAll(String tenant,
+      String okapiURL, String accessToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_LOGOUT_ALL_ENDPOINT);
+
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+      .putHeader(XOkapiHeaders.TOKEN, accessToken);
+
+    return request.send();
+  }
+
+  private Future<HttpResponse<Buffer>> fetchRefreshToken(String tenant,
+      String okapiURL, String okapiToken, String refreshToken) {
+    HttpRequest<Buffer> request = WebClientFactory.getWebClient(vertx).postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT);
+
+    // Here the okapiToken is a ModuleToken not an AccessToken. This module token is made available by okapi
+    // from mod-authtoken for inter-module communication. ModuleTokens don't expire so there is no risk of mod-authtoken
+    // invalidating this request because of that.,
+    request.putHeader(XOkapiHeaders.TENANT, tenant)
+        .putHeader(XOkapiHeaders.TOKEN, okapiToken);
+
+    // Note that mod-authtoken wants 'refreshToken' not 'folioRefreshToken'.
+    return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
+  }
+
+  private boolean usesTokenSignLegacy(String endpoint) {
+    return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
+  }
+
+
+  // For documentation of the cookie attributes please see:
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
+  private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
+    // The refresh token expiration is the time after which the token will be considered expired.
+    var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
+    var ttlSeconds = exp - Instant.now().getEpochSecond();
+
+    // RFC 6265 mandates that MaxAge is >= 1: https://datatracker.ietf.org/doc/html/rfc6265#page-9
+    if (ttlSeconds < 1) {
+      throw new RuntimeException("MaxAge of cookie is < 1. This is not permitted.");
+    }
+
+    var rtCookie = Cookie.cookie(FOLIO_REFRESH_TOKEN, refreshToken)
+        .setMaxAge(ttlSeconds)
+        .setSecure(true)
+        .setPath("/authn")
+        .setHttpOnly(true)
+        .setSameSite(getSameSiteAttribute())
+        .setDomain(null)
+        .encode();
+
+    logger.debug("refreshToken cookie: {}", rtCookie);
+
+    return rtCookie;
+  }
+
+  private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
+    // The refresh token expiration is the time after which the token will be considered expired.
+    var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
+    var ttlSeconds = exp - Instant.now().getEpochSecond();
+
+    // RFC 6265 mandates that MaxAge is >= 1: https://datatracker.ietf.org/doc/html/rfc6265#page-9
+    if (ttlSeconds < 1) {
+      throw new RuntimeException("MaxAge of cookie is < 1. This is not permitted.");
+    }
+
+    var atCookie = Cookie.cookie(FOLIO_ACCESS_TOKEN, accessToken)
+      .setMaxAge(ttlSeconds)
+      .setSecure(true)
+      .setPath("/")
+      .setHttpOnly(true)
+      .setSameSite(getSameSiteAttribute())
+      .encode();
+
+    logger.debug("accessToken cookie: {}", atCookie);
+
+    return atCookie;
+  }
+
+  private CookieSameSite getSameSiteAttribute() {
+    return isSameSiteLax() ? CookieSameSite.LAX : CookieSameSite.NONE;
+  }
+
+  private boolean isSameSiteLax() {
+    if (System.getProperty(COOKIE_SAME_SITE) != null &&
+        System.getProperty(COOKIE_SAME_SITE).equals(COOKIE_SAME_SITE_LAX)) {
+      return true;
+    }
+    return System.getenv(COOKIE_SAME_SITE_ENV) != null &&
+        System.getenv(COOKIE_SAME_SITE_ENV).equals(COOKIE_SAME_SITE_LAX);
+  }
+
+  private Response tokenResponse(JsonObject tokens) {
+    String accessToken = tokens.getString(ACCESS_TOKEN);
+    String refreshToken = tokens.getString(REFRESH_TOKEN);
+    String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
+    String refreshTokenExpiration = tokens.getString(REFRESH_TOKEN_EXPIRATION);
+    // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
+    // RMB generated-code does not allow multiple headers with the same key -- which is what we need
+    // here.
+    var body = new JsonObject()
+        .put(ACCESS_TOKEN_EXPIRATION, accessTokenExpiration)
+        .put(REFRESH_TOKEN_EXPIRATION, refreshTokenExpiration)
+        .toString();
+    return Response.status(201)
+        .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration))
+        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
+        .type(MediaType.APPLICATION_JSON)
+        .entity(body)
+        .build();
+  }
+
+  private Response logoutResponse() {
+    // Use the ResponseBuilder rather than RMB-generated code. We need to do this because
+    // RMB generated-code does not allow multiple headers with the same key -- which is what we need
+    // here.
+    return Response.status(204)
+        .header(SET_COOKIE, FOLIO_ACCESS_TOKEN + "=; SameSite=None; Secure; Path=/; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .header(SET_COOKIE, FOLIO_REFRESH_TOKEN + "=; SameSite=None; Secure; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
+        .build();
+  }
+
+  private Response tokenResponseLegacy(JsonObject tokenJson) {
+    String authToken = tokenJson.getString("token");
+    var response = new LoginResponse().withOkapiToken(authToken);
+    return PostAuthnLoginResponse.respond201WithApplicationJson(response,
+        PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
+  }
+
+  private void handleLogout(String cookieHeader, Map<String, String> okapiHeaders,
+  Handler<AsyncResult<Response>> asyncResultHandler) {
+    try {
+      logger.debug("Cookie in handleLogout is: {}", cookieHeader);
+
+      String tenantId = getTenant(okapiHeaders);
+      String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
+      String okapiToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+
+      Future<HttpResponse<Buffer>> logoutFuture;
+      if (cookieHeader == null) {
+        logoutFuture = logoutAll(tenantId, okapiURL, okapiToken);
+      } else {
+        var p = new TokenCookieParser(cookieHeader);
+        logoutFuture = logout(tenantId, okapiURL, okapiToken, p.getRefreshToken());
+      }
+
+      logoutFuture.onSuccess(r -> {
+        if (r.statusCode() >= 400) {
+          logger.error("{} (status code: {})", TOKEN_LOGOUT_UNPROCESSABLE, r.statusCode());
+          asyncResultHandler.handle(Future.succeededFuture(
+            PostAuthnLogoutResponse.respond422WithApplicationJson(getErrors(
+              TOKEN_LOGOUT_UNPROCESSABLE, TOKEN_LOGOUT_UNPROCESSABLE_CODE))));
+          return;
+        }
+
+        asyncResultHandler.handle(Future.succeededFuture(logoutResponse()));
+      });
+
+      logoutFuture.onFailure(e -> {
+        logger.error(DUAL_MSG, INTERNAL_ERROR, e.getMessage(), e);
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(
+          getErrors(INTERNAL_ERROR, TOKEN_LOGOUT_FAIL_CODE))));
+      });
+    } catch (Exception e) {
+      String msg = "Unexpected exception when handling logout";
+      logger.error(DUAL_MSG, msg, e.getMessage(), e);
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLogoutResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
+  }
+
+  @Override
+  public void postAuthnLogout(String cookieHeader, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    handleLogout(cookieHeader, okapiHeaders, asyncResultHandler);
+  }
+
+  @Override
+  public void postAuthnLogoutAll(Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    handleLogout(null, okapiHeaders, asyncResultHandler);
+  }
+
+  @Override
+  public void postAuthnRefresh(String cookieHeader, Map<String, String> otherHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context ctx) {
+    logger.debug("Cookie is {}", cookieHeader);
+
+    String refreshToken;
+    try {
+      var p = new TokenCookieParser(cookieHeader);
+      refreshToken = p.getRefreshToken();
+    } catch (Exception e) {
+      logger.error(DUAL_MSG, TOKEN_PARSE_BAD_MESSAGE, e.getMessage(), e);
+      asyncResultHandler.handle(Future.succeededFuture(
+          PostAuthnRefreshResponse.respond400WithApplicationJson(getErrors(
+          BAD_REQUEST, TOKEN_PARSE_BAD_CODE))));
+      return;
+    }
+
+    try {
+      String tenantId = getTenant(otherHeaders);
+      String okapiURL = otherHeaders.get(XOkapiHeaders.URL);
+      String okapiToken = otherHeaders.get(XOkapiHeaders.TOKEN);
+
+      Future<HttpResponse<Buffer>> fetchTokenFuture = fetchRefreshToken(tenantId, okapiURL, okapiToken, refreshToken);
+
+      fetchTokenFuture.onSuccess(r -> {
+        // The authorization server uses a number of 400-level responses.
+        // It will log those. Aggregate all of those possible responses to a single 422
+        // to not duplicate its API. This is consistent with other mod-login APIs.
+        if (r.statusCode() >= 400) {
+            logger.error("{} (status code: {})", TOKEN_REFRESH_UNPROCESSABLE, r.statusCode());
+            asyncResultHandler.handle(Future.succeededFuture(
+              PostAuthnRefreshResponse.respond422WithApplicationJson(getErrors(
+              TOKEN_REFRESH_UNPROCESSABLE, TOKEN_REFRESH_UNPROCESSABLE_CODE))));
+            return;
+        }
+
+        Response tr = tokenResponse(r.bodyAsJsonObject());
+        asyncResultHandler.handle(Future.succeededFuture(tr));
+      });
+
+      fetchTokenFuture.onFailure(e -> {
+        logger.error(DUAL_MSG, INTERNAL_ERROR, e.getMessage(), e);
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(
+          getErrors(INTERNAL_ERROR, TOKEN_REFRESH_FAIL_CODE))));
+      });
+    } catch (Exception e) {
+      String msg = "Unexpected exception when refreshing token";
+      logger.error(DUAL_MSG, msg, e.getMessage(), e);
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnRefreshResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+    }
   }
 
   @Override
@@ -227,6 +487,22 @@ public class LoginAPI implements Authn {
   public void postAuthnLogin(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler,
+      vertxContext, TOKEN_SIGN_ENDPOINT_LEGACY);
+  }
+
+  @Override
+  public void postAuthnLoginWithExpiry(String userAgent, String xForwardedFor,
+      LoginCredentials entity, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler,
+       vertxContext, TOKEN_SIGN_ENDPOINT);
+  }
+
+  private void doPostAuthnLogin(String userAgent, String xForwardedFor,
+      LoginCredentials entity, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
+      String tokenSignEndpoint) {
     try {
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
@@ -277,7 +553,8 @@ public class LoginAPI implements Authn {
             }
           }
           userVerified.onComplete(verifyResult -> loginAfterUserVerified(verifyResult, entity, newTenantId, okapiURL,
-              requestToken, userAgent, xForwardedFor, okapiHeaders, asyncResultHandler, vertxContext));
+              requestToken, userAgent, xForwardedFor, okapiHeaders, asyncResultHandler, vertxContext,
+              tokenSignEndpoint));
         })
         .onFailure(e -> asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(e.getMessage()))));
     } catch(Exception e) {
@@ -287,7 +564,8 @@ public class LoginAPI implements Authn {
   }
 
   private Future<String> handleLogin(LoginCredentials credentials, String tenantId,
-                                     Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
+                                     Map<String, String> okapiHeaders,
+                                     Handler<AsyncResult<Response>> asyncResultHandler) {
     Promise<String> promise = Promise.promise();
     userService.getUserTenants(tenantId, credentials.getUsername(), credentials.getUserId(), credentials.getTenant(),
       LoginConfigUtils.encodeJsonHeaders(okapiHeaders), ar -> {
@@ -337,7 +615,7 @@ public class LoginAPI implements Authn {
 
   private void loginAfterUserVerified(AsyncResult<JsonObject> verifyResult, LoginCredentials entity, String tenantId,
       String okapiURL, String requestToken, String userAgent, String xForwardedFor, Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext, String tokenSignEndpoint) {
     if (verifyResult.failed()) {
       String errMsg = "Error verifying user existence: " + verifyResult
           .cause().getLocalizedMessage();
@@ -346,9 +624,8 @@ public class LoginAPI implements Authn {
           PostAuthnLoginResponse.respond422WithApplicationJson(
               getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(USERNAME, entity.getUsername())))
       ));
-
     } else {
-      //User's okay, let's try to login
+      // User's okay, let's try to login
       try {
         JsonObject userObject = verifyResult.result();
         if (!userObject.containsKey("id")) {
@@ -375,10 +652,9 @@ public class LoginAPI implements Authn {
         useridCrit.setVal(userObject.getString("id"));
         PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
             TABLE_NAME_CREDENTIALS, Credential.class, new Criterion(useridCrit),
-            true, getReply-> {
+            true, getReply -> {
               if (getReply.failed()) {
-                logger.error("Error in postgres get operation: " +
-                    getReply.cause().getLocalizedMessage());
+                logger.error("Error in postgres get operation: {}", getReply.cause().getLocalizedMessage());
                 asyncResultHandler.handle(Future.succeededFuture(
                     PostAuthnLoginResponse.respond500WithTextPlain(
                         INTERNAL_ERROR)));
@@ -386,7 +662,7 @@ public class LoginAPI implements Authn {
                 try {
                   List<Credential> credList = getReply.result().getResults();
                   if (credList.isEmpty()) {
-                    logger.error("No matching credentials found for userid " + userObject.getString("id"));
+                    logger.error("No matching credentials found for userid {}", userObject.getString("id"));
                     asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("No credentials match that login")));
                   } else {
                     Credential userCred = credList.get(0);
@@ -396,7 +672,6 @@ public class LoginAPI implements Authn {
                       asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(message)));
                       return;
                     }
-                    logger.debug("Testing hash for credentials for user with id '" + userObject.getString("id") + "'");
                     String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
                     String sub;
                     if (userCred.getHash().equals(testHash)) {
@@ -410,36 +685,22 @@ public class LoginAPI implements Authn {
                       if (!userObject.isEmpty()) {
                         payload.put("user_id", userObject.getString("id"));
                       }
-                      Future<String> fetchTokenFuture;
-                      Future<String> fetchRefreshTokenFuture;
+                      Future<JsonObject> fetchTokenFuture;
                       String fetchTokenFlag = RestVerticle.MODULE_SPECIFIC_ARGS.get("fetch.token");
                       if (fetchTokenFlag != null && fetchTokenFlag.equals("no")) {
-                        fetchTokenFuture = Future.succeededFuture("dummytoken");
+                        fetchTokenFuture = Future.succeededFuture();
                       } else {
-                        logger.debug("Fetching token from authz with payload " + payload.encode());
-                        fetchTokenFuture = fetchToken(payload, tenantId, okapiURL, requestToken);
+                        fetchTokenFuture = fetchSignToken(payload, tenantId, okapiURL, requestToken, tokenSignEndpoint);
                       }
-                      fetchRefreshTokenFuture = fetchRefreshToken(userObject.getString("id"),
-                          sub, tenantId, okapiURL, requestToken);
-                      CompositeFuture compositeFuture = CompositeFuture.join(fetchTokenFuture,
-                          fetchRefreshTokenFuture);
 
-                      compositeFuture.onComplete(fetchTokenRes -> {
+                      fetchTokenFuture.onComplete(fetchTokenRes -> {
                         if (fetchTokenFuture.failed()) {
                           String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
                           logger.error(errMsg);
                           asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
                         } else {
-                          String refreshToken = null;
-                          if (fetchRefreshTokenFuture.failed()) {
-                            logger.error(String.format("Error getting refresh token: %s",
-                                fetchRefreshTokenFuture.cause().getLocalizedMessage()));
-                          } else {
-                            refreshToken = fetchRefreshTokenFuture.result();
-                          }
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                          // after succesful login skip login attempts counter
-                          String finalRefreshToken = refreshToken;
+                          // After successful login skip login attempts counter.
                           Map<String, String> requestHeaders = createRequestHeader(okapiHeaders, userAgent, xForwardedFor);
                           loginAttemptsHelper.getLoginAttemptsByUserId(userObject.getString("id"), pgClient)
                               .compose(attempts ->
@@ -449,19 +710,13 @@ public class LoginAPI implements Authn {
                                   asyncResultHandler.handle(Future.succeededFuture(
                                       PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                                 } else {
-                                  //Append token as header to result
-                                  String authToken = fetchTokenFuture.result();
-                                  LoginResponse response = new LoginResponse()
-                                      .withOkapiToken(authToken)
-                                      .withRefreshToken(finalRefreshToken);
-                                  asyncResultHandler.handle(Future.succeededFuture(
-                                      PostAuthnLoginResponse.respond201WithApplicationJson(response,
-                                          PostAuthnLoginResponse.headersFor201()
-                                              .withXOkapiToken(authToken)
-                                              .withRefreshtoken(finalRefreshToken))));
+                                  if (usesTokenSignLegacy(tokenSignEndpoint)) {
+                                    asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture.result())));
+                                  } else {
+                                    asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result())));
+                                  }
                                 }
                               });
-
                         }
                       });
                     } else {
@@ -482,7 +737,7 @@ public class LoginAPI implements Authn {
                           });
                     }
                   }
-                } catch(Exception e) {
+                } catch (Exception e) {
                   String message = e.getLocalizedMessage();
                   logger.error(message, e);
                   asyncResultHandler.handle(
@@ -491,7 +746,7 @@ public class LoginAPI implements Authn {
               }
             });
         //Make sure this username isn't already added
-      } catch(Exception e) {
+      } catch (Exception e) {
         logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
       }

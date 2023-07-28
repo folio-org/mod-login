@@ -1,8 +1,21 @@
 package org.folio.logintest;
 
 import static org.folio.logintest.TestUtil.doRequest;
-import static org.folio.logintest.UserMock.gollumId;
-import static org.folio.logintest.UserMock.sarumanId;
+import static org.folio.logintest.Mocks.gollumId;
+import static org.folio.logintest.Mocks.sarumanId;
+import static org.folio.logintest.Mocks.credsObject1;
+import static org.folio.logintest.Mocks.credsObject2;
+import static org.folio.logintest.Mocks.credsObject3;
+import static org.folio.logintest.Mocks.credsObject4;
+import static org.folio.logintest.Mocks.credsObject5;
+import static org.folio.logintest.Mocks.credsObject6;
+import static org.folio.logintest.Mocks.credsElicitBadUserResp;
+import static org.folio.logintest.Mocks.credsElicitEmptyUserResp;
+import static org.folio.logintest.Mocks.credsElicitMultiUserResp;
+import static org.folio.logintest.Mocks.credsNoPassword;
+import static org.folio.logintest.Mocks.credsNoUsernameOrUserId;
+import static org.folio.logintest.Mocks.credsNonExistentUser;
+import static org.folio.logintest.Mocks.credsUserWithNoId;
 
 import java.util.Date;
 import java.util.LinkedList;
@@ -41,60 +54,6 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
-
-  private JsonObject credsObject1 = new JsonObject()
-    .put("id", UUID.randomUUID().toString())
-    .put("username", "gollum")
-    .put("userId", gollumId)
-    .put("password", "12345");
-
-  private JsonObject credsObject2 = new JsonObject()
-    .put("username", "gollum")
-    .put("password", "12345");
-
-  private JsonObject credsObject3 = new JsonObject()
-    .put("username", "saruman")
-    .put("userId", sarumanId)
-    .put("password", "12345");
-
-  private JsonObject credsObject4 = new JsonObject()
-    .put("username", "gollum")
-    .put("password", "54321");
-
-  private JsonObject credsObject5 = new JsonObject()
-    .put("userId", gollumId)
-    .put("password", "54321");
-
-  private JsonObject credsObject6 = new JsonObject()
-    .put("username", "gollum")
-    .put("password", "12345")
-    .put("newPassword", "54321");
-
-  private JsonObject credsNoUsernameOrUserId = new JsonObject()
-      .put("password", "12345");
-
-  private JsonObject credsNoPassword = new JsonObject()
-      .put("username", "gollum");
-
-  private JsonObject credsElicitEmptyUserResp = new JsonObject()
-      .put("username", "mrunderhill")
-      .put("password", "54321");
-
-  private JsonObject credsElicitBadUserResp = new JsonObject()
-      .put("username", "gimli")
-      .put("password", "54321");
-
-  private JsonObject credsNonExistentUser = new JsonObject()
-      .put("username", "mickeymouse")
-      .put("password", "54321");
-
-  private JsonObject credsElicitMultiUserResp = new JsonObject()
-      .put("username", "gandalf")
-      .put("password", "54321");
-
-  private JsonObject credsUserWithNoId = new JsonObject()
-      .put("username", "strider")
-      .put("password", "54321");
 
   private JsonObject credsEmptyStringPassword = new JsonObject()
       .put("username", "saruman")
@@ -150,7 +109,7 @@ public class RestVerticleTest {
     List<Parameter> parameters = new LinkedList<>();
     parameters.add(new Parameter().withKey("loadSample").withValue("true"));
     ta.setParameters(parameters);
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+    vertx.deployVerticle(Mocks.class.getName(), mockOptions)
         .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
         .compose(res -> TestUtil.postSync(ta, "diku", port, vertx))
         .onComplete(context.asyncAssertSuccess());
@@ -444,12 +403,12 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> doLoginMultiUserRespose(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      422, "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+      422, "Error verifying user existence: Bad results from username");
   }
 
   private Future<WrappedResponse> doLoginNonExistentUser(TestContext context, JsonObject loginCredentials) {
     return doRequest(vertx, loginUrl, HttpMethod.POST, headers, loginCredentials.encode(),
-      422, "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object");
+      422, "Error verifying user existence: No user found by username mickeymouse");
   }
 
   private Future<WrappedResponse> doLoginEmptyUserResponse(TestContext context, JsonObject loginCredentials) {
@@ -487,4 +446,3 @@ public class RestVerticleTest {
       400, "Attempt to update password with an empty string password");
   }
 }
-

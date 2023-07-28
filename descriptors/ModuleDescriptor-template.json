@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "login",
-      "version": "7.2",
+      "version": "7.3",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -45,6 +45,36 @@
             "configuration.entries.collection.get",
             "user-tenants.collection.get"
           ]
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/login-with-expiry",
+          "permissionsRequired" : [ ],
+          "modulePermissions" : [
+            "auth.signtoken",
+            "auth.signrefreshtoken",
+            "users.collection.get",
+            "users.item.put",
+            "users.item.get",
+            "configuration.entries.collection.get",
+            "user-tenants.collection.get"
+          ]
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/logout",
+          "permissionsRequired" : [ ]
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/logout-all",
+          "permissionsRequired" : [ ]
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/authn/refresh",
+          "permissionsRequired" : [ ],
+          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken" ]
         },
         {
           "methods" : [ "GET" ],
@@ -129,6 +159,10 @@
     {
       "id" : "authtoken",
       "version" : "2.0"
+    },
+    {
+      "id" : "authtoken2",
+      "version" : "1.0"
     }
   ],
   "permissionSets" : [

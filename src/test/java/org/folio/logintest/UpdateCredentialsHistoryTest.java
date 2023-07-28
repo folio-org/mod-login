@@ -1,6 +1,6 @@
 package org.folio.logintest;
 
-import static org.folio.logintest.UserMock.gollumId;
+import static org.folio.logintest.Mocks.gollumId;
 import static org.folio.services.impl.PasswordStorageServiceImpl.DEFAULT_PASSWORDS_HISTORY_NUMBER;
 
 import java.util.Date;
@@ -171,7 +171,7 @@ public class UpdateCredentialsHistoryTest {
   private static Future<Void> deployUserMockVerticle() {
     DeploymentOptions options = new DeploymentOptions().setConfig(
       new JsonObject().put("port", mockPort));
-    return vertx.deployVerticle(UserMock.class, options).mapEmpty();
+    return vertx.deployVerticle(Mocks.class, options).mapEmpty();
   }
 
   private static Future<Void> deployRestVerticle() {

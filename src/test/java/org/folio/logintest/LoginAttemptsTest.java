@@ -101,7 +101,7 @@ public class LoginAttemptsTest {
         .build();
 
     TenantAttributes ta = new TenantAttributes().withModuleTo("mod-login-1.1.0");
-    vertx.deployVerticle(UserMock.class.getName(), mockOptions)
+    vertx.deployVerticle(Mocks.class.getName(), mockOptions)
         .compose(res -> vertx.deployVerticle(RestVerticle.class.getName(), options))
         .compose(res -> TestUtil.postSync(ta, TENANT_DIKU, port, vertx))
         .onComplete(context.asyncAssertSuccess());
@@ -111,7 +111,7 @@ public class LoginAttemptsTest {
   public void setUp(TestContext context) {
     MODULE_SPECIFIC_ARGS.clear();
     MODULE_SPECIFIC_ARGS.putAll(moduleArgs);
-    UserMock.resetConfigs();
+    Mocks.resetConfigs();
     Async async = context.async();
     PostgresClient pgClient = PostgresClient.getInstance(vertx, TENANT_DIKU);
     pgClient.startTx(beginTx ->
@@ -178,9 +178,7 @@ public class LoginAttemptsTest {
       .log().all()
       .statusCode(201)
       .body("okapiToken", is("dummytoken"))
-      .body("refreshToken", is("dummyrefreshtoken"))
-      .header(XOkapiHeaders.TOKEN, is("dummytoken"))
-      .header("refreshtoken", is("dummyrefreshtoken"));
+      .header(XOkapiHeaders.TOKEN, is("dummytoken"));
 
     RestAssured.given()
       .spec(spec)
@@ -283,9 +281,9 @@ public class LoginAttemptsTest {
     MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TIMEOUT_CODE);
     MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TO_WARN_CODE);
 
-    UserMock.setConfig(LOGIN_ATTEMPTS_CODE, new JsonObject().put("totalRecords", 0)); // fallback to hardcoded value (5)
-    UserMock.removeConfig(LOGIN_ATTEMPTS_TO_WARN_CODE); // fallback to hardcoded value (3)
-    UserMock.setConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, new JsonObject()); // fallback to hardcoded value (10)
+    Mocks.setConfig(LOGIN_ATTEMPTS_CODE, new JsonObject().put("totalRecords", 0)); // fallback to hardcoded value (5)
+    Mocks.removeConfig(LOGIN_ATTEMPTS_TO_WARN_CODE); // fallback to hardcoded value (3)
+    Mocks.setConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, new JsonObject()); // fallback to hardcoded value (10)
 
     RestAssured.given()
       .spec(spec)

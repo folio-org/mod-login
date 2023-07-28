@@ -22,6 +22,11 @@ When specified, these will take precedence over the hard-coded defaults.
 * login.fail.to.warn.attempts - number of login attempts before warn (default value - 3)
 * login.fail.attempts - number of login attempts before block user account (default value - 5)
 * login.fail.timeout - after timeout in minutes, fail login attempts will be dropped (default value - 10)
+* login.cookie.samesite - set to "Lax" if domain for front end and backend are the same for a more secure cookie (default value "None")
+
+The SameSite attribute of the cookies returned from login can also be set to "Lax" through an environment variable of
+LOGIN_COOKIE_SAMESITE=Lax. Lax should only be used if the backend and frontend hosts are the same, otherwise the
+browser will reject the cookies.
 
 # Mod-configuration entries
 

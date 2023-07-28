@@ -5,4 +5,4 @@ client/
 *.swo
 .idea
 postgres-conf.json
-
+.vscode/
