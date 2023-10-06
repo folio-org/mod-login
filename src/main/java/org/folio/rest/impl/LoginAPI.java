@@ -66,6 +66,8 @@ import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
+import org.folio.util.TokenNotFoundException;
+import org.folio.util.TokenFetchException;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;

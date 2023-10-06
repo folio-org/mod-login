@@ -275,21 +275,9 @@ public class LoginWithExpiryTest {
     // These should now succeed.
     testCookieResponse(credsObject4, LoginAPI.COOKIE_SAME_SITE_NONE);
     testCookieResponse(credsObject5, LoginAPI.COOKIE_SAME_SITE_NONE);
-  }
 
-  @Test
-  public void test404ResponseIfTokenEndpointIs404() {
-    RestAssured.given()
-        .spec(spec)
-        .body(credsObject5.encode())
-        .when()
-        .post(CRED_PATH)
-        .then()
-        .log().all()
-        .statusCode(201);
-
+    // TEst 404 if legacy endpoint isn't available.
     System.setProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_404, "true");
-
     RestAssured.given()
         .spec(spec)
         .body(credsObject4.encode())
@@ -298,7 +286,6 @@ public class LoginWithExpiryTest {
         .then()
         .log().all()
         .statusCode(404);
-
     System.clearProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_404);
   }
 
