@@ -287,6 +287,17 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(404);
     System.clearProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_404);
+
+    System.setProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_500, "true");
+    RestAssured.given()
+        .spec(spec)
+        .body(credsObject4.encode())
+        .when()
+        .post("/authn/login")
+        .then()
+        .log().all()
+        .statusCode(500);
+    System.clearProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_500);
   }
 
   private void testCookieResponse(JsonObject creds, String sameSite) {
