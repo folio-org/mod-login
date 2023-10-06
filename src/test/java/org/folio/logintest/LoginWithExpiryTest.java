@@ -277,6 +277,31 @@ public class LoginWithExpiryTest {
     testCookieResponse(credsObject5, LoginAPI.COOKIE_SAME_SITE_NONE);
   }
 
+  @Test
+  public void test404ResponseIfTokenEndpointIs404() {
+    RestAssured.given()
+        .spec(spec)
+        .body(credsObject5.encode())
+        .when()
+        .post(CRED_PATH)
+        .then()
+        .log().all()
+        .statusCode(201);
+
+    System.setProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_404, "true");
+
+    RestAssured.given()
+        .spec(spec)
+        .body(credsObject4.encode())
+        .when()
+        .post("/authn/login")
+        .then()
+        .log().all()
+        .statusCode(404);
+
+    System.clearProperty(Mocks.TOKEN_FETCH_SHOULD_RETURN_404);
+  }
+
   private void testCookieResponse(JsonObject creds, String sameSite) {
     RestAssured.given()
         .spec(spec)

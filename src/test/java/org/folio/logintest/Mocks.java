@@ -75,6 +75,7 @@ public class Mocks extends AbstractVerticle {
   public static final String ACCESS_TOKEN = "dummyaccesstoken";
   public static final int REFRESH_TOKEN_EXPIRATION = 604800;
   public static final int ACCESS_TOKEN_EXPIRATION = 600;
+  public static final String TOKEN_FETCH_SHOULD_RETURN_404 = "tokenShouldReturn404";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
   private static final String userWithSingleTenantId = "08b9e1c4-a0b2-4c64-8d57-2e18784ac7fe";
@@ -82,6 +83,7 @@ public class Mocks extends AbstractVerticle {
   private static final String userWithMultipleTenantsId2 = "e72968cd-062e-4625-936f-8dc9c523b359";
   private static final String TENANT_DIKU = "diku";
   private static final String TENANT_OTHER = "other";
+
 
   private static ConcurrentHashMap<String,JsonObject> configs = new ConcurrentHashMap<>();
   private JsonObject admin = new JsonObject()
@@ -309,6 +311,11 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenLegacy(RoutingContext context) {
+    if (System.getProperty(TOKEN_FETCH_SHOULD_RETURN_404) != null) {
+      context.response()
+          .setStatusCode(404)
+          .end("Error");
+    }
     context.response()
       .setStatusCode(201)
       .putHeader("Content-Type", "application/json")
