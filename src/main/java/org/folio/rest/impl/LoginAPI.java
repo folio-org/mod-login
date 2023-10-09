@@ -66,7 +66,7 @@ import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
-import org.folio.util.TokenNotFoundException;
+import org.folio.util.TokenEndpointNotFoundException;
 import org.folio.util.TokenFetchException;
 
 import io.vertx.core.AsyncResult;
@@ -205,7 +205,7 @@ public class LoginAPI implements Authn {
 
     return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
       if (response.statusCode() == 404) { // Can occur if the legacy endpoint has been disabled.
-        throw new TokenNotFoundException();
+        throw new TokenEndpointNotFoundException();
       }
 
       if (response.statusCode() != 201) {
@@ -702,7 +702,7 @@ public class LoginAPI implements Authn {
 
                       fetchTokenFuture.onComplete(fetchTokenRes -> {
                         if (fetchTokenFuture.failed()) {
-                          if (fetchTokenFuture.cause() instanceof TokenNotFoundException) {
+                          if (fetchTokenFuture.cause() instanceof TokenEndpointNotFoundException) {
                             var msg = fetchTokenFuture.cause().getLocalizedMessage();
                             logger.error(msg, fetchTokenFuture.cause());
                             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond404WithTextPlain("Not found")));

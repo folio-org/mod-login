@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -75,7 +74,7 @@ public class Mocks extends AbstractVerticle {
   public static final String ACCESS_TOKEN = "dummyaccesstoken";
   public static final int REFRESH_TOKEN_EXPIRATION = 604800;
   public static final int ACCESS_TOKEN_EXPIRATION = 600;
-  public static final String TOKEN_FETCH_SHOULD_RETURN_404 = "tokenShouldReturn404";
+  public static final String TOKEN_FETCH_ERROR_STATUS = "tokenShouldReturn404";
   public static final String TOKEN_FETCH_SHOULD_RETURN_500 = "tokenShouldReturn500";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
@@ -312,14 +311,9 @@ public class Mocks extends AbstractVerticle {
   }
 
   private void handleTokenLegacy(RoutingContext context) {
-    if (System.getProperty(TOKEN_FETCH_SHOULD_RETURN_404) != null) {
+    if (System.getProperty(TOKEN_FETCH_ERROR_STATUS) != null) {
       context.response()
-          .setStatusCode(404)
-          .end("Error");
-    }
-    if (System.getProperty(TOKEN_FETCH_SHOULD_RETURN_500) != null) {
-      context.response()
-          .setStatusCode(500)
+          .setStatusCode(Integer.parseInt(System.getProperty(TOKEN_FETCH_ERROR_STATUS)))
           .end("Error");
     }
     context.response()
