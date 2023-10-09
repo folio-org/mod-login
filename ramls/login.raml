@@ -83,7 +83,7 @@ traits:
                 example: "Internal server error"
   /login:
     post:
-      description: Get a new login token without an expiration (legacy endpoint)
+      description: Deprecated. Please use login-with-expiry instead. Will be removed in a future release. Get a new login token without an expiration (legacy endpoint)
       headers:
         User-Agent:
         X-Forwarded-For:
@@ -102,6 +102,11 @@ traits:
           body:
             text/plain:
               example: "Bad request"
+        404:
+          description: "Not found"
+          body:
+            text/plain:
+              example: "Not found"
         422:
           description: "Unprocessable Entity"
           body:
@@ -134,6 +139,11 @@ traits:
           body:
             text/plain:
               example: "Bad request"
+        404:
+          description: "Not found"
+          body:
+            text/plain:
+              example: "Not found"
         422:
           description: "Unprocessable Entity"
           body:

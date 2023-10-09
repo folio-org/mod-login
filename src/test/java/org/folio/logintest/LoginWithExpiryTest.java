@@ -1,19 +1,6 @@
 package org.folio.logintest;
 
-import static org.folio.logintest.Mocks.credsObject1;
-import static org.folio.logintest.Mocks.credsObject2;
-import static org.folio.logintest.Mocks.credsObject3;
-import static org.folio.logintest.Mocks.credsObject4;
-import static org.folio.logintest.Mocks.credsObject5;
-import static org.folio.logintest.Mocks.credsObject6;
-import static org.folio.logintest.Mocks.credsElicitBadUserResp;
-import static org.folio.logintest.Mocks.credsElicitEmptyUserResp;
-import static org.folio.logintest.Mocks.credsElicitMultiUserResp;
-import static org.folio.logintest.Mocks.credsNoPassword;
-import static org.folio.logintest.Mocks.credsNoUsernameOrUserId;
-import static org.folio.logintest.Mocks.credsNonExistentUser;
-import static org.folio.logintest.Mocks.credsUserWithNoId;
-
+import static org.folio.logintest.Mocks.*;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
@@ -28,6 +15,7 @@ import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,6 +43,10 @@ public class LoginWithExpiryTest {
   private static final String CRED_PATH = "/authn/credentials";
   private static final String UPDATE_PATH = "/authn/update";
 
+  @AfterClass
+  public static void clearSystemProperties() {
+    System.clearProperty(TOKEN_FETCH_ERROR_STATUS);
+  }
   @BeforeClass
   public static void setup(final TestContext context) {
     vertx = Vertx.vertx();
@@ -275,6 +267,28 @@ public class LoginWithExpiryTest {
     // These should now succeed.
     testCookieResponse(credsObject4, LoginAPI.COOKIE_SAME_SITE_NONE);
     testCookieResponse(credsObject5, LoginAPI.COOKIE_SAME_SITE_NONE);
+
+    // TEst 404 if legacy endpoint isn't available.
+    System.setProperty(Mocks.TOKEN_FETCH_ERROR_STATUS, "404");
+    RestAssured.given()
+        .spec(spec)
+        .body(credsObject4.encode())
+        .when()
+        .post("/authn/login")
+        .then()
+        .log().all()
+        .statusCode(404);
+
+    System.setProperty(Mocks.TOKEN_FETCH_ERROR_STATUS, "500");
+    RestAssured.given()
+        .spec(spec)
+        .body(credsObject4.encode())
+        .when()
+        .post("/authn/login")
+        .then()
+        .log().all()
+        .statusCode(500);
+    System.clearProperty(TOKEN_FETCH_ERROR_STATUS);
   }
 
   private void testCookieResponse(JsonObject creds, String sameSite) {

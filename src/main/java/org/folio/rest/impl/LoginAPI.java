@@ -66,6 +66,8 @@ import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.TokenCookieParser;
 import org.folio.util.WebClientFactory;
+import org.folio.util.TokenEndpointNotFoundException;
+import org.folio.util.TokenFetchException;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
@@ -202,8 +204,12 @@ public class LoginAPI implements Authn {
       .putHeader(XOkapiHeaders.TOKEN, requestToken);
 
     return request.sendJson(new JsonObject().put("payload", payload)).map(response -> {
-      if (response.statusCode() != 200 && response.statusCode() != 201) {
-        throw new RuntimeException("Got response " + response.statusCode() + " fetching token");
+      if (response.statusCode() == 404) { // Can occur if the legacy endpoint has been disabled.
+        throw new TokenEndpointNotFoundException();
+      }
+
+      if (response.statusCode() != 201) {
+        throw new TokenFetchException("Got response " + response.statusCode() + " fetching token");
       }
 
       return response.bodyAsJsonObject();
@@ -512,6 +518,7 @@ public class LoginAPI implements Authn {
         return;
       }
       String requestToken = okapiHeaders.get(XOkapiHeaders.TOKEN);
+
       if (requestToken == null) {
         logger.error("Missing request token");
         asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
@@ -695,9 +702,15 @@ public class LoginAPI implements Authn {
 
                       fetchTokenFuture.onComplete(fetchTokenRes -> {
                         if (fetchTokenFuture.failed()) {
-                          String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
-                          logger.error(errMsg);
-                          asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
+                          if (fetchTokenFuture.cause() instanceof TokenEndpointNotFoundException) {
+                            var msg = fetchTokenFuture.cause().getLocalizedMessage();
+                            logger.error(msg, fetchTokenFuture.cause());
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond404WithTextPlain("Not found")));
+                          } else {
+                            String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
+                            logger.error(errMsg, fetchTokenFuture.cause());
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
+                          }
                         } else {
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                           // After successful login skip login attempts counter.
