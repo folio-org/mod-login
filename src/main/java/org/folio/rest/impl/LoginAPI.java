@@ -708,7 +708,7 @@ public class LoginAPI implements Authn {
                             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond404WithTextPlain("Not found")));
                           } else {
                             String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
-                            logger.error(errMsg);
+                            logger.error(errMsg, fetchTokenFuture.cause());
                             asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
                           }
                         } else {
