@@ -1,3 +1,18 @@
+## 2023-10-11 v7.10.0
+
+ECS support, RTR support
+
+* [MODLOGIN-218](https://issues.folio.org/browse/MODLOGIN-218) Update dependencies for poppy
+* [MODLOGIN-217](https://issues.folio.org/browse/MODLOGIN-217) Respond 404 when 404 is received from mod-at's legacy /token endpoint
+* [MODLOGIN-213](https://issues.folio.org/browse/MODLOGIN-213) Update to Java 17
+* [MODLOGIN-212](https://issues.folio.org/browse/MODLOGIN-212) Remove multiple_matching_users error code in login response
+* [MODLOGIN-211](https://issues.folio.org/browse/MODLOGIN-211) Modify call to mod-authtoken to use the new token type for cross tenants login
+* [MODLOGIN-210](https://issues.folio.org/browse/MODLOGIN-210) getResource(CREDENTIAL_SCHEMA_PATH) fails in IDEs
+* [MODLOGIN-205](https://issues.folio.org/browse/MODLOGIN-205) Call users API to get home tenant.
+* [Document config entries](https://github.com/folio-org/mod-login/pull/141) Add config entries used by module to readme
+* [MODLOGIN-202](https://issues.folio.org/browse/MODLOGIN-202) Use GitHub Workflows api-lint and api-schema-lint and api-doc
+* [MODLOGIN-186](https://issues.folio.org/browse/MODLOGIN-186) Refactor login to support refresh tokens
+
 ## 2023-02-16 v7.9.0
 
 * [MODLOGIN-200](https://issues.folio.org/browse/MODLOGIN-200) Upgrade to RMB 35.0.6, Vert.x 4.3.8
