@@ -1,3 +1,9 @@
+## 2023-10-13 v7.10.1
+
+Fix:
+
+* [MODLOGIN-221](https://issues.folio.org/browse/MODLOGIN-221) Fix SameSite security issues with login cookie
+
 ## 2023-10-11 v7.10.0
 
 ECS support, RTR support
