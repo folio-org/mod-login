@@ -13,6 +13,10 @@ this module may vary (username/password, SAML, OAuth, etc.), and it is possible
 for more than one Authentication module to exist in a running system. The
 default implementation uses a simple username and password for authentication.
 
+# Environment variables
+
+* LOGIN_COOKIE_SAMESITE - Configures the SameSite attribute of the login token cookies. Must be `Strict`, `Lax` or `None`. Defaults to `Lax` if not set. `None` must be used if front-end and backend (Okapi) are served from different host names to allow non-GET requests like POST, PUT and DELETE. If served from the same host name `Lax` allows deep links from other sites, for example from a wiki or webmail to an inventory instance record, whereas `Strict` doesn't allow them.
+
 # Module properties
 
 The following module parameters can be specified on the command line.
@@ -22,11 +26,6 @@ When specified, these will take precedence over the hard-coded defaults.
 * login.fail.to.warn.attempts - number of login attempts before warn (default value - 3)
 * login.fail.attempts - number of login attempts before block user account (default value - 5)
 * login.fail.timeout - after timeout in minutes, fail login attempts will be dropped (default value - 10)
-* login.cookie.samesite - set to "Lax" if domain for front end and backend are the same for a more secure cookie (default value "None")
-
-The SameSite attribute of the cookies returned from login can also be set to "Lax" through an environment variable of
-LOGIN_COOKIE_SAMESITE=Lax. Lax should only be used if the backend and frontend hosts are the same, otherwise the
-browser will reject the cookies.
 
 # Mod-configuration entries
 

@@ -62,6 +62,7 @@ import org.folio.services.UserService;
 import org.folio.services.LogStorageService;
 import org.folio.services.PasswordStorageService;
 import org.folio.util.AuthUtil;
+import org.folio.util.CookieSameSiteConfig;
 import org.folio.util.LoginAttemptsHelper;
 import org.folio.util.LoginConfigUtils;
 import org.folio.util.TokenCookieParser;
@@ -76,7 +77,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
-import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -140,10 +140,6 @@ public class LoginAPI implements Authn {
   public static final String TOKEN_LOGOUT_FAIL_CODE = "token.logout.failure";
   public static final String TOKEN_LOGOUT_ENDPOINT = "/token/invalidate";
   public static final String TOKEN_LOGOUT_ALL_ENDPOINT = "/token/invalidate-all";
-  public static final String COOKIE_SAME_SITE = "login.cookie.samesite";
-  public static final String COOKIE_SAME_SITE_ENV = "LOGIN_COOKIE_SAMESITE";
-  public static final String COOKIE_SAME_SITE_LAX = "Lax";
-  public static final String COOKIE_SAME_SITE_NONE = "None";
 
   private final AuthUtil authUtil = new AuthUtil();
   private boolean suppressErrorResponse = false;
@@ -273,7 +269,7 @@ public class LoginAPI implements Authn {
         .setSecure(true)
         .setPath("/authn")
         .setHttpOnly(true)
-        .setSameSite(getSameSiteAttribute())
+        .setSameSite(CookieSameSiteConfig.get())
         .setDomain(null)
         .encode();
 
@@ -297,25 +293,12 @@ public class LoginAPI implements Authn {
       .setSecure(true)
       .setPath("/")
       .setHttpOnly(true)
-      .setSameSite(getSameSiteAttribute())
+      .setSameSite(CookieSameSiteConfig.get())
       .encode();
 
     logger.debug("accessToken cookie: {}", atCookie);
 
     return atCookie;
-  }
-
-  private CookieSameSite getSameSiteAttribute() {
-    return isSameSiteLax() ? CookieSameSite.LAX : CookieSameSite.NONE;
-  }
-
-  private boolean isSameSiteLax() {
-    if (System.getProperty(COOKIE_SAME_SITE) != null &&
-        System.getProperty(COOKIE_SAME_SITE).equals(COOKIE_SAME_SITE_LAX)) {
-      return true;
-    }
-    return System.getenv(COOKIE_SAME_SITE_ENV) != null &&
-        System.getenv(COOKIE_SAME_SITE_ENV).equals(COOKIE_SAME_SITE_LAX);
   }
 
   private Response tokenResponse(JsonObject tokens) {

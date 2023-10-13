@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.nullValue;
 import org.folio.rest.impl.LoginAPI;
 
 import java.util.Date;
+import java.util.Map;
 
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
@@ -15,7 +16,8 @@ import org.folio.rest.RestVerticle;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
-import org.junit.AfterClass;
+import org.folio.util.CookieSameSiteConfig;
+import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,12 +45,20 @@ public class LoginWithExpiryTest {
   private static final String CRED_PATH = "/authn/credentials";
   private static final String UPDATE_PATH = "/authn/update";
 
-  @AfterClass
-  public static void clearSystemProperties() {
+  private static void cleanup() {
+    CookieSameSiteConfig.set(Map.of());
     System.clearProperty(TOKEN_FETCH_ERROR_STATUS);
   }
+
+  @After
+  public void after() {
+    cleanup();
+  }
+
   @BeforeClass
   public static void setup(final TestContext context) {
+    cleanup();
+
     vertx = Vertx.vertx();
 
     int port = NetworkUtils.nextFreePort();
@@ -193,16 +203,17 @@ public class LoginWithExpiryTest {
         .contentType("text/plain")
         .body(is("No user id could be found"));
 
-    // SameSite=None is the default and required if the origin for the HTML and the host
-    // for the backend are different.
-    testCookieResponse(credsObject1, LoginAPI.COOKIE_SAME_SITE_NONE);
-    testCookieResponse(credsObject2, LoginAPI.COOKIE_SAME_SITE_NONE);
+    // SameSite=Lax is the default
+    testCookieResponse(credsObject1, "Lax");
+    testCookieResponse(credsObject2, "Lax");
 
-    // Setting SameSite=Lax is an option if the origin for the HTML and the backed are the same. This is more secure.
-    System.setProperty(LoginAPI.COOKIE_SAME_SITE, LoginAPI.COOKIE_SAME_SITE_LAX);
-    testCookieResponse(credsObject1, LoginAPI.COOKIE_SAME_SITE_LAX);
-    testCookieResponse(credsObject2, LoginAPI.COOKIE_SAME_SITE_LAX);
-    System.clearProperty(LoginAPI.COOKIE_SAME_SITE);
+    // SameSite=Lax
+    CookieSameSiteConfig.set(Map.of("LOGIN_COOKIE_SAMESITE", "None"));
+    testCookieResponse(credsObject1, "None");
+    testCookieResponse(credsObject2, "None");
+
+    // default SameSite=Lax
+    CookieSameSiteConfig.set(Map.of());
 
     // Post a credentials object which doesn't have an id property.
     RestAssured.given()
@@ -265,8 +276,8 @@ public class LoginWithExpiryTest {
         .statusCode(204);
 
     // These should now succeed.
-    testCookieResponse(credsObject4, LoginAPI.COOKIE_SAME_SITE_NONE);
-    testCookieResponse(credsObject5, LoginAPI.COOKIE_SAME_SITE_NONE);
+    testCookieResponse(credsObject4, "Lax");
+    testCookieResponse(credsObject5, "Lax");
 
     // TEst 404 if legacy endpoint isn't available.
     System.setProperty(Mocks.TOKEN_FETCH_ERROR_STATUS, "404");
@@ -288,7 +299,6 @@ public class LoginWithExpiryTest {
         .then()
         .log().all()
         .statusCode(500);
-    System.clearProperty(TOKEN_FETCH_ERROR_STATUS);
   }
 
   private void testCookieResponse(JsonObject creds, String sameSite) {
