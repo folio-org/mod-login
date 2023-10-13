@@ -2,7 +2,6 @@ package org.folio.logintest;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.nullValue;
 
 import org.folio.okapi.common.XOkapiHeaders;
@@ -31,7 +30,6 @@ public class RefreshTest {
 
   private static Vertx vertx;
   private static RequestSpecification specWithBothAccessAndRefreshTokenCookie;
-  private static RequestSpecification specExpiredToken;
   private static RequestSpecification specWithoutAccessTokenCookie;
   private static RequestSpecification specBadRequestNoCookie;
   private static RequestSpecification specBadRequestEmptyCookie;
@@ -126,14 +124,14 @@ public class RefreshTest {
             .maxAge(Mocks.REFRESH_TOKEN_EXPIRATION)
             .path("/authn")
             .httpOnly(true)
-            .sameSite("None")
+            .sameSite("Lax")
             .domain(is(nullValue())) // Not setting domain disables subdomains.
             .secured(true))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
             .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
             .httpOnly(true)
-            .sameSite("None")
+            .sameSite("Lax")
             .path("/") // Access token path is '/'. It is sent on every request.
             .domain(is(nullValue())) // Not setting domain disables subdomains.
             .secured(true))
