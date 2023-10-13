@@ -15,7 +15,7 @@ default implementation uses a simple username and password for authentication.
 
 # Environment variables
 
-* LOGIN_COOKIE_SAMESITE - Configures the SameSite attribute of the login token cookies. Must be `Strict`, `Lax` or `None`. Defaults to `Lax` if not set. `None` must be used if front-end and backend (Okapi) are served from different host names to allow non-GET requests like POST, PUT and DELETE. If served from the same host name `Lax` allows deep links from other sites, for example from a wiki or webmail to an inventory instance record, whereas `Strict` doesn't allow them.
+* LOGIN_COOKIE_SAMESITE - Configures the SameSite attribute of the login token cookies. Must be `Strict`, `Lax` or `None`. Defaults to `Lax` if not set.
 
 # Module properties
 
