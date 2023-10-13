@@ -45,8 +45,7 @@ class CookieSameSiteConfigTest {
       "foo",
   })
   void invalid(String name) {
-    assertThrows(IllegalArgumentException.class,
-        () -> CookieSameSiteConfig.set(Map.of("LOGIN_COOKIE_SAMESITE", name)));
+    var env = Map.of("LOGIN_COOKIE_SAMESITE", name);
+    assertThrows(IllegalArgumentException.class, () -> CookieSameSiteConfig.set(env));
   }
-
 }

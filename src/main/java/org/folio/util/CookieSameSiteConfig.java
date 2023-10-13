@@ -7,6 +7,9 @@ import io.vertx.core.http.CookieSameSite;
 public class CookieSameSiteConfig {
   private static CookieSameSite cookieSameSite = valueOf(System.getenv());
 
+  private CookieSameSiteConfig() {
+  }
+
   public static CookieSameSite get() {
     return cookieSameSite;
   }
