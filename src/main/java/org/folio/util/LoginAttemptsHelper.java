@@ -166,7 +166,7 @@ public class LoginAttemptsHelper {
     if (res.failed()) {
       logger.warn(res.cause());
     } else try {
-      return res.result().getInteger(VALUE, defaultValue);
+      return Integer.parseInt(res.result().getValue(VALUE, defaultValue).toString());
     } catch (Exception e) {
       logger.error(e);
     }
