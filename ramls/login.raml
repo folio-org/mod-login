@@ -128,9 +128,12 @@ traits:
           type: loginCredentials
       responses:
         201:
-          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
-          # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple headers with the same name, which we need to do here.
+          headers:
+            Set-Cookie:
+              description: access token cookie and refresh token cookie
+              example: |
+                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
+                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
           body:
             application/json:
               type: loginResponseWithExpiry
@@ -158,13 +161,19 @@ traits:
     post:
       description: Get a new refresh and access token
       headers:
-        # The cookie will contain crumbs for the refresh token and the access token.
         Cookie:
+          description: refresh token cookie (required) and access token cookie (optional)
+          example: |
+                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:01:13 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
+                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:01:13 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
       responses:
         201:
-          # NOTE: Set-Cookie headers are set in LoginAPI.java using the raw response object
-          # rather than through RMB code-generation. This is because RMB code generation doesn't
-          # let us do multiple haders with the same name, which we need to do here.
+          headers:
+            Set-Cookie:
+              description: access token cookie and refresh token cookie
+              example: |
+                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
+                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
           body:
             application/json:
               type: loginResponseWithExpiry
