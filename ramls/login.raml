@@ -132,8 +132,8 @@ traits:
             Set-Cookie:
               description: access token cookie and refresh token cookie
               example: |
-                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
-                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
+                Set-Cookie: folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
+                Set-Cookie: folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
           body:
             application/json:
               type: loginResponseWithExpiry
@@ -162,18 +162,17 @@ traits:
       description: Get a new refresh and access token
       headers:
         Cookie:
-          description: refresh token cookie (required) and access token cookie (optional)
+          description: The Cookie header that must contain the refresh token cookie; all other cookies like the access token cookie are ignored
           example: |
-                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:01:13 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
-                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:01:13 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
+            Cookie: folioRefreshToken=rst.uvw.xyz; folioAccessToken=abc.def.ghi
       responses:
         201:
           headers:
             Set-Cookie:
               description: access token cookie and refresh token cookie
               example: |
-                folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
-                folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
+                Set-Cookie: folioAccessToken=abc.def.ghi; Max-Age=600; Expires=Tue, 23 Jan 2024 15:15:49 GMT; Path=/; Secure; HTTPOnly; SameSite=Strict
+                Set-Cookie: folioRefreshToken=rst.uvw.xyz; Max-Age=604800; Expires=Tue, 30 Jan 2024 15:05:49 GMT; Path=/authn; Secure; HTTPOnly; SameSite=Strict
           body:
             application/json:
               type: loginResponseWithExpiry
@@ -197,6 +196,9 @@ traits:
       description: Logs the user out on their current device
       headers:
         Cookie:
+          description: The Cookie header that must contain the refresh token cookie; all other cookies like the access token cookie are ignored
+          example: |
+            Cookie: folioRefreshToken=rst.uvw.xyz; folioAccessToken=abc.def.ghi
       responses:
         204:
         400:
