@@ -161,15 +161,30 @@ public class LoginAttemptsHelper {
     return promise.future();
   }
 
-  private int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
-    defaultValue = Integer.parseInt(MODULE_SPECIFIC_ARGS.getOrDefault(key, String.valueOf(defaultValue)));
-    if (res.failed()) {
-      logger.warn(res.cause());
-    } else try {
-      return res.result().getInteger(VALUE, defaultValue);
+  static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
+    var arg = MODULE_SPECIFIC_ARGS.get(key);
+    try {
+      if (arg != null) {
+        defaultValue = Integer.parseInt(arg);
+      }
     } catch (Exception e) {
-      logger.error(e);
+      logger.error("Expected integer but the value for module argument '{}' is '{}'", key, arg, e);
     }
+
+    if (res.failed()) {
+      logger.warn(res.cause().getMessage(), res.cause());
+      return defaultValue;
+    }
+
+    var result = res.result().getString(VALUE);
+    try {
+      if (result != null) {
+        return Integer.parseInt(result);
+      }
+    } catch (Exception e) {
+      logger.error("Expected integer but the value for configuration argument is '{}'", result, e);
+    }
+
     return defaultValue;
   }
 
