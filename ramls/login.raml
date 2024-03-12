@@ -16,6 +16,7 @@ types:
   credentialsHistory: !include credentialsHistory.json
   password: !include password.json
   passwordValid: !include passwordValid.json
+  passwordInvalidExample: !include passwordInvalidExample.json
   passwordReset: !include passwordResetAction.json
   passwordCreate: !include passwordCreateAction.json
   responseCreateAction: !include responseCreateAction.json
@@ -312,7 +313,7 @@ traits:
   /password:
     /repeatable:
           post:
-            description: Validate password for repeatability
+            description: Validate if password has been used before.
             body:
               application/json:
                 type: password
@@ -321,6 +322,7 @@ traits:
                 body:
                   application/json:
                     type: passwordValid
+                  example: passwordInvalidExample
               500:
                 description: "Internal server error"
                 body:
