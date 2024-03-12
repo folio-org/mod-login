@@ -321,8 +321,7 @@ traits:
                 body:
                   application/json:
                     type: passwordValid
-                    example:
-                      value: !include passwordInvalidExample.json
+                    example: "{ \"result\": \"invalid\" }"
               500:
                 description: "Internal server error"
                 body:
