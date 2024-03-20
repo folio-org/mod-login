@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "passwordExists": {
-      "description": "Check if the user has an existing password or credential",
+      "description": "true if a password is stored for the user, false if no password (or even no credential entry) is stored for the user",
       "type": "boolean"
     }
   },

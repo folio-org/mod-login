@@ -312,7 +312,7 @@ traits:
   /password:
     /repeatable:
           post:
-            description: Validate password for repeatability
+            description: Validate if password has been used before.
             body:
               application/json:
                 type: password
@@ -321,6 +321,8 @@ traits:
                 body:
                   application/json:
                     type: passwordValid
+                    example:
+                      result: invalid
               500:
                 description: "Internal server error"
                 body:
@@ -339,7 +341,7 @@ traits:
         201:
           body:
             application/json:
-              schema: responseResetAction
+              type: responseResetAction
         400:
           body:
             text/plain:
@@ -359,7 +361,7 @@ traits:
         201:
           body:
             application/json:
-              schema: responseCreateAction
+              type: responseCreateAction
         400:
           body:
             text/plain:

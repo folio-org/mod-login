@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "isNewPassword": {
-      "description": "Indicates the presence of a new password for the user",
+      "description": "true if a password has been set the first time for this user, false if the previous password has been moved into the user's password history",
       "type": "boolean"
     }
   },
