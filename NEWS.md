@@ -1,8 +1,8 @@
 ## 2024-03-21 v7.11.0
 
 * Explain /password/repeatable /reset-password /password-reset-action responses
-* [MODLOGIN-225](https://folio-org.atlassian.net/browse/MODLOGIN-225): Quesnelia deps: RMB 35.2.0, Vert.x 4.5.4, log4j 2.23.0
-* [MODLOGIN-224](https://folio-org.atlassian.net/browse/MODLOGIN-224): getValue() causes "java.lang.ClassCastException"
+* [MODLOGIN-225](https://folio-org.atlassian.net/browse/MODLOGIN-225) Quesnelia deps: RMB 35.2.0, Vert.x 4.5.4, log4j 2.23.0
+* [MODLOGIN-224](https://folio-org.atlassian.net/browse/MODLOGIN-224) getValue() causes "java.lang.ClassCastException"
 * Add API documentation for access and refresh token cookies
 * [FOLIO-3944](https://folio-org.atlassian.net/browse/FOLIO-3944) Upgrade Actions for API-related Workflows
 
