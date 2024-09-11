@@ -12,6 +12,8 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -254,7 +256,7 @@ public class LoginAPI implements Authn {
 
   // For documentation of the cookie attributes please see:
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
-  private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration) {
+  private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration, String okapiPath) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(refreshTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
@@ -267,7 +269,7 @@ public class LoginAPI implements Authn {
     var rtCookie = Cookie.cookie(FOLIO_REFRESH_TOKEN, refreshToken)
         .setMaxAge(ttlSeconds)
         .setSecure(true)
-        .setPath("/authn")
+        .setPath(okapiPath + "/authn")
         .setHttpOnly(true)
         .setSameSite(CookieSameSiteConfig.get())
         .setDomain(null)
@@ -278,7 +280,7 @@ public class LoginAPI implements Authn {
     return rtCookie;
   }
 
-  private String accessTokenCookie(String accessToken, String accessTokenExpiration) {
+  private String accessTokenCookie(String accessToken, String accessTokenExpiration, String okapiPath) {
     // The refresh token expiration is the time after which the token will be considered expired.
     var exp = Instant.parse(accessTokenExpiration).getEpochSecond();
     var ttlSeconds = exp - Instant.now().getEpochSecond();
@@ -291,7 +293,7 @@ public class LoginAPI implements Authn {
     var atCookie = Cookie.cookie(FOLIO_ACCESS_TOKEN, accessToken)
       .setMaxAge(ttlSeconds)
       .setSecure(true)
-      .setPath("/")
+      .setPath(okapiPath + "/")
       .setHttpOnly(true)
       .setSameSite(CookieSameSiteConfig.get())
       .encode();
@@ -301,7 +303,7 @@ public class LoginAPI implements Authn {
     return atCookie;
   }
 
-  private Response tokenResponse(JsonObject tokens) {
+  private Response tokenResponse(JsonObject tokens, String okapiUrl) {
     String accessToken = tokens.getString(ACCESS_TOKEN);
     String refreshToken = tokens.getString(REFRESH_TOKEN);
     String accessTokenExpiration = tokens.getString(ACCESS_TOKEN_EXPIRATION);
@@ -313,12 +315,29 @@ public class LoginAPI implements Authn {
         .put(ACCESS_TOKEN_EXPIRATION, accessTokenExpiration)
         .put(REFRESH_TOKEN_EXPIRATION, refreshTokenExpiration)
         .toString();
+    var okapiPath = getPathFromOkapiUrl(okapiUrl);
     return Response.status(201)
-        .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration))
-        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration))
+        .header(SET_COOKIE, accessTokenCookie(accessToken, accessTokenExpiration, okapiPath))
+        .header(SET_COOKIE, refreshTokenCookie(refreshToken, refreshTokenExpiration, okapiPath))
         .type(MediaType.APPLICATION_JSON)
         .entity(body)
         .build();
+  }
+
+  /**
+   * Return the path component of the okapiUrl without tailing '/',
+   * return empty string on parse error.
+   */
+  static String getPathFromOkapiUrl(String okapiUrl) {
+    try {
+      var path = new URL(okapiUrl).getPath();
+      if (path.endsWith("/")) {
+        return path.substring(0, path.length() - 1);
+      }
+      return path;
+    } catch (MalformedURLException e) {
+      return "";
+    }
   }
 
   private Response logoutResponse() {
@@ -427,7 +446,7 @@ public class LoginAPI implements Authn {
             return;
         }
 
-        Response tr = tokenResponse(r.bodyAsJsonObject());
+        Response tr = tokenResponse(r.bodyAsJsonObject(), okapiURL);
         asyncResultHandler.handle(Future.succeededFuture(tr));
       });
 
@@ -702,16 +721,17 @@ public class LoginAPI implements Authn {
                               .compose(attempts ->
                                   loginAttemptsHelper.onLoginSuccessAttemptHandler(userObject, requestHeaders, attempts))
                               .onComplete(reply -> {
+                                Response response;
                                 if (reply.failed()) {
-                                  asyncResultHandler.handle(Future.succeededFuture(
-                                      PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+                                  response = PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR);
                                 } else {
                                   if (usesTokenSignLegacy(tokenSignEndpoint)) {
-                                    asyncResultHandler.handle(Future.succeededFuture(tokenResponseLegacy(fetchTokenFuture.result())));
+                                    response = tokenResponseLegacy(fetchTokenFuture.result());
                                   } else {
-                                    asyncResultHandler.handle(Future.succeededFuture(tokenResponse(fetchTokenFuture.result())));
+                                    response = tokenResponse(fetchTokenFuture.result(), okapiURL);
                                   }
                                 }
+                                asyncResultHandler.handle(Future.succeededFuture(response));
                               });
                         }
                       });

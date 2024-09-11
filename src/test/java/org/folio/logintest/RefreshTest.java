@@ -31,6 +31,7 @@ public class RefreshTest {
   private static Vertx vertx;
   private static RequestSpecification specWithBothAccessAndRefreshTokenCookie;
   private static RequestSpecification specWithoutAccessTokenCookie;
+  private static RequestSpecification specWithOkapiUrlPath;
   private static RequestSpecification specBadRequestNoCookie;
   private static RequestSpecification specBadRequestEmptyCookie;
   private static RequestSpecification specDuplicateKeyCookie;
@@ -74,6 +75,13 @@ public class RefreshTest {
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader("Cookie", cookieHeaderMissingAccessToken)
+        .build();
+
+    specWithOkapiUrlPath = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort + "/okapi")
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader("Cookie", cookieHeader)
         .build();
 
     specBadRequestEmptyCookie = new RequestSpecBuilder()
@@ -137,6 +145,21 @@ public class RefreshTest {
             .secured(true))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
+  }
+
+  public void testOkapiUrlPath() {
+    RestAssured.given()
+    .spec(specWithOkapiUrlPath)
+    .when()
+    .post(REFRESH_PATH)
+    .then()
+    .log().all()
+    .statusCode(201)
+    .contentType("application/json")
+    .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/authn"))
+    .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/"));
   }
 
   @Test

@@ -39,6 +39,7 @@ public class LoginWithExpiryTest {
   private static Vertx vertx;
   private static RequestSpecification spec;
   private static RequestSpecification specWithoutUrl;
+  private static RequestSpecification specWithOkapiUrlPath;
 
   private static final String TENANT_DIKU = "diku";
   private static final String LOGIN_WITH_EXPIRY_PATH = "/authn/login-with-expiry";
@@ -87,6 +88,14 @@ public class LoginWithExpiryTest {
     specWithoutUrl = new RequestSpecBuilder()
         .setContentType(ContentType.JSON)
         .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
+        .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
+        .build();
+
+    specWithOkapiUrlPath = new RequestSpecBuilder()
+        .setContentType(ContentType.JSON)
+        .setBaseUri("http://localhost:" + port + "/okapi")
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader(XOkapiHeaders.TOKEN, "dummy.token")
         .addHeader(XOkapiHeaders.REQUEST_TIMESTAMP, String.valueOf(new Date().getTime()))
@@ -329,5 +338,21 @@ public class LoginWithExpiryTest {
             .sameSite(sameSite))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
+  }
+
+  public void testWithOkapiUrlPath() {
+    RestAssured.given()
+    .spec(specWithOkapiUrlPath)
+    .body(credsObject1.encode())
+    .when()
+    .post(LOGIN_WITH_EXPIRY_PATH)
+    .then()
+    .log().all()
+    .statusCode(201)
+    .contentType("application/json")
+    .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/authn"))
+    .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/"));
   }
 }
