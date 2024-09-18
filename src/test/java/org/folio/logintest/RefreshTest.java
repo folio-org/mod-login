@@ -1,9 +1,13 @@
 package org.folio.logintest;
 
 import static org.hamcrest.Matchers.is;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.github.tomakehurst.wiremock.junit.WireMockClassRule;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
@@ -12,6 +16,7 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -31,12 +36,17 @@ public class RefreshTest {
   private static Vertx vertx;
   private static RequestSpecification specWithBothAccessAndRefreshTokenCookie;
   private static RequestSpecification specWithoutAccessTokenCookie;
+  private static RequestSpecification specWithOkapiUrlPath;
   private static RequestSpecification specBadRequestNoCookie;
   private static RequestSpecification specBadRequestEmptyCookie;
   private static RequestSpecification specDuplicateKeyCookie;
 
   private static final String TENANT_DIKU = "diku";
   private static final String REFRESH_PATH = "/authn/refresh";
+  private static final int OKAPI_PROXY_PORT = NetworkUtils.nextFreePort();
+
+  @ClassRule
+  public static WireMockClassRule okapiProxy = new WireMockClassRule(OKAPI_PROXY_PORT);
 
   @BeforeClass
   public static void setup(final TestContext context) {
@@ -52,6 +62,11 @@ public class RefreshTest {
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
         new JsonObject()
             .put("port", mockPort));
+
+    okapiProxy.stubFor(any(urlMatching("/okapi/.*"))
+        .willReturn(aResponse()
+            .proxiedFrom("http://localhost:" + mockPort)
+            .withProxyUrlPrefixToRemove("/okapi")));
 
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     PostgresClient.getInstance(vertx);
@@ -74,6 +89,13 @@ public class RefreshTest {
         .addHeader(XOkapiHeaders.URL, "http://localhost:" + mockPort)
         .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
         .addHeader("Cookie", cookieHeaderMissingAccessToken)
+        .build();
+
+    specWithOkapiUrlPath = new RequestSpecBuilder()
+        .setBaseUri("http://localhost:" + port)
+        .addHeader(XOkapiHeaders.URL, "http://localhost:" + OKAPI_PROXY_PORT + "/okapi")
+        .addHeader(XOkapiHeaders.TENANT, TENANT_DIKU)
+        .addHeader("Cookie", cookieHeader)
         .build();
 
     specBadRequestEmptyCookie = new RequestSpecBuilder()
@@ -137,6 +159,22 @@ public class RefreshTest {
             .secured(true))
         .body("$", hasKey(LoginAPI.ACCESS_TOKEN_EXPIRATION))
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
+  }
+
+  @Test
+  public void testOkapiUrlPath() {
+    RestAssured.given()
+    .spec(specWithOkapiUrlPath)
+    .when()
+    .post(REFRESH_PATH)
+    .then()
+    .log().all()
+    .statusCode(201)
+    .contentType("application/json")
+    .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/authn"))
+    .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
+        .path("/okapi/"));
   }
 
   @Test
