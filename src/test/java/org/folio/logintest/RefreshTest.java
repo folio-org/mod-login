@@ -147,6 +147,7 @@ public class RefreshTest {
         .body("$", hasKey(LoginAPI.REFRESH_TOKEN_EXPIRATION));
   }
 
+  @Test
   public void testOkapiUrlPath() {
     RestAssured.given()
     .spec(specWithOkapiUrlPath)

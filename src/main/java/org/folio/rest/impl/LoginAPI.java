@@ -12,6 +12,7 @@ import static org.folio.util.LoginConfigUtils.VALUE_IS_NOT_FOUND;
 import static org.folio.util.LoginConfigUtils.createFutureResponse;
 import static org.folio.util.LoginConfigUtils.getResponseEntity;
 
+import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
@@ -325,8 +326,7 @@ public class LoginAPI implements Authn {
   }
 
   /**
-   * Return the path component of the okapiUrl without tailing '/',
-   * return empty string on parse error.
+   * Return the path component of the okapiUrl without tailing '/'.
    */
   static String getPathFromOkapiUrl(String okapiUrl) {
     try {
@@ -336,7 +336,11 @@ public class LoginAPI implements Authn {
       }
       return path;
     } catch (MalformedURLException e) {
-      return "";
+      // this cannot happen because fetchRefreshToken calls postAbs(okapiURL + TOKEN_REFRESH_ENDPOINT)
+      // before that throws MalformedURLException
+      var message = "Malformed Okapi URL: " + okapiUrl;
+      logger.error("{}", message, e);
+      throw new UncheckedIOException(message, e);
     }
   }
 
