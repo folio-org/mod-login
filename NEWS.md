@@ -1,3 +1,7 @@
+## 2024-09-19
+
+* [MODLOGIN-229](https://folio-org.atlassian.net/browse/MODLOGIN-229) RTR: Okapi-URL path missing from cookie path
+
 ## 2024-05-29
 
 * [MODLOGIN-227](https://folio-org.atlassian.net/browse/MODLOGIN-227) Vert.x 4.5.7 and RMB 35.2.2 fixing Netty CVE-2024-29025
