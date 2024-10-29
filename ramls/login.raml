@@ -193,7 +193,7 @@ traits:
               example: "Internal server error"
   /logout:
     post:
-      description: Logs the user out on their current device
+      description: Logs the user out on their current device. The access token cookie and the refresh token cookie are removed, and the refresh token is invalidated. The access token cannot be invalidated and remains valid until its exiration time; this is by design because the access token is stateless.
       headers:
         Cookie:
           description: The Cookie header that must contain the refresh token cookie; all other cookies like the access token cookie are ignored
