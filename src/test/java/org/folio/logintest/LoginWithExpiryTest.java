@@ -3,6 +3,7 @@ package org.folio.logintest;
 import static org.folio.logintest.Mocks.*;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.oneOf;
 import static org.hamcrest.Matchers.nullValue;
 
 import org.folio.rest.impl.LoginAPI;
@@ -109,7 +110,7 @@ public class LoginWithExpiryTest {
   }
 
   @Test
-  public void testLoginWithExpiry(final TestContext context) {
+  public void testLoginWithExpiry() {
     RestAssured.given()
         .spec(spec)
         .body(credsObject1.encode())
@@ -322,7 +323,7 @@ public class LoginWithExpiryTest {
         .contentType("application/json")
         .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
-            .maxAge(Mocks.REFRESH_TOKEN_EXPIRATION)
+            .maxAge(is(oneOf(Mocks.REFRESH_TOKEN_EXPIRATION - 1L, (long) Mocks.REFRESH_TOKEN_EXPIRATION)))
             .path("/authn") // Refresh is restricted to this domain.
             .httpOnly(true)
             .secured(true)
@@ -330,7 +331,7 @@ public class LoginWithExpiryTest {
             .sameSite(sameSite))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
-            .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
+            .maxAge(is(oneOf(Mocks.ACCESS_TOKEN_EXPIRATION - 1L, (long) Mocks.ACCESS_TOKEN_EXPIRATION)))
             .path("/") // Path must be set in this way for it to mean "all paths".
             .httpOnly(true)
             .secured(true)

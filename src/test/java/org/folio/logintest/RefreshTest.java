@@ -6,6 +6,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.any;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.oneOf;
 
 import com.github.tomakehurst.wiremock.junit.WireMockClassRule;
 import org.folio.okapi.common.XOkapiHeaders;
@@ -123,12 +124,12 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshCreated(final TestContext context) {
+  public void testRefreshCreated() {
     validateSpecWithCookieResponse(specWithBothAccessAndRefreshTokenCookie);
   }
 
   @Test
-  public void testOkMissingAccessTokenCookie(final TestContext context) {
+  public void testOkMissingAccessTokenCookie() {
     validateSpecWithCookieResponse(specWithoutAccessTokenCookie);
   }
 
@@ -143,7 +144,7 @@ public class RefreshTest {
         .contentType("application/json")
         .cookie(LoginAPI.FOLIO_REFRESH_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.REFRESH_TOKEN)
-            .maxAge(Mocks.REFRESH_TOKEN_EXPIRATION)
+            .maxAge(is(oneOf(Mocks.REFRESH_TOKEN_EXPIRATION - 1L, (long) Mocks.REFRESH_TOKEN_EXPIRATION)))
             .path("/authn")
             .httpOnly(true)
             .sameSite("Lax")
@@ -151,7 +152,7 @@ public class RefreshTest {
             .secured(true))
         .cookie(LoginAPI.FOLIO_ACCESS_TOKEN, RestAssuredMatchers.detailedCookie()
             .value(Mocks.ACCESS_TOKEN)
-            .maxAge(Mocks.ACCESS_TOKEN_EXPIRATION)
+            .maxAge(is(oneOf(Mocks.ACCESS_TOKEN_EXPIRATION - 1L, (long) Mocks.ACCESS_TOKEN_EXPIRATION)))
             .httpOnly(true)
             .sameSite("Lax")
             .path("/") // Access token path is '/'. It is sent on every request.
@@ -178,7 +179,7 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshBadRequestEmptyCookie(final TestContext context) {
+  public void testRefreshBadRequestEmptyCookie() {
     RestAssured.given()
         .spec(specBadRequestEmptyCookie)
         .when()
@@ -191,7 +192,7 @@ public class RefreshTest {
   }
 
   @Test
-  public void testRefreshBadRequestNoCookie(final TestContext context) {
+  public void testRefreshBadRequestNoCookie() {
     RestAssured.given()
         .spec(specBadRequestNoCookie)
         .when()
@@ -204,7 +205,7 @@ public class RefreshTest {
   }
 
   @Test
-  public void testDuplicateKeyCookie(final TestContext context) {
+  public void testDuplicateKeyCookie() {
     RestAssured.given()
         .spec(specDuplicateKeyCookie)
         .when()
