@@ -37,8 +37,7 @@
           "pathPattern" : "/authn/login",
           "permissionsRequired" : [ ],
           "modulePermissions" : [
-            "auth.signtoken",
-            "auth.signrefreshtoken",
+            "auth.sign-and-refresh-token.all",
             "users.collection.get",
             "users.item.put",
             "users.item.get",
@@ -51,8 +50,7 @@
           "pathPattern" : "/authn/login-with-expiry",
           "permissionsRequired" : [ ],
           "modulePermissions" : [
-            "auth.signtoken",
-            "auth.signrefreshtoken",
+            "auth.sign-and-refresh-token.all",
             "users.collection.get",
             "users.item.put",
             "users.item.get",
@@ -74,7 +72,7 @@
           "methods" : [ "POST" ],
           "pathPattern" : "/authn/refresh",
           "permissionsRequired" : [ ],
-          "modulePermissions" : [ "auth.signtoken", "auth.signrefreshtoken" ]
+          "modulePermissions" : [ "auth.sign-and-refresh-token.all" ]
         },
         {
           "methods" : [ "GET" ],
@@ -158,11 +156,11 @@
     },
     {
       "id" : "authtoken",
-      "version" : "2.0"
+      "version" : "2.1"
     },
     {
       "id" : "authtoken2",
-      "version" : "1.0"
+      "version" : "1.1"
     }
   ],
   "permissionSets" : [
