@@ -132,6 +132,13 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- testcontainers use slf4j loggin -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <dependency>
       <groupId>org.wiremock</groupId>
       <artifactId>wiremock</artifactId>
@@ -156,6 +163,7 @@
       <version>4.2.2</version>
       <scope>test</scope>
     </dependency>
+
   </dependencies>
 
   <build>
