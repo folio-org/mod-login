@@ -1,8 +1,13 @@
-## 2024-09-19
+## 2024-11-02 v7.12.0
+
+* [MODLOGIN-228](https://folio-org.atlassian.net/browse/MODLOGIN-228) Module descriptor validator
+* [MODLOGIN-230](https://folio-org.atlassian.net/browse/MODLOGIN-230) Upgrade dependencies: Vert.x 4.5.10, log4j 2.24.1, raml sub-module
+
+## 2024-09-19 v7.11.2
 
 * [MODLOGIN-229](https://folio-org.atlassian.net/browse/MODLOGIN-229) RTR: Okapi-URL path missing from cookie path
 
-## 2024-05-29
+## 2024-05-29 v7.11.1
 
 * [MODLOGIN-227](https://folio-org.atlassian.net/browse/MODLOGIN-227) Vert.x 4.5.7 and RMB 35.2.2 fixing Netty CVE-2024-29025
 
