@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-login</artifactId>
-  <version>7.12.0</version>
+  <version>7.12.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -518,7 +518,7 @@
     <connection>scm:git:git://github.com/folio-org/${project.artifactId}.git</connection>
     <developerConnection>scm:git:git@github.com:folio-org/${project.artifactId}.git
     </developerConnection>
-    <tag>v7.12.0</tag>
+    <tag>HEAD</tag>
   </scm>
 
 </project>
