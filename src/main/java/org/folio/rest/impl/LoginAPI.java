@@ -115,7 +115,6 @@ public class LoginAPI implements Authn {
   private static final String ERROR_EVENT_CONFIG_NOT_FOUND = "Event Config with `%s`: `%s` was not found in the db";
   public static final String MULTIPLE_MATCHING_USERS_LOG = "Multiple matching users username={} userId={}, tenants={}";
   private static final String TOKEN_SIGN_ENDPOINT = "/token/sign";
-  private static final String TOKEN_SIGN_ENDPOINT_LEGACY = "/token";
   private static final String TOKEN_REFRESH_ENDPOINT = "/token/refresh";
 
   /**
@@ -250,11 +249,6 @@ public class LoginAPI implements Authn {
     return request.sendJson(new JsonObject().put(REFRESH_TOKEN, refreshToken));
   }
 
-  private boolean usesTokenSignLegacy(String endpoint) {
-    return endpoint.equals(TOKEN_SIGN_ENDPOINT_LEGACY);
-  }
-
-
   // For documentation of the cookie attributes please see:
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
   private String refreshTokenCookie(String refreshToken, String refreshTokenExpiration, String okapiPath) {
@@ -352,13 +346,6 @@ public class LoginAPI implements Authn {
         .header(SET_COOKIE, FOLIO_ACCESS_TOKEN + "=; SameSite=None; Secure; Path=/; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
         .header(SET_COOKIE, FOLIO_REFRESH_TOKEN + "=; SameSite=None; Secure; Path=/authn; Expires=" + COOKIE_EXPIRES_FOR_DELETE)
         .build();
-  }
-
-  private Response tokenResponseLegacy(JsonObject tokenJson) {
-    String authToken = tokenJson.getString("token");
-    var response = new LoginResponse().withOkapiToken(authToken);
-    return PostAuthnLoginResponse.respond201WithApplicationJson(response,
-        PostAuthnLoginResponse.headersFor201().withXOkapiToken(authToken));
   }
 
   private void handleLogout(String cookieHeader, Map<String, String> okapiHeaders,
@@ -496,14 +483,6 @@ public class LoginAPI implements Authn {
   }
 
   @Override
-  public void postAuthnLogin(String userAgent, String xForwardedFor,
-      LoginCredentials entity, Map<String, String> okapiHeaders,
-      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    doPostAuthnLogin(userAgent, xForwardedFor, entity, okapiHeaders, asyncResultHandler,
-      vertxContext, TOKEN_SIGN_ENDPOINT_LEGACY);
-  }
-
-  @Override
   public void postAuthnLoginWithExpiry(String userAgent, String xForwardedFor,
       LoginCredentials entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -519,7 +498,7 @@ public class LoginAPI implements Authn {
       String tenantId = getTenant(okapiHeaders);
       String okapiURL = okapiHeaders.get(XOkapiHeaders.URL);
       if (okapiURL == null) {
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("Missing " + XOkapiHeaders.URL + " header")));
         return;
       }
@@ -527,19 +506,19 @@ public class LoginAPI implements Authn {
 
       if (requestToken == null) {
         logger.error("Missing request token");
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("Missing Okapi token header")));
         return;
       }
       if (entity.getUserId() == null && entity.getUsername() == null) {
         logger.error("No username or userId provided for login attempt");
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("You must provide a username or userId")));
         return;
       }
       if (entity.getPassword() == null) {
         logger.error("No password provided for login attempt");
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("You must provide a password")));
         return;
       }
@@ -569,10 +548,10 @@ public class LoginAPI implements Authn {
               requestToken, userAgent, xForwardedFor, okapiHeaders, asyncResultHandler, vertxContext,
               tokenSignEndpoint));
         })
-        .onFailure(e -> asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(e.getMessage()))));
+        .onFailure(e -> asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(e.getMessage()))));
     } catch(Exception e) {
       logger.debug("Error running on verticle for postAuthnLogin: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(INTERNAL_ERROR)));
     }
   }
 
@@ -621,7 +600,7 @@ public class LoginAPI implements Authn {
   private void failWithInternalError(Promise<String> promise, Handler<AsyncResult<Response>> asyncResultHandler,
                                      Throwable cause) {
     logger.error(cause);
-    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(
+    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(
         INTERNAL_ERROR)));
     promise.fail(cause);
   }
@@ -634,7 +613,7 @@ public class LoginAPI implements Authn {
           .cause().getLocalizedMessage();
       logger.error(errMsg);
       asyncResultHandler.handle(Future.succeededFuture(
-          PostAuthnLoginResponse.respond422WithApplicationJson(
+          PostAuthnLoginWithExpiryResponse.respond422WithApplicationJson(
               getErrors(errMsg, CODE_USERNAME_INCORRECT, new ImmutablePair<>(USERNAME, entity.getUsername())))
       ));
     } else {
@@ -644,7 +623,7 @@ public class LoginAPI implements Authn {
         if (!userObject.containsKey("id")) {
           logger.error("No 'id' key in returned user object");
           asyncResultHandler.handle(Future.succeededFuture(
-              PostAuthnLoginResponse.respond500WithTextPlain(
+              PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(
                   "No user id could be found")));
           return;
         }
@@ -653,7 +632,7 @@ public class LoginAPI implements Authn {
           if (!foundActive) {
             logger.error("User could not be verified as active");
             asyncResultHandler.handle(Future.succeededFuture(
-                PostAuthnLoginResponse.respond422WithApplicationJson(
+                PostAuthnLoginWithExpiryResponse.respond422WithApplicationJson(
                     getErrors("User must be flagged as active", CODE_USER_BLOCKED))
             ));
             return;
@@ -669,20 +648,20 @@ public class LoginAPI implements Authn {
               if (getReply.failed()) {
                 logger.error("Error in postgres get operation: {}", getReply.cause().getLocalizedMessage());
                 asyncResultHandler.handle(Future.succeededFuture(
-                    PostAuthnLoginResponse.respond500WithTextPlain(
+                    PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(
                         INTERNAL_ERROR)));
               } else {
                 try {
                   List<Credential> credList = getReply.result().getResults();
                   if (credList.isEmpty()) {
                     logger.error("No matching credentials found for userid {}", userObject.getString("id"));
-                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond400WithTextPlain("No credentials match that login")));
+                    asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond400WithTextPlain("No credentials match that login")));
                   } else {
                     Credential userCred = credList.get(0);
                     if (userCred.getHash() == null || userCred.getSalt() == null) {
                       String message = "Error retrieving stored hash and salt from credentials";
                       logger.error(message);
-                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(message)));
+                      asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(message)));
                       return;
                     }
                     String testHash = authUtil.calculateHash(entity.getPassword(), userCred.getSalt());
@@ -711,11 +690,11 @@ public class LoginAPI implements Authn {
                           if (fetchTokenFuture.cause() instanceof TokenEndpointNotFoundException) {
                             var msg = fetchTokenFuture.cause().getLocalizedMessage();
                             logger.error(msg, fetchTokenFuture.cause());
-                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond404WithTextPlain("Not found")));
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond404WithTextPlain("Not found")));
                           } else {
                             String errMsg = "Error fetching token: " + fetchTokenFuture.cause().getLocalizedMessage();
                             logger.error(errMsg, fetchTokenFuture.cause());
-                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
+                            asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(getErrorResponse(errMsg))));
                           }
                         } else {
                           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
@@ -727,13 +706,9 @@ public class LoginAPI implements Authn {
                               .onComplete(reply -> {
                                 Response response;
                                 if (reply.failed()) {
-                                  response = PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR);
+                                  response = PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(INTERNAL_ERROR);
                                 } else {
-                                  if (usesTokenSignLegacy(tokenSignEndpoint)) {
-                                    response = tokenResponseLegacy(fetchTokenFuture.result());
-                                  } else {
-                                    response = tokenResponse(fetchTokenFuture.result(), okapiURL);
-                                  }
+                                  response = tokenResponse(fetchTokenFuture.result(), okapiURL);
                                 }
                                 asyncResultHandler.handle(Future.succeededFuture(response));
                               });
@@ -748,11 +723,11 @@ public class LoginAPI implements Authn {
                           .onComplete(errors -> {
                             if (errors.failed()) {
                               asyncResultHandler.handle(Future.succeededFuture(
-                                  Authn.PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+                                  Authn.PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(INTERNAL_ERROR)));
                             } else {
                               logger.error("Password does not match for userid " + userCred.getUserId());
                               asyncResultHandler.handle(Future.succeededFuture(
-                                  Authn.PostAuthnLoginResponse.respond422WithApplicationJson(errors.result())));
+                                  Authn.PostAuthnLoginWithExpiryResponse.respond422WithApplicationJson(errors.result())));
                             }
                           });
                     }
@@ -761,14 +736,14 @@ public class LoginAPI implements Authn {
                   String message = e.getLocalizedMessage();
                   logger.error(message, e);
                   asyncResultHandler.handle(
-                      Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(message)));
+                      Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(message)));
                 }
               }
             });
         //Make sure this username isn't already added
       } catch (Exception e) {
         logger.error("Error with postgresclient on postAuthnLogin: " + e.getLocalizedMessage());
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse.respond500WithTextPlain(INTERNAL_ERROR)));
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse.respond500WithTextPlain(INTERNAL_ERROR)));
       }
     }
   }
@@ -1247,12 +1222,12 @@ public class LoginAPI implements Authn {
       }
       if (entity.getUserId() == null && entity.getUsername() == null) {
         logger.error("No username or userId provided for login attempt");
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("You must provide a username or userId")));
         return;
       }
       if (entity.getNewPassword() == null || entity.getNewPassword().isEmpty()) {
-        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginResponse
+        asyncResultHandler.handle(Future.succeededFuture(PostAuthnLoginWithExpiryResponse
             .respond400WithTextPlain("You must provide a new password that isn't empty")));
         return;
       }
@@ -1311,7 +1286,7 @@ public class LoginAPI implements Authn {
                               loginAttemptsHelper.onLoginSuccessAttemptHandler(userEntity, requestHeaders, attempts))
                           .onComplete(event -> {
                             if (event.failed()) {
-                              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginResponse
+                              asyncResultHandler.handle(Future.succeededFuture(Authn.PostAuthnLoginWithExpiryResponse
                                   .respond500WithTextPlain(INTERNAL_ERROR)));
                             } else {
                               asyncResultHandler.handle(Future.succeededFuture(PostAuthnUpdateResponse.respond204()));

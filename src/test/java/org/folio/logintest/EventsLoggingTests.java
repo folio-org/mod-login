@@ -126,7 +126,7 @@ public class EventsLoggingTests {
       .spec(spec)
       .body(JsonObject.mapFrom(body).encode())
       .when()
-      .post("/authn/login")
+      .post("/authn/login-with-expiry")
       .then()
       .statusCode(201);
 
@@ -147,7 +147,7 @@ public class EventsLoggingTests {
       .spec(spec)
       .body(JsonObject.mapFrom(body).encode())
       .when()
-      .post("/authn/login")
+      .post("/authn/login-with-expiry")
       .then()
       .statusCode(422);
 
@@ -170,7 +170,7 @@ public class EventsLoggingTests {
         .spec(spec)
         .body(JsonObject.mapFrom(body).encode())
         .when()
-        .post("/authn/login")
+        .post("/authn/login-with-expiry")
         .then()
         .statusCode(422));
 
@@ -347,8 +347,12 @@ public class EventsLoggingTests {
     );
 
     mockServer.stubFor(
-      WireMock.post("/token")
-        .willReturn(WireMock.okJson(new JsonObject().put("token", "dummytoken").encode())
+      WireMock.post("/token/sign")
+        .willReturn(WireMock.okJson(new JsonObject()
+                .put("accessTokenExpiration", Instant.now().plusSeconds(600).toString())
+                .put("refreshTokenExpiration", Instant.now().plusSeconds(604800).toString())
+                .put("accessToken", "folio-access-token")
+                .put("refreshToken", "folio-refresh-token").encode())
         .withStatus(201))
     );
   }
