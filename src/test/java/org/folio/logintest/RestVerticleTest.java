@@ -85,7 +85,7 @@ public class RestVerticleTest {
     mockPort = NetworkUtils.nextFreePort(); //get another
     vertx = Vertx.vertx();
     credentialsUrl = "http://localhost:" + port + "/authn/credentials";
-    loginUrl = "http://localhost:" + port + "/authn/login";
+    loginUrl = "http://localhost:" + port + "/authn/login-with-expiry";
     updateUrl = "http://localhost:" + port + "/authn/update";
     okapiUrl = "http://localhost:" + mockPort;
 

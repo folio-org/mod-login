@@ -39,7 +39,7 @@ public class CrossTenantLoginTest {
   private static final String TENANT_DIKU = "diku";
   private static final String TENANT_OTHER = "other";
   private static final String CRED_PATH = "/authn/credentials";
-  private static final String LOGIN_PATH = "/authn/login";
+  private static final String LOGIN_PATH = "/authn/login-with-expiry";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
   final private JsonObject credsWithTenant1 = new JsonObject()
