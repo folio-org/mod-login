@@ -34,19 +34,6 @@
         },
         {
           "methods" : [ "POST" ],
-          "pathPattern" : "/authn/login",
-          "permissionsRequired" : [ ],
-          "modulePermissions" : [
-            "auth.sign-and-refresh-token.all",
-            "users.collection.get",
-            "users.item.put",
-            "users.item.get",
-            "configuration.entries.collection.get",
-            "user-tenants.collection.get"
-          ]
-        },
-        {
-          "methods" : [ "POST" ],
           "pathPattern" : "/authn/login-with-expiry",
           "permissionsRequired" : [ ],
           "modulePermissions" : [
@@ -153,10 +140,6 @@
     {
       "id" : "configuration",
       "version" : "2.0"
-    },
-    {
-      "id" : "authtoken",
-      "version" : "2.1"
     },
     {
       "id" : "authtoken2",
