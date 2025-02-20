@@ -44,7 +44,6 @@ import org.folio.rest.jaxrs.model.LogEvents;
 import org.folio.rest.jaxrs.model.LogResponse;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.jaxrs.model.LoginCredentials;
-import org.folio.rest.jaxrs.model.LoginResponse;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.PasswordCreate;
