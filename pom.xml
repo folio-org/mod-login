@@ -33,7 +33,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
-    <aspectj.version>1.9.19</aspectj.version>
+    <aspectj.version>1.9.22.1</aspectj.version>
     <vertx.version>4.5.10</vertx.version>
     <raml-module-builder-version>35.3.0</raml-module-builder-version>
   </properties>
@@ -222,7 +222,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>17</release>
+          <release>21</release>
           <encoding>UTF-8</encoding>
           <useIncrementalCompilation>false</useIncrementalCompilation>
           <annotationProcessors>
@@ -287,7 +287,7 @@
         <configuration>
           <verbose>true</verbose>
           <showWeaveInfo>false</showWeaveInfo>
-          <release>17</release>
+          <release>21</release>
           <includes>
             <include>**/impl/*.java</include>
             <include>**/*.aj</include>
