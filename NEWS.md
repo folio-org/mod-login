@@ -1,3 +1,8 @@
+## 2025-05-20 v7.13.0
+
+* [MODLOGIN-233](https://folio-org.atlassian.net/browse/MODLOGIN-233) Upgrade dependencies for Sunflower
+* [FOLREL-616](https://folio-org.atlassian.net/browse/FOLREL-616) Update to Java 21
+
 ## 2024-11-02 v7.12.1
 
 * [MODAT-168](https://folio-org.atlassian.net/browse/MODAT-168) Perms rename auth.sign-and-refresh-token.all
