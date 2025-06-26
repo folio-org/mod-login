@@ -75,7 +75,6 @@ public class Mocks extends AbstractVerticle {
   public static final int REFRESH_TOKEN_EXPIRATION = 604800;
   public static final int ACCESS_TOKEN_EXPIRATION = 600;
   public static final String TOKEN_FETCH_ERROR_STATUS = "tokenShouldReturn404";
-  public static final String TOKEN_FETCH_SHOULD_RETURN_500 = "tokenShouldReturn500";
 
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
   private static final String userWithSingleTenantId = "08b9e1c4-a0b2-4c64-8d57-2e18784ac7fe";
@@ -292,10 +291,10 @@ public class Mocks extends AbstractVerticle {
     var atExpiration = Instant.now().plusSeconds(ACCESS_TOKEN_EXPIRATION).toString();
     var rtExpiration = Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION).toString();
     var response = new JsonObject()
-      .put("accessTokenExpiration", atExpiration)
-      .put("refreshTokenExpiration", rtExpiration)
-      .put("accessToken", ACCESS_TOKEN)
-      .put("refreshToken", REFRESH_TOKEN);
+        .put("accessTokenExpiration", atExpiration)
+        .put("refreshTokenExpiration", rtExpiration)
+        .put("accessToken", ACCESS_TOKEN)
+        .put("refreshToken", REFRESH_TOKEN);
     context.response()
       .setStatusCode(201)
       .putHeader("Content-Type", "application/json")

@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "login",
-      "version": "7.3",
+      "version": "8.0",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -30,19 +30,6 @@
           "permissionsRequired" : [ "login.event.delete" ],
           "modulePermissions" : [
             "configuration.entries.item.get"
-          ]
-        },
-        {
-          "methods" : [ "POST" ],
-          "pathPattern" : "/authn/login",
-          "permissionsRequired" : [ ],
-          "modulePermissions" : [
-            "auth.sign-and-refresh-token.all",
-            "users.collection.get",
-            "users.item.put",
-            "users.item.get",
-            "configuration.entries.collection.get",
-            "user-tenants.collection.get"
           ]
         },
         {
@@ -153,10 +140,6 @@
     {
       "id" : "configuration",
       "version" : "2.0"
-    },
-    {
-      "id" : "authtoken",
-      "version" : "2.1"
     },
     {
       "id" : "authtoken2",

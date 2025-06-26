@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
+import org.folio.rest.impl.LoginAPI;
 import org.folio.rest.jaxrs.model.Password;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
@@ -44,7 +45,7 @@ public class LoginAttemptsTest {
   private static final String TENANT_DIKU = "diku";
   private static final String CRED_PATH = "/authn/credentials";
   private static final String ATTEMPTS_PATH = "/authn/loginAttempts";
-  private static final String LOGIN_PATH = "/authn/login";
+  private static final String LOGIN_PATH = "/authn/login-with-expiry";
   private static final String UPDATE_PATH = "/authn/update";
   private static final String adminId = "8bd684c1-bbc3-4cf1-bcf4-8013d02a94ce";
 
@@ -177,8 +178,8 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(201)
-      .body("okapiToken", is("dummytoken"))
-      .header(XOkapiHeaders.TOKEN, is("dummytoken"));
+      .cookie(LoginAPI.FOLIO_REFRESH_TOKEN)
+      .cookie(LoginAPI.FOLIO_ACCESS_TOKEN);
 
     RestAssured.given()
       .spec(spec)

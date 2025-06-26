@@ -299,16 +299,6 @@ public class LoginWithExpiryTest {
         .then()
         .log().all()
         .statusCode(404);
-
-    System.setProperty(Mocks.TOKEN_FETCH_ERROR_STATUS, "500");
-    RestAssured.given()
-        .spec(spec)
-        .body(credsObject4.encode())
-        .when()
-        .post("/authn/login")
-        .then()
-        .log().all()
-        .statusCode(500);
   }
 
   private void testCookieResponse(JsonObject creds, String sameSite) {

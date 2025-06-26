@@ -25,7 +25,6 @@ types:
   logEvent: !include logEvent.json
   logEvents: !include logEventCollection.json
   logResponse: !include logResponse.json
-  loginResponse: !include loginResponse.json
   loginResponseWithExpiry: !include loginResponseWithExpiry.json
   credentialsExistence: !include credentialsExistence.json
   userTenant: !include userTenant.json
@@ -81,42 +80,6 @@ traits:
             body:
               text/plain:
                 example: "Internal server error"
-  /login:
-    post:
-      description: Deprecated. Please use login-with-expiry instead. Will be removed in a future release. Get a new login token without an expiration (legacy endpoint)
-      headers:
-        User-Agent:
-        X-Forwarded-For:
-      body:
-        application/json:
-          type: loginCredentials
-      responses:
-        201:
-          headers:
-            x-okapi-token:
-          body:
-            application/json:
-              type: loginResponse
-        400:
-          description: "Bad request"
-          body:
-            text/plain:
-              example: "Bad request"
-        404:
-          description: "Not found"
-          body:
-            text/plain:
-              example: "Not found"
-        422:
-          description: "Unprocessable Entity"
-          body:
-            application/json:
-              type: errors
-        500:
-          description: "Internal server error"
-          body:
-            text/plain:
-              example: "Internal server error"
   /login-with-expiry:
     post:
       description: Get an expiring refresh and access token
