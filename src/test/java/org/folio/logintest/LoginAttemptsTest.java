@@ -5,7 +5,6 @@ import static org.folio.util.LoginAttemptsHelper.*;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -140,7 +139,7 @@ public class LoginAttemptsTest {
   }
 
   @Test
-  public void testAttempts(final TestContext context) throws UnsupportedEncodingException {
+  public void testAttempts() {
     RestAssured.given()
       .spec(spec)
       .body(credsObject8.encode())
@@ -158,7 +157,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -197,7 +198,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -234,7 +237,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -253,7 +258,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect.block.user"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -263,7 +270,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("user.blocked"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -276,7 +285,7 @@ public class LoginAttemptsTest {
   }
 
   @Test
-  public void testConfiguration(final TestContext context) throws UnsupportedEncodingException {
+  public void testConfiguration() {
     MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_CODE);
     MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TIMEOUT_CODE);
     MODULE_SPECIFIC_ARGS.remove(LOGIN_ATTEMPTS_TO_WARN_CODE);
@@ -302,7 +311,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -312,7 +323,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -322,7 +335,9 @@ public class LoginAttemptsTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("password.incorrect.warn.user"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
