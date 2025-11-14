@@ -162,8 +162,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("username.incorrect"))
-        .body("errors[0].message", is("Error verifying user existence: No user found by username mrunderhill"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
         .spec(spec)
@@ -174,9 +174,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("username.incorrect"))
-        .body("errors[0].message", is(
-            "Error verifying user existence: Error, missing field(s) 'totalRecords' and/or 'users' in user response object"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
         .spec(spec)
@@ -187,8 +186,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("username.incorrect"))
-        .body("errors[0].message", is("Error verifying user existence: No user found by username mickeymouse"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
         .spec(spec)
@@ -199,8 +198,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("username.incorrect"))
-        .body("errors[0].message", is("Error verifying user existence: Bad results from username"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
         .spec(spec)
@@ -211,7 +210,7 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(500)
         .contentType("text/plain")
-        .body(is("No user id could be found"));
+        .body(is("Internal Server error"));
 
     // SameSite=Lax is the default
     testCookieResponse(credsObject1, "Lax");
@@ -245,8 +244,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("user.blocked"))
-        .body("errors[0].message", is("User must be flagged as active"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     // The following credentials objects have incorrect passwords.
     // One provides the userId and the other provides the username, but neither
@@ -260,8 +259,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("password.incorrect"))
-        .body("errors[0].message", is("Password does not match"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
         .spec(spec)
@@ -272,8 +271,8 @@ public class LoginWithExpiryTest {
         .log().all()
         .statusCode(422)
         .contentType("application/json")
-        .body("errors[0].code", is("password.incorrect.block.user"))
-        .body("errors[0].message", is("Fifth failed attempt"));
+        .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+        .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     // Now we update our credentials object with a new password and try again.
     RestAssured.given()

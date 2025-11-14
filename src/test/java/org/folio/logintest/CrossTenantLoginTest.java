@@ -1,7 +1,7 @@
 package org.folio.logintest;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
@@ -157,7 +157,9 @@ public class CrossTenantLoginTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("username.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
 
     RestAssured.given()
       .spec(spec)
@@ -194,7 +196,9 @@ public class CrossTenantLoginTest {
       .then()
       .log().all()
       .statusCode(422)
-      .body("errors[0].code", equalTo("username.incorrect"));
+      .contentType("application/json")
+      .body("errors[0].code", is("wrong.username.or.wrong.password.or.account.blocked"))
+      .body("errors[0].message", is("Wrong username or wrong password or account blocked"));
   }
 
 }

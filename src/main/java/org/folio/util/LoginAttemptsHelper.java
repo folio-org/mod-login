@@ -1,23 +1,21 @@
 package org.folio.util;
 
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-import static org.folio.rest.impl.LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED;
 import static org.folio.util.LoginConfigUtils.EVENT_CONFIG_PROXY_STORY_ADDRESS;
 
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.client.predicate.ResponsePredicate;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import io.vertx.sqlclient.Tuple;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.okapi.common.XOkapiHeaders;
-import org.folio.rest.impl.LoginAPI;
-import org.folio.rest.jaxrs.model.Error;
-import org.folio.rest.jaxrs.model.Errors;
 import org.folio.rest.jaxrs.model.LogEvent;
 import org.folio.rest.jaxrs.model.LoginAttempts;
 import org.folio.rest.persist.PostgresClient;
@@ -68,19 +66,6 @@ public class LoginAttemptsHelper {
     return new Criterion(attemptCrit);
   }
 
-
-  /**
-   * Method save login attempt object to database
-   *
-   * @param pgClient     - client of postgres database
-   * @param loginAttempt - login attempt entity
-   */
-  private Future<Void> saveAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
-    Promise<Void> promise = Promise.promise();
-    pgClient.save(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt.getId(), loginAttempt, reply -> promise.complete());
-    return promise.future();
-  }
-
   /**
    * Method update login attempt object to database
    *
@@ -90,20 +75,6 @@ public class LoginAttemptsHelper {
   private Future<Void> updateAttempt(PostgresClient pgClient, LoginAttempts loginAttempt) {
     Promise<Void> promise = Promise.promise();
     pgClient.update(TABLE_NAME_LOGIN_ATTEMPTS, loginAttempt, loginAttempt.getId(), done -> promise.complete());
-    return promise.future();
-  }
-
-  /**
-   * Method get login attempt from database by user id and provide callback for use this data
-   *
-   * @param userId       - user id for find login attempt entity
-   * @param pgClient     - postgres client
-   * @return             - login attempts list
-   */
-  public Future<List<LoginAttempts>> getLoginAttemptsByUserId(String userId, PostgresClient pgClient) {
-    Promise<List<LoginAttempts>> promise = Promise.promise();
-    pgClient.get(TABLE_NAME_LOGIN_ATTEMPTS, LoginAttempts.class, buildCriteriaForUserAttempts(userId), false,
-        reply -> promise.complete(reply.result().getResults()));
     return promise.future();
   }
 
@@ -126,20 +97,16 @@ public class LoginAttemptsHelper {
    *                 need to block user after fail login or not
    * @return - boolean value that describe need block user or not
    */
-  private Future<Errors> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders, JsonObject userObject) {
-    Promise<Errors> promise = Promise.promise();
+  private Future<Boolean> needToUserBlock(LoginAttempts attempts, Map<String, String> okapiHeaders) {
     try {
       Future<JsonObject> attemptsFut = getLoginConfig(LOGIN_ATTEMPTS_CODE, okapiHeaders);
       Future<JsonObject> timeoutFut = getLoginConfig(LOGIN_ATTEMPTS_TIMEOUT_CODE, okapiHeaders);
-      Future<JsonObject> warnFut = getLoginConfig(LOGIN_ATTEMPTS_TO_WARN_CODE, okapiHeaders);
 
-      attemptsFut.onComplete(attemptsConf ->
-        timeoutFut.onComplete(timeoutConf ->
-          warnFut.onComplete(warnConf -> {
+      return Future.join(attemptsFut, timeoutFut)
+          .map(compositeFuture -> {
             boolean result = false;
-            int loginTimeoutConfigValue = getValue(timeoutConf, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
-            int loginFailConfigValue = getValue(attemptsConf, LOGIN_ATTEMPTS_CODE, 5);
-            int loginFailToWarnValue = getValue(warnConf, LOGIN_ATTEMPTS_TO_WARN_CODE, 3);
+            int loginTimeoutConfigValue = getValue(timeoutFut, LOGIN_ATTEMPTS_TIMEOUT_CODE, 10);
+            int loginFailConfigValue = getValue(attemptsFut, LOGIN_ATTEMPTS_CODE, 5);
 
             if (loginFailConfigValue != 0) {
               // get time diff between current date and last login attempt
@@ -152,13 +119,12 @@ public class LoginAttemptsHelper {
                 result = true;
               }
             }
-            promise.complete(defineErrors(result, attempts.getAttemptCount(), userObject.getString("username"), loginFailToWarnValue));
-          })));
+            return result;
+          });
     } catch (Exception e) {
-      logger.error(e);
-      promise.complete(null);
+      logger.error("{}", e.getMessage(), e);
+      return Future.failedFuture(e);
     }
-    return promise.future();
   }
 
   static int getValue(AsyncResult<JsonObject> res, String key, int defaultValue) {
@@ -186,16 +152,6 @@ public class LoginAttemptsHelper {
     }
 
     return defaultValue;
-  }
-
-  private static Errors defineErrors(boolean result, Integer attemptCount, String username, int loginFailToWarnValue) {
-    if (result) {
-      return LoginAPI.getErrors("Fifth failed attempt", LoginAPI.CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
-    } else {
-      return LoginAPI.getErrors("Password does not match",
-        attemptCount.equals(loginFailToWarnValue) ? LoginAPI.CODE_THIRD_FAILED_ATTEMPT : LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-        new ImmutablePair<>(LoginAPI.USERNAME, username));
-    }
   }
 
   /**
@@ -251,49 +207,38 @@ public class LoginAttemptsHelper {
    * @param requestHeaders     - request headers
    * @param attempts           - login attempts list for given user
    */
-  public Future<Errors> onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
-                                                  List<LoginAttempts> attempts) {
+  public void onLoginFailAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders) {
+    var userId = userObject.getString("id");
+    var tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    AtomicReference<LoginAttempts> loginAttempts = new AtomicReference<>(buildLoginAttemptsObject(userId, 1));
+    var id = loginAttempts.get().getId();
+    var jsonb = JsonObject.mapFrom(loginAttempts.get());
+    var pgClient = PostgresClient.getInstance(vertx, tenant);
 
-    String userId = userObject.getString("id");
-    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    // atomic upsert to prevent any race condition,
+    // there were sporadic failures in EventsLoggingTest.testUserBlock
+    pgClient.execute("""
+                     INSERT INTO auth_attempts (id, jsonb) VALUES ($1, $2)
+                       ON CONFLICT (lower(f_unaccent(jsonb ->> 'userId')))
+                       DO UPDATE set jsonb=jsonb_set(jsonb_set(auth_attempts.jsonb,
+                         '{attemptCount}', to_jsonb((auth_attempts.jsonb->'attemptCount')::bigint+1)),
+                         '{lastAttempt}', excluded.jsonb->'lastAttempt')
+                       RETURNING jsonb::text
+                     """, Tuple.of(id, jsonb))
+    .compose(rowSet -> {
+      var newJsonb = rowSet.iterator().next().getString(0);
+      loginAttempts.set(Json.decodeValue(newJsonb, LoginAttempts.class));
+      return needToUserBlock(loginAttempts.get(), requestHeaders);
+    })
+    .onSuccess(needBlock -> {
+      if (Boolean.TRUE.equals(needBlock)) {
+        blockUser(userObject, requestHeaders, loginAttempts.get(), userId, pgClient);
+      }
+    })
+    .onFailure(e -> logger.error("{}", e.getMessage(), e));
 
     logStorageService.logEvent(tenant, userId, LogEvent.EventType.FAILED_LOGIN_ATTEMPT,
         LoginConfigUtils.encodeJsonHeaders(requestHeaders));
-
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
-    // if there no attempts record for user, create one
-    if (attempts.isEmpty()) {
-      // save new attempt record to database
-      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 1))
-        .map(s -> LoginAPI.getErrors("Password does not match",
-          LoginAPI.CODE_CREDENTIAL_PW_INCORRECT,
-          new ImmutablePair<>(LoginAPI.USERNAME, userObject.getString(LoginAPI.USERNAME))));
-    } else {
-      // check users login attempts
-      LoginAttempts attempt = attempts.get(0);
-      attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-      attempt.setLastAttempt(new Date());
-      return needToUserBlock(attempt, requestHeaders, userObject)
-        .compose(errors -> {
-          if (needBlock(errors)) {
-            return blockUser(userObject, requestHeaders, attempt, userId, pgClient)
-              .map(v -> errors);
-          } else {
-            return updateAttempt(pgClient, attempt)
-              .map(updateResult -> errors);
-          }
-        });
-    }
-  }
-
-  private static boolean needBlock(Errors errors) {
-    if (errors != null) {
-      List<Error> errorsList = errors.getErrors();
-      if (!errorsList.isEmpty() && errorsList.size() == 1) {
-        return errorsList.get(0).getCode().equalsIgnoreCase(CODE_FIFTH_FAILED_ATTEMPT_BLOCKED);
-      }
-    }
-    return false;
   }
 
   private Future<Void> blockUser(JsonObject userObject, Map<String, String> requestHeaders, LoginAttempts attempt,
@@ -322,26 +267,25 @@ public class LoginAttemptsHelper {
    * @param requestHeaders     - request headers
    * @param attempts           - login attempts list for given user
    */
-  public Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders,
-                                                   List<LoginAttempts> attempts) {
+  public Future<Void> onLoginSuccessAttemptHandler(JsonObject userObject, Map<String, String> requestHeaders) {
 
-    String userId = userObject.getString("id");
-    String tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    var userId = userObject.getString("id");
+    var tenant = requestHeaders.get(XOkapiHeaders.TENANT);
+    var loginAttempts = buildLoginAttemptsObject(userId, 0);
+    var id = loginAttempts.getId();
+    var jsonb = JsonObject.mapFrom(loginAttempts);
+    // atomic upsert to prevent any race condition
+    var future = PostgresClient.getInstance(vertx, tenant)
+        .execute("""
+                 INSERT INTO auth_attempts (id, jsonb) VALUES ($1, $2)
+                   ON CONFLICT (lower(f_unaccent(jsonb ->> 'userId')))
+                   DO UPDATE set jsonb=excluded.jsonb;
+                 """, Tuple.of(id, jsonb))
+        .<Void>mapEmpty();
 
     logStorageService.logEvent(tenant, userId, LogEvent.EventType.SUCCESSFUL_LOGIN_ATTEMPT,
         LoginConfigUtils.encodeJsonHeaders(requestHeaders));
 
-    PostgresClient pgClient = PostgresClient.getInstance(vertx, tenant);
-    // if there no attempts record for user, create one
-    if (attempts.isEmpty()) {
-      // save new attempt record to database
-      return saveAttempt(pgClient, buildLoginAttemptsObject(userId, 0));
-    } else {
-      // drops user login attempts
-      LoginAttempts attempt = attempts.get(0);
-      attempt.setAttemptCount(0);
-      attempt.setLastAttempt(new Date());
-      return updateAttempt(pgClient, attempt);
-    }
+    return future;
   }
 }
