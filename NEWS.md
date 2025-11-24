@@ -1,3 +1,9 @@
+## 2025-11-24 v7.13.1
+
+Sunflower CSP fixing a security vulnerability:
+
+* [MODLOGIN-164](https://folio-org.atlassian.net/browse/MODLOGIN-164), [MODLOGIN-237](https://folio-org.atlassian.net/browse/MODLOGIN-237) Login allows username and password enumeration
+
 ## 2025-05-20 v7.13.0
 
 * [MODLOGIN-233](https://folio-org.atlassian.net/browse/MODLOGIN-233) Upgrade dependencies for Sunflower
