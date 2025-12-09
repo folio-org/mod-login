@@ -1,3 +1,7 @@
+## 2025-12-09 v7.12.3
+
+* [MODLOGIN-240](https://folio-org.atlassian.net/browse/MODLOGIN-240) RMB Logging release - RMB 35.3.1, Vert.x 4.5.22
+
 ## 2025-11-24 v7.12.2
 
 Ramsons CSP fixing a security vulnerability:
