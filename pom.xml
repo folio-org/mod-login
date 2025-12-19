@@ -35,7 +35,7 @@
     <ramlfiles_util_path>${basedir}/ramls/raml-util</ramlfiles_util_path>
     <aspectj.version>1.9.22.1</aspectj.version>
     <vertx.version>4.5.15</vertx.version>
-    <raml-module-builder-version>35.4.0</raml-module-builder-version>
+    <raml-module-builder-version>35.4.1</raml-module-builder-version>
   </properties>
 
   <dependencyManagement>
