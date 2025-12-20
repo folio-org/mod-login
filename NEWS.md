@@ -1,3 +1,7 @@
+## 2025-12-20 v7.12.4
+
+* [MODLOGIN-243](https://folio-org.atlassian.net/browse/MODLOGIN-243) Vert.x 4.5.23 RMB 35.4.2 fixing CVE-2025-67735 Netty CRLF
+
 ## 2025-12-09 v7.12.3
 
 * [MODLOGIN-240](https://folio-org.atlassian.net/browse/MODLOGIN-240) RMB Logging release - RMB 35.3.1, Vert.x 4.5.22
