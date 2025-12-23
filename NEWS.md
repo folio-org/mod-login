@@ -1,3 +1,8 @@
+## 2025-12-20 v7.13.2
+
+* [MODLOGIN-242](https://folio-org.atlassian.net/browse/MODLOGIN-242) Vert.x 4.5.23 RMB 35.4.2 fixing CVE-2025-67735 Netty CRLF
+* [MODLOGIN-241](https://folio-org.atlassian.net/browse/MODLOGIN-241) RMB 35.4.1 - RMB logging improvements
+
 ## 2025-11-24 v7.13.1
 
 Sunflower CSP fixing a security vulnerability:
