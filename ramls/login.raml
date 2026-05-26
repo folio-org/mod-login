@@ -270,7 +270,7 @@ traits:
               example: "Internal server error"
   /credentials:
     post:
-      description: Add a new login to the system. N.B. A non-empty password must be provided.
+      description: Add a new login to the system. N.B. A non-empty password must be provided. To change a password you need to delete it first.
       is: [validate]
       body:
         application/json:
